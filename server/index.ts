@@ -1,0 +1,373 @@
+import express from "express";
+import * as cheerio from "cheerio";
+import { csfd } from "node-csfd-api";
+
+const FIDIKO_BASE = "https://www.fidiko.cz/";
+const PORT = Number(process.env.PORT ?? 8787);
+const MAX_PAGES = 50;
+
+type RawScreening = {
+  id: string;
+  sourceOrder: number;
+  title: string;
+  normalizedTitle: string;
+  fidikoUrl: string;
+  ticketUrl: string | null;
+  posterUrl: string | null;
+  dateText: string;
+  dateLabel: string;
+  weekday: string | null;
+  time: string | null;
+  description: string;
+  formats: string[];
+  hasSubtitles: boolean;
+};
+
+type CsfdMatch = {
+  title: string;
+  rating: number | null;
+  ratingCount: number | null;
+  url: string | null;
+  poster: string | null;
+};
+
+type FilmGroup = {
+  id: string;
+  title: string;
+  posterUrl: string | null;
+  description: string;
+  hasSubtitles: boolean;
+  csfd: CsfdMatch | null;
+  screenings: RawScreening[];
+};
+
+const app = express();
+const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
+
+app.get("/api/schedule", async (_req, res) => {
+  try {
+    const rawScreenings = await fetchAllScreenings();
+    const groups = await groupScreenings(rawScreenings);
+
+    res.json({
+      fetchedAt: new Date().toISOString(),
+      source: FIDIKO_BASE,
+      totals: {
+        films: groups.length,
+        screenings: rawScreenings.length,
+        withSubtitles: groups.filter((group) => group.hasSubtitles).length
+      },
+      films: groups
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({
+      error: "Schedule could not be loaded",
+      detail: error instanceof Error ? error.message : "Unknown error"
+    });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Fidiko API server listening on http://127.0.0.1:${PORT}`);
+});
+
+async function fetchAllScreenings() {
+  const screenings: RawScreening[] = [];
+
+  for (let page = 1; page <= MAX_PAGES; page += 1) {
+    const html = await fetchFidikoPage(page);
+    const pageScreenings = parseScreenings(html, page);
+
+    if (pageScreenings.length === 0) {
+      break;
+    }
+
+    screenings.push(...pageScreenings);
+  }
+
+  return screenings;
+}
+
+async function fetchFidikoPage(page: number) {
+  const url = new URL(FIDIKO_BASE);
+  url.searchParams.set("ajax", "1");
+  url.searchParams.append("feed[]", "Kino");
+  url.searchParams.set("page", String(page));
+
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent": "fidiko-csfd-local/0.1"
+    }
+  });
+
+  if (!response.ok) {
+    throw new Error(`Fidiko page ${page} failed with ${response.status}`);
+  }
+
+  return response.text();
+}
+
+function parseScreenings(html: string, page: number) {
+  const $ = cheerio.load(html);
+  const screenings: RawScreening[] = [];
+
+  $("article.event").each((index, element) => {
+    const article = $(element);
+    const titleAnchor = article.find(".content h2 a").first();
+    const image = article.find("img").first();
+    const ticketAnchor = article.find(".double-button a.primary").first();
+    const infoAnchor = article.find(".double-button a.secondary").first();
+    const title = cleanText(titleAnchor.attr("title") || titleAnchor.text());
+
+    if (!title) {
+      return;
+    }
+
+    const fidikoUrl = absolutize(titleAnchor.attr("href") || infoAnchor.attr("href"));
+    const ticketUrl = absolutize(ticketAnchor.attr("href"));
+    const description = cleanText(article.find(".description").text());
+    const dateText = cleanText(article.find(".date").text());
+    const dateParts = parseDateText(dateText);
+    const formats = extractFormats(title, description);
+
+    if (!isLikelyMovieScreening(title, description)) {
+      return;
+    }
+
+    screenings.push({
+      id: `${page}-${index}-${slugify(title)}-${slugify(dateText)}`,
+      sourceOrder: page * 1000 + index,
+      title,
+      normalizedTitle: normalizeFilmTitle(title),
+      fidikoUrl: fidikoUrl || FIDIKO_BASE,
+      ticketUrl,
+      posterUrl: absolutize(image.attr("src")),
+      dateText,
+      dateLabel: dateParts.dateLabel,
+      weekday: dateParts.weekday,
+      time: dateParts.time,
+      description,
+      formats,
+      hasSubtitles: detectsSubtitles(title, description)
+    });
+  });
+
+  return screenings;
+}
+
+async function groupScreenings(screenings: RawScreening[]) {
+  const map = new Map<string, RawScreening[]>();
+
+  for (const screening of screenings) {
+    const key = screening.normalizedTitle;
+    const bucket = map.get(key) ?? [];
+    bucket.push(screening);
+    map.set(key, bucket);
+  }
+
+  const groups = await Promise.all(
+    [...map.entries()].map(async ([title, items]) => {
+      const sortedScreenings = items.sort(compareScreenings);
+      const csfdMatch = await getCsfdMatch(title);
+
+      return {
+        id: slugify(title),
+        title,
+        posterUrl: sortedScreenings.find((screening) => screening.posterUrl)?.posterUrl ?? csfdMatch?.poster ?? null,
+        description: cleanMovieDescription(firstUsefulDescription(sortedScreenings)),
+        hasSubtitles: sortedScreenings.some((screening) => screening.hasSubtitles),
+        csfd: csfdMatch,
+        screenings: sortedScreenings
+      } satisfies FilmGroup;
+    })
+  );
+
+  return groups.sort((left, right) => compareScreenings(left.screenings[0], right.screenings[0]) || left.title.localeCompare(right.title, "cs"));
+}
+
+function getCsfdMatch(query: string) {
+  const cached = csfdCache.get(query);
+  if (cached) {
+    return cached;
+  }
+
+  const promise = lookupCsfd(query);
+  csfdCache.set(query, promise);
+  return promise;
+}
+
+async function lookupCsfd(query: string): Promise<CsfdMatch | null> {
+  try {
+    const results = await csfd.search(query);
+    const movies = Array.isArray(results) ? results : [...(results.movies ?? []), ...(results.tvSeries ?? [])];
+    const normalizedQuery = comparableTitle(query);
+
+    const match =
+      movies.find((movie) => comparableTitle(movie.title) === normalizedQuery) ??
+      movies.find((movie) => isPlausibleTitleMatch(comparableTitle(movie.title), normalizedQuery));
+
+    if (!match) {
+      return null;
+    }
+
+    const details = typeof match.id === "number" ? await getCsfdDetails(match.id) : null;
+
+    return {
+      title: details?.title ?? match.title,
+      rating: numberOrNull(details?.rating) ?? numberOrNull(match.rating),
+      ratingCount: numberOrNull(details?.ratingCount) ?? numberOrNull(match.ratingCount),
+      url: details?.url ?? match.url ?? null,
+      poster: details?.poster ?? match.poster ?? null
+    };
+  } catch (error) {
+    console.warn(`CSFD lookup failed for "${query}"`, error);
+    return null;
+  }
+}
+
+async function getCsfdDetails(id: number) {
+  try {
+    return await csfd.movie(id);
+  } catch {
+    return null;
+  }
+}
+
+function parseDateText(value: string) {
+  const parts = value
+    .split("|")
+    .map((part) => cleanText(part))
+    .filter(Boolean);
+
+  const dateLabel = parts[0] ?? value;
+  const weekday = parts.length > 2 ? parts[1] : null;
+  const time = parts.find((part) => /\d{1,2}:\d{2}/.test(part)) ?? null;
+
+  return { dateLabel, weekday, time };
+}
+
+function normalizeFilmTitle(title: string) {
+  return cleanText(
+    title
+      .replace(/\((?:ČT|CT|ČV|CV|OV|NES|3D|2D)\)/gi, "")
+      .replace(/\s+-\s+(?:PREMIÉRA|PREMIERA|Kino senior|Filmový klub|Dopolední prázdninové promítání).*$/i, "")
+      .replace(/\s+/g, " ")
+  );
+}
+
+function extractFormats(title: string, description: string) {
+  const formats = [] as unknown as string[] & { add: (value: string) => number };
+  formats.add = formats.push.bind(formats);
+  const combined = `${title} ${description}`.toLowerCase();
+
+  if (detectsSubtitles(title, description)) {
+    formats.push("Titulky");
+  } else if (isDubbed(title, description)) {
+    formats.push("Dabing");
+  } else if (isOriginalVersion(title)) {
+    formats.push("OV");
+  }
+  if (combined.includes("dabing") || /\((?:čv|cv)\)/i.test(title)) formats.add("Dabing");
+  if (combined.includes("2d")) formats.push("2D");
+  if (combined.includes("3d")) formats.push("3D");
+  if (/\bov\b/i.test(title) || title.includes("(OV)")) formats.push("OV");
+  if (title.includes("Kino senior")) formats.push("Kino senior");
+  if (title.includes("Filmový klub")) formats.add("Filmový klub");
+  if (title.toLowerCase().includes("premiéra") || title.toLowerCase().includes("premiera")) formats.add("Premiéra");
+
+  return compactFormats(formats);
+}
+
+function isLikelyMovieScreening(title: string, description: string) {
+  return (
+    /\((?:ČT|CT|ČV|CV|OV|NES)\)/i.test(title) ||
+    /\b(?:2D|3D|dabing|titulky|přístupné|\d{2}\+)\b/i.test(description)
+  );
+}
+
+function compactFormats(formats: string[]) {
+  const language = formats.find((format) => ["Titulky", "Dabing", "OV"].includes(format));
+  const projection = formats.find((format) => ["3D", "2D"].includes(format));
+
+  return [language, projection].filter((format): format is string => Boolean(format));
+}
+
+function isDubbed(title: string, description: string) {
+  return `${title} ${description}`.toLowerCase().includes("dabing") || /\((?:Äv|cv)\)/i.test(title);
+}
+
+function isOriginalVersion(title: string) {
+  return /\bov\b/i.test(title) || title.includes("(OV)");
+}
+
+function detectsSubtitles(title: string, description: string) {
+  return /titulky/i.test(description) || /\((?:čt|ct)\)/i.test(title);
+}
+
+function firstUsefulDescription(screenings: RawScreening[]) {
+  return screenings.find((screening) => screening.description)?.description ?? "Bez doplňujících informací.";
+}
+
+function cleanMovieDescription(description: string) {
+  const redundant = new Set(["2D", "3D", "dabing", "titulky", "OV"]);
+
+  return description
+    .split(",")
+    .map((part) => cleanText(part))
+    .filter((part) => part && !redundant.has(part))
+    .join(", ");
+}
+
+function compareScreenings(left: RawScreening, right: RawScreening) {
+  return left.sourceOrder - right.sourceOrder;
+}
+
+function cleanText(value = "") {
+  return value.replace(/\s+/g, " ").replace(/&nbsp;/g, " ").trim();
+}
+
+function absolutize(value?: string | null) {
+  if (!value) {
+    return null;
+  }
+
+  try {
+    return new URL(value, FIDIKO_BASE).toString();
+  } catch {
+    return null;
+  }
+}
+
+function comparableTitle(value: string) {
+  return normalizeFilmTitle(value)
+    .normalize("NFD")
+    .replace(/\p{Diacritic}/gu, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+}
+
+function slugify(value: string) {
+  return comparableTitle(value).replace(/\s+/g, "-") || "film";
+}
+
+function isPlausibleTitleMatch(candidate: string, query: string) {
+  if (!candidate || !query) {
+    return false;
+  }
+
+  if (candidate.includes(query) || query.includes(candidate)) {
+    return true;
+  }
+
+  const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
+  const queryWords = query.split(" ").filter((word) => word.length > 2);
+  const matches = queryWords.filter((word) => candidateWords.has(word)).length;
+
+  return queryWords.length > 0 && matches / queryWords.length >= 0.75;
+}
+
+function numberOrNull(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
