@@ -5,7 +5,8 @@ const FIDIKO_BASE = "https://www.fidiko.cz/";
 const MAX_PAGES = 50;
 const FETCH_TIMEOUT_MS = 12000;
 const FETCH_RETRIES = 2;
-const CSFD_TIMEOUT_MS = 3500;
+const CSFD_TIMEOUT_MS = 6500;
+const CSFD_CONCURRENCY = 6;
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
@@ -234,8 +235,7 @@ async function groupScreenings(screenings: RawScreening[]) {
     map.set(key, bucket);
   }
 
-  const groups = await Promise.all(
-    [...map.entries()].map(async ([title, items]) => {
+  const groups = await mapConcurrent([...map.entries()], CSFD_CONCURRENCY, async ([title, items]) => {
       const sortedScreenings = items.sort(compareScreenings);
       const csfdMatch = await getCsfdMatch(title);
 
@@ -248,10 +248,25 @@ async function groupScreenings(screenings: RawScreening[]) {
         csfd: csfdMatch,
         screenings: sortedScreenings
       } satisfies FilmGroup;
-    })
-  );
+    });
 
   return groups.sort((left, right) => compareScreenings(left.screenings[0], right.screenings[0]) || left.title.localeCompare(right.title, "cs"));
+}
+
+async function mapConcurrent<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>) {
+  const results: R[] = [];
+  let index = 0;
+
+  async function worker() {
+    while (index < items.length) {
+      const currentIndex = index;
+      index += 1;
+      results[currentIndex] = await mapper(items[currentIndex]);
+    }
+  }
+
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
 }
 
 function getCsfdMatch(query: string) {
