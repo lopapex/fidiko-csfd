@@ -3,6 +3,9 @@ import { csfd } from "node-csfd-api";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
 const MAX_PAGES = 50;
+const FETCH_TIMEOUT_MS = 12000;
+const FETCH_RETRIES = 2;
+const CSFD_TIMEOUT_MS = 3500;
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
@@ -108,17 +111,69 @@ async function fetchFidikoPage(page: number) {
   url.searchParams.append("feed[]", "Kino");
   url.searchParams.set("page", String(page));
 
-  const response = await fetch(url, {
-    headers: {
-      "User-Agent": "fidiko-csfd-netlify/0.1"
-    }
-  });
+  for (let attempt = 1; attempt <= FETCH_RETRIES + 1; attempt += 1) {
+    try {
+      const response = await fetchWithTimeout(url, {
+        headers: {
+          "User-Agent":
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126 Safari/537.36",
+          Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "cs-CZ,cs;q=0.9,en;q=0.8",
+          Referer: FIDIKO_BASE
+        }
+      });
 
-  if (!response.ok) {
-    throw new Error(`Fidiko page ${page} failed with ${response.status}`);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      return response.text();
+    } catch (error) {
+      if (attempt > FETCH_RETRIES) {
+        const detail = error instanceof Error ? error.message : "Unknown error";
+        throw new Error(`Fidiko page ${page} fetch failed after ${attempt} attempts: ${detail}`);
+      }
+
+      await wait(250 * attempt);
+    }
   }
 
-  return response.text();
+  throw new Error(`Fidiko page ${page} fetch failed`);
+}
+
+async function fetchWithTimeout(url: URL, init: RequestInit) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
+  try {
+    return await fetch(url, {
+      ...init,
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function wait(ms: number) {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timeout = setTimeout(() => {
+      resolve(fallback);
+    }, ms);
+
+    promise
+      .then(resolve)
+      .catch(() => resolve(fallback))
+      .finally(() => {
+        clearTimeout(timeout);
+      });
+  });
 }
 
 function parseScreenings(html: string, page: number) {
@@ -205,7 +260,7 @@ function getCsfdMatch(query: string) {
     return cached;
   }
 
-  const promise = lookupCsfd(query);
+  const promise = withTimeout(lookupCsfd(query), CSFD_TIMEOUT_MS, null);
   csfdCache.set(query, promise);
   return promise;
 }
