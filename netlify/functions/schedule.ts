@@ -1,9 +1,7 @@
-import express from "express";
 import * as cheerio from "cheerio";
 import { csfd } from "node-csfd-api";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
-const PORT = Number(process.env.PORT ?? 8787);
 const MAX_PAGES = 50;
 
 type RawScreening = {
@@ -41,15 +39,14 @@ type FilmGroup = {
   screenings: RawScreening[];
 };
 
-const app = express();
 const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
 
-app.get("/api/schedule", async (_req, res) => {
+export default async function handler() {
   try {
     const rawScreenings = await fetchAllScreenings();
     const groups = await groupScreenings(rawScreenings);
 
-    res.json({
+    return jsonResponse({
       fetchedAt: new Date().toISOString(),
       source: FIDIKO_BASE,
       totals: {
@@ -61,16 +58,25 @@ app.get("/api/schedule", async (_req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({
-      error: "Schedule could not be loaded",
-      detail: error instanceof Error ? error.message : "Unknown error"
-    });
-  }
-});
 
-app.listen(PORT, () => {
-  console.log(`Fidiko API server listening on http://127.0.0.1:${PORT}`);
-});
+    return jsonResponse(
+      {
+        error: "Schedule could not be loaded",
+        detail: error instanceof Error ? error.message : "Unknown error"
+      },
+      500
+    );
+  }
+}
+
+function jsonResponse(body: unknown, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: {
+      "content-type": "application/json; charset=utf-8"
+    }
+  });
+}
 
 async function fetchAllScreenings() {
   const screenings: RawScreening[] = [];
@@ -97,7 +103,7 @@ async function fetchFidikoPage(page: number) {
 
   const response = await fetch(url, {
     headers: {
-      "User-Agent": "fidiko-csfd-local/0.1"
+      "User-Agent": "fidiko-csfd-netlify/0.1"
     }
   });
 
@@ -250,15 +256,14 @@ function parseDateText(value: string) {
 function normalizeFilmTitle(title: string) {
   return cleanText(
     title
-      .replace(/\((?:ČT|CT|ČV|CV|OV|NES|3D|2D)\)/gi, "")
-      .replace(/\s+-\s+(?:PREMIÉRA|PREMIERA|Kino senior|Filmový klub|Dopolední prázdninové promítání).*$/i, "")
+      .replace(/\((?:ÄŒT|CT|ÄŒV|CV|OV|NES|3D|2D)\)/gi, "")
+      .replace(/\s+-\s+(?:PREMIÃ‰RA|PREMIERA|Kino senior|FilmovÃ½ klub|DopolednÃ­ prÃ¡zdninovÃ© promÃ­tÃ¡nÃ­).*$/i, "")
       .replace(/\s+/g, " ")
   );
 }
 
 function extractFormats(title: string, description: string) {
-  const formats = [] as unknown as string[] & { add: (value: string) => number };
-  formats.add = formats.push.bind(formats);
+  const formats: string[] = [];
   const combined = `${title} ${description}`.toLowerCase();
 
   if (detectsSubtitles(title, description)) {
@@ -268,21 +273,21 @@ function extractFormats(title: string, description: string) {
   } else if (isOriginalVersion(title)) {
     formats.push("OV");
   }
-  if (combined.includes("dabing") || /\((?:čv|cv)\)/i.test(title)) formats.add("Dabing");
+  if (combined.includes("dabing") || /\((?:Äv|cv)\)/i.test(title)) formats.push("Dabing");
   if (combined.includes("2d")) formats.push("2D");
   if (combined.includes("3d")) formats.push("3D");
   if (/\bov\b/i.test(title) || title.includes("(OV)")) formats.push("OV");
   if (title.includes("Kino senior")) formats.push("Kino senior");
-  if (title.includes("Filmový klub")) formats.add("Filmový klub");
-  if (title.toLowerCase().includes("premiéra") || title.toLowerCase().includes("premiera")) formats.add("Premiéra");
+  if (title.includes("FilmovÃ½ klub")) formats.push("FilmovÃ½ klub");
+  if (title.toLowerCase().includes("premiÃ©ra") || title.toLowerCase().includes("premiera")) formats.push("PremiÃ©ra");
 
   return compactFormats(formats);
 }
 
 function isLikelyMovieScreening(title: string, description: string) {
   return (
-    /\((?:ČT|CT|ČV|CV|OV|NES)\)/i.test(title) ||
-    /\b(?:2D|3D|dabing|titulky|přístupné|\d{2}\+)\b/i.test(description)
+    /\((?:ÄŒT|CT|ÄŒV|CV|OV|NES)\)/i.test(title) ||
+    /\b(?:2D|3D|dabing|titulky|pÅ™Ã­stupnÃ©|\d{2}\+)\b/i.test(description)
   );
 }
 
@@ -294,7 +299,7 @@ function compactFormats(formats: string[]) {
 }
 
 function isDubbed(title: string, description: string) {
-  return `${title} ${description}`.toLowerCase().includes("dabing") || /\((?:Äv|cv)\)/i.test(title);
+  return `${title} ${description}`.toLowerCase().includes("dabing") || /\((?:Ã„Âv|cv)\)/i.test(title);
 }
 
 function isOriginalVersion(title: string) {
@@ -302,11 +307,11 @@ function isOriginalVersion(title: string) {
 }
 
 function detectsSubtitles(title: string, description: string) {
-  return /titulky/i.test(description) || /\((?:čt|ct)\)/i.test(title);
+  return /titulky/i.test(description) || /\((?:Ät|ct)\)/i.test(title);
 }
 
 function firstUsefulDescription(screenings: RawScreening[]) {
-  return screenings.find((screening) => screening.description)?.description ?? "Bez doplňujících informací.";
+  return screenings.find((screening) => screening.description)?.description ?? "Bez doplÅˆujÃ­cÃ­ch informacÃ­.";
 }
 
 function cleanMovieDescription(description: string) {
