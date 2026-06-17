@@ -242,7 +242,7 @@ async function groupScreenings(screenings: RawScreening[]) {
       return {
         id: slugify(title),
         title,
-        posterUrl: sortedScreenings.find((screening) => screening.posterUrl)?.posterUrl ?? csfdMatch?.poster ?? null,
+        posterUrl: csfdMatch?.poster ?? sortedScreenings.find((screening) => screening.posterUrl)?.posterUrl ?? null,
         description: cleanMovieDescription(firstUsefulDescription(sortedScreenings)),
         hasSubtitles: sortedScreenings.some((screening) => screening.hasSubtitles),
         csfd: csfdMatch,
