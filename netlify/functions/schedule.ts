@@ -50,6 +50,10 @@ type FilmGroup = {
   screenings: RawScreening[];
 };
 
+type ScreeningHints = {
+  countries: string[];
+};
+
 const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
 
 export default async function handler() {
@@ -237,7 +241,7 @@ async function groupScreenings(screenings: RawScreening[]) {
 
   const groups = await mapConcurrent([...map.entries()], CSFD_CONCURRENCY, async ([title, items]) => {
       const sortedScreenings = items.sort(compareScreenings);
-      const csfdMatch = await getCsfdMatch(title);
+      const csfdMatch = await getCsfdMatch(title, sortedScreenings);
 
       return {
         id: slugify(title),
@@ -269,26 +273,32 @@ async function mapConcurrent<T, R>(items: T[], concurrency: number, mapper: (ite
   return results;
 }
 
-function getCsfdMatch(query: string) {
-  const cached = csfdCache.get(query);
+function getCsfdMatch(query: string, screenings: RawScreening[]) {
+  const hints = getScreeningHints(screenings);
+  const cacheKey = `${query}:${hints.countries.join(",")}`;
+  const cached = csfdCache.get(cacheKey);
   if (cached) {
     return cached;
   }
 
-  const promise = withTimeout(lookupCsfd(query), CSFD_TIMEOUT_MS, null);
-  csfdCache.set(query, promise);
+  const promise = withTimeout(lookupCsfd(query, hints), CSFD_TIMEOUT_MS, null);
+  csfdCache.set(cacheKey, promise);
   return promise;
 }
 
-async function lookupCsfd(query: string): Promise<CsfdMatch | null> {
+async function lookupCsfd(query: string, hints: ScreeningHints): Promise<CsfdMatch | null> {
   try {
     const results = await csfd.search(query);
     const movies = Array.isArray(results) ? results : [...(results.movies ?? []), ...(results.tvSeries ?? [])];
     const normalizedQuery = comparableTitle(query);
 
-    const match =
-      movies.find((movie) => comparableTitle(movie.title) === normalizedQuery) ??
-      movies.find((movie) => isPlausibleTitleMatch(comparableTitle(movie.title), normalizedQuery));
+    const match = movies
+      .filter((movie) => {
+        const candidateTitle = comparableTitle(movie.title);
+        return candidateTitle === normalizedQuery || isPlausibleTitleMatch(candidateTitle, normalizedQuery);
+      })
+      .map((movie) => ({ movie, score: scoreCsfdCandidate(movie, normalizedQuery, hints) }))
+      .sort((left, right) => right.score - left.score)[0]?.movie;
 
     if (!match) {
       return null;
@@ -307,6 +317,38 @@ async function lookupCsfd(query: string): Promise<CsfdMatch | null> {
     console.warn(`CSFD lookup failed for "${query}"`, error);
     return null;
   }
+}
+
+function getScreeningHints(screenings: RawScreening[]): ScreeningHints {
+  const countries = new Set<string>();
+
+  for (const screening of screenings) {
+    for (const part of screening.description.split(",")) {
+      const country = normalizeCountry(part);
+      if (country) {
+        countries.add(country);
+      }
+    }
+  }
+
+  return {
+    countries: [...countries]
+  };
+}
+
+function scoreCsfdCandidate(movie: { title: string; year?: number; origins?: string[] }, normalizedQuery: string, hints: ScreeningHints) {
+  const candidateTitle = comparableTitle(movie.title);
+  let score = candidateTitle === normalizedQuery ? 100 : 60;
+
+  if (movie.origins?.some((origin) => hints.countries.includes(normalizeCountry(origin) ?? ""))) {
+    score += 35;
+  }
+
+  if (movie.year === new Date().getFullYear()) {
+    score += 5;
+  }
+
+  return score;
 }
 
 async function getCsfdDetails(id: number) {
@@ -428,6 +470,40 @@ function comparableTitle(value: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
+}
+
+function normalizeCountry(value: string) {
+  const normalized = comparableTitle(value);
+
+  if (["ceska republika", "cesko", "czech republic", "czechia"].includes(normalized)) {
+    return "cesko";
+  }
+
+  if (["usa", "spojene staty", "spojene staty americke"].includes(normalized)) {
+    return "usa";
+  }
+
+  if (["polsko", "poland"].includes(normalized)) {
+    return "polsko";
+  }
+
+  if (["slovensko", "slovakia"].includes(normalized)) {
+    return "slovensko";
+  }
+
+  if (["francie", "france"].includes(normalized)) {
+    return "francie";
+  }
+
+  if (["velka britanie", "spojene kralovstvi", "uk", "united kingdom"].includes(normalized)) {
+    return "velka britanie";
+  }
+
+  if (["nemecko", "germany"].includes(normalized)) {
+    return "nemecko";
+  }
+
+  return null;
 }
 
 function slugify(value: string) {
