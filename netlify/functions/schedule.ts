@@ -3,6 +3,13 @@ import { csfd } from "node-csfd-api";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
 const MAX_PAGES = 50;
+const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
+const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
+const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
+const DUBBING_TAG_RE = /\((?:\s*(?:ÄŒV|ÄV|Äv|ČV|čv|CV|cv)\s*)\)/i;
+const MOVIE_FORMAT_TAG_RE = new RegExp(`\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "i");
+const TITLE_SUFFIX_RE =
+  /\s+-\s+(?:PREMIÉRA|PREMIERA|PREMIÃ‰RA|Kino senior|Filmový klub|FilmovÃ½ klub|Dopoledn|TICHÁ STŘEDA|TICHA STREDA).*$/i;
 
 type RawScreening = {
   id: string;
@@ -256,8 +263,8 @@ function parseDateText(value: string) {
 function normalizeFilmTitle(title: string) {
   return cleanText(
     title
-      .replace(/\((?:ÄŒT|CT|ÄŒV|CV|OV|NES|3D|2D)\)/gi, "")
-      .replace(/\s+-\s+(?:PREMIÃ‰RA|PREMIERA|Kino senior|FilmovÃ½ klub|DopolednÃ­ prÃ¡zdninovÃ© promÃ­tÃ¡nÃ­).*$/i, "")
+      .replace(FORMAT_TAG_GROUP_RE, "")
+      .replace(TITLE_SUFFIX_RE, "")
       .replace(/\s+/g, " ")
   );
 }
@@ -273,7 +280,7 @@ function extractFormats(title: string, description: string) {
   } else if (isOriginalVersion(title)) {
     formats.push("OV");
   }
-  if (combined.includes("dabing") || /\((?:Äv|cv)\)/i.test(title)) formats.push("Dabing");
+  if (combined.includes("dabing") || DUBBING_TAG_RE.test(title)) formats.push("Dabing");
   if (combined.includes("2d")) formats.push("2D");
   if (combined.includes("3d")) formats.push("3D");
   if (/\bov\b/i.test(title) || title.includes("(OV)")) formats.push("OV");
@@ -286,7 +293,7 @@ function extractFormats(title: string, description: string) {
 
 function isLikelyMovieScreening(title: string, description: string) {
   return (
-    /\((?:ÄŒT|CT|ÄŒV|CV|OV|NES)\)/i.test(title) ||
+    MOVIE_FORMAT_TAG_RE.test(title) ||
     /\b(?:2D|3D|dabing|titulky|pÅ™Ã­stupnÃ©|\d{2}\+)\b/i.test(description)
   );
 }
@@ -299,7 +306,7 @@ function compactFormats(formats: string[]) {
 }
 
 function isDubbed(title: string, description: string) {
-  return `${title} ${description}`.toLowerCase().includes("dabing") || /\((?:Ã„Âv|cv)\)/i.test(title);
+  return `${title} ${description}`.toLowerCase().includes("dabing") || DUBBING_TAG_RE.test(title);
 }
 
 function isOriginalVersion(title: string) {
@@ -307,7 +314,7 @@ function isOriginalVersion(title: string) {
 }
 
 function detectsSubtitles(title: string, description: string) {
-  return /titulky/i.test(description) || /\((?:Ät|ct)\)/i.test(title);
+  return /titulky/i.test(description) || SUBTITLE_TAG_RE.test(title);
 }
 
 function firstUsefulDescription(screenings: RawScreening[]) {
