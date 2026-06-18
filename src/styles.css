@@ -47,11 +47,15 @@ a {
   color: #ffffff;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  justify-content: space-between;
   gap: 16px;
   padding: 16px 20px;
   border-radius: 6px 6px 0 0;
   box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+}
+
+.topbar-standalone {
+  border-radius: 6px;
 }
 
 .kicker,
@@ -76,11 +80,52 @@ a {
 }
 
 .app-wordmark {
-  width: min(520px, 62vw);
-  height: 76px;
+  width: min(430px, 58vw);
+  height: 48px;
   object-fit: contain;
   object-position: left center;
   display: block;
+}
+
+.view-switch {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 0.48);
+  border-radius: 5px;
+  background: rgb(126 9 18 / 0.34);
+}
+
+.view-switch-button {
+  min-width: 76px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.view-switch-button.active {
+  background: #ffffff;
+  color: var(--accent-dark);
+  box-shadow: 0 2px 8px rgb(91 7 13 / 0.25);
+}
+
+.view-switch-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.week-nav-button:focus-visible,
+.weekly-time-link:focus-visible,
+.weekly-rating:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .csfd-button {
@@ -142,6 +187,293 @@ a {
   border-radius: 6px;
   padding: 14px 16px;
   font-weight: 700;
+}
+
+.weekly-program {
+  margin-top: 18px;
+}
+
+.week-toolbar {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: #ffffff;
+  text-align: center;
+}
+
+.week-toolbar-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.week-toolbar h2 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.week-nav-button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  background: #252525;
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.week-nav-button:disabled {
+  cursor: not-allowed;
+  background: #eeeeee;
+  color: #999999;
+  border-color: #d6d6d6;
+}
+
+.weekly-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  background: #ffffff;
+  overscroll-behavior-inline: contain;
+  scrollbar-gutter: stable;
+}
+
+.weekly-table-scroll:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.weekly-table {
+  width: 100%;
+  min-width: 1160px;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  color: #221f1f;
+}
+
+.weekly-table th,
+.weekly-table td {
+  border-right: 1px solid #dddddd;
+  border-bottom: 1px solid #dddddd;
+  background: #ffffff;
+  vertical-align: top;
+}
+
+.weekly-table tr:last-child th,
+.weekly-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.weekly-table th:last-child,
+.weekly-table td:last-child {
+  border-right: 0;
+}
+
+.weekly-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 62px;
+  padding: 10px 8px;
+  background: #252525;
+  color: #ffffff;
+  text-align: center;
+}
+
+.weekly-table thead th span,
+.weekly-table thead th strong {
+  display: block;
+}
+
+.weekly-table thead th span {
+  margin-bottom: 3px;
+  color: #cccccc;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+
+.weekly-table thead th strong {
+  font-size: 17px;
+}
+
+.weekly-table .weekly-film-heading {
+  left: 0;
+  z-index: 5;
+  width: 220px;
+  padding-left: 14px;
+  text-align: left;
+  scroll-snap-align: start;
+}
+
+.weekly-table tbody td {
+  width: 134px;
+  min-height: 100px;
+  padding: 9px;
+  scroll-snap-align: start;
+}
+
+.weekly-film-cell {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  width: 220px;
+  padding: 10px;
+  background: #f7f7f7 !important;
+  text-align: left;
+  box-shadow: 5px 0 10px rgb(0 0 0 / 0.06);
+}
+
+.weekly-film-summary {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr);
+  gap: 9px;
+  align-items: start;
+}
+
+.weekly-poster {
+  width: 48px;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9c9c9;
+  border-radius: 3px;
+  background: #dedede;
+  color: #777777;
+  font-size: 11px;
+}
+
+.weekly-poster img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.weekly-film-copy > strong {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.weekly-film-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.weekly-rating,
+.weekly-subtitle-mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 24px;
+  padding: 5px 6px;
+  border-radius: 3px;
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  text-decoration: none;
+}
+
+.weekly-subtitle-mark {
+  background: var(--accent);
+}
+
+.weekly-times {
+  display: grid;
+  gap: 7px;
+}
+
+.weekly-time-link {
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  background: var(--soft);
+  color: #202020;
+  text-decoration: none;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.weekly-time-link:hover {
+  border-color: var(--accent);
+  background: #fff4f5;
+}
+
+.weekly-time-link:active {
+  transform: translateY(1px);
+}
+
+.weekly-time-link.has-subtitles {
+  border-color: #e69299;
+  background: #fff4f5;
+}
+
+.weekly-time-link strong {
+  color: var(--accent-dark);
+  font-size: 20px;
+  line-height: 1;
+}
+
+.weekly-time-link span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.weekly-empty {
+  margin-top: 0;
+  border-radius: 0 0 6px 6px;
+  text-align: center;
+}
+
+.weekly-toolbar-skeleton {
+  grid-template-columns: 44px minmax(0, 220px) 44px;
+  justify-content: space-between;
+}
+
+.week-nav-skeleton {
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+}
+
+.week-title-skeleton {
+  width: 220px;
+  max-width: 100%;
+  height: 34px;
+  border-radius: 4px;
+}
+
+.weekly-table-skeleton {
+  width: 100%;
+  min-width: 760px;
+  height: 420px;
+  border-radius: 0;
 }
 
 .empty-box {
@@ -495,6 +827,10 @@ a {
     flex-wrap: nowrap;
   }
 
+  .weekly-table-scroll {
+    scroll-snap-type: x proximity;
+  }
+
   .subtitle-summary {
     align-items: flex-start;
     flex-direction: column;
@@ -515,12 +851,86 @@ a {
 
 @media (max-width: 520px) {
   .topbar {
-    padding: 14px;
+    min-height: 66px;
+    gap: 6px;
+    padding: 8px;
   }
 
   .app-wordmark {
-    width: min(100%, 320px);
-    height: 54px;
+    width: min(100%, 145px);
+    height: 42px;
+  }
+
+  .view-switch {
+    padding: 2px;
+  }
+
+  .view-switch-button {
+    min-width: 52px;
+    min-height: 34px;
+    padding: 0 8px;
+    font-size: 13px;
+  }
+
+  .week-toolbar {
+    grid-template-columns: 40px minmax(0, 1fr) 40px;
+    gap: 7px;
+    padding: 10px 8px;
+  }
+
+  .week-toolbar h2 {
+    font-size: 16px;
+  }
+
+  .week-toolbar-label {
+    font-size: 10px;
+  }
+
+  .week-nav-button {
+    width: 40px;
+    height: 40px;
+  }
+
+  .weekly-table {
+    min-width: 1040px;
+  }
+
+  .weekly-table .weekly-film-heading,
+  .weekly-film-cell {
+    width: 150px;
+  }
+
+  .weekly-table .weekly-film-heading {
+    padding-left: 10px;
+  }
+
+  .weekly-film-cell {
+    padding: 8px;
+  }
+
+  .weekly-film-summary {
+    grid-template-columns: 36px minmax(0, 1fr);
+    gap: 7px;
+  }
+
+  .weekly-poster {
+    width: 36px;
+  }
+
+  .weekly-film-copy > strong {
+    font-size: 12px;
+  }
+
+  .weekly-rating,
+  .weekly-subtitle-mark {
+    min-height: 21px;
+    padding: 4px 5px;
+    font-size: 10px;
+  }
+
+  .weekly-table tbody td {
+    width: 127px;
+    padding: 7px;
   }
 
   .film-row {

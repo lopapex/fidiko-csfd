@@ -10,6 +10,7 @@ type Screening = {
   posterUrl: string | null;
   dateText: string;
   dateLabel: string;
+  dateISO: string;
   weekday: string | null;
   time: string | null;
   description: string;
@@ -42,8 +43,17 @@ type ScheduleResponse = {
     screenings: number;
     withSubtitles: number;
   };
+  period: {
+    mode: ViewMode;
+    weekStart: string | null;
+    weekEnd: string | null;
+    previousWeekStart: string | null;
+    nextWeekStart: string | null;
+  };
   films: FilmGroup[];
 };
+
+type ViewMode = "week" | "all";
 
 type LoadState =
   | { status: "loading"; data: ScheduleResponse | null; error: null }
@@ -52,32 +62,60 @@ type LoadState =
 
 function App() {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
+  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const [selectedWeek, setSelectedWeek] = useState<string | null>(null);
   const isLoading = state.status === "loading";
 
-  const loadSchedule = async () => {
-    setState((current) => ({ status: "loading", data: current.data, error: null }));
+  useEffect(() => {
+    const controller = new AbortController();
+
+    async function loadSchedule() {
+      setState((current) => ({ status: "loading", data: current.data, error: null }));
+
+      try {
+        const query =
+          viewMode === "week"
+            ? `?view=week${selectedWeek ? `&week=${encodeURIComponent(selectedWeek)}` : ""}`
+            : "";
+        const response = await fetch(`/api/schedule${query}`, { signal: controller.signal });
+        const body = await response.json();
+
+        if (!response.ok) {
+          throw new Error(body.detail || body.error || "Program se nepodařilo načíst.");
+        }
+
+        setState({ status: "ready", data: body, error: null });
+      } catch (error) {
+        if (error instanceof DOMException && error.name === "AbortError") {
+          return;
+        }
+
+        setState((current) => ({
+          status: "error",
+          data: current.data,
+          error: error instanceof Error ? error.message : "Program se nepodařilo načíst."
+        }));
+      }
+    }
+
+    void loadSchedule();
+    return () => controller.abort();
+  }, [selectedWeek, viewMode]);
+
+  const changeView = (nextView: ViewMode) => {
+    if (nextView === viewMode) {
+      return;
+    }
 
     try {
-      const response = await fetch("/api/schedule");
-      const body = await response.json();
-
-      if (!response.ok) {
-        throw new Error(body.detail || body.error || "Program se nepodařilo načíst.");
-      }
-
-      setState({ status: "ready", data: body, error: null });
-    } catch (error) {
-      setState((current) => ({
-        status: "error",
-        data: current.data,
-        error: error instanceof Error ? error.message : "Program se nepodařilo načíst."
-      }));
+      localStorage.setItem("nzfd-view-mode", nextView);
+    } catch {
+      // The preference is optional when browser storage is unavailable.
     }
-  };
 
-  useEffect(() => {
-    void loadSchedule();
-  }, []);
+    setSelectedWeek(null);
+    setViewMode(nextView);
+  };
 
   const subtitleFilms = useMemo(
     () => state.data?.films.filter((film) => film.hasSubtitles).slice(0, 4) ?? [],
@@ -86,22 +124,44 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
+      <header className={viewMode === "week" ? "topbar topbar-standalone" : "topbar"}>
         <div className="brand-block">
           <img className="app-wordmark" src="/nzfd-wordmark.png" alt="NŽFD" />
         </div>
+        <div className="view-switch" role="group" aria-label="Zobrazení programu">
+          <button
+            className={viewMode === "week" ? "view-switch-button active" : "view-switch-button"}
+            type="button"
+            aria-pressed={viewMode === "week"}
+            onClick={() => changeView("week")}
+          >
+            Týden
+          </button>
+          <button
+            className={viewMode === "all" ? "view-switch-button active" : "view-switch-button"}
+            type="button"
+            aria-pressed={viewMode === "all"}
+            onClick={() => changeView("all")}
+          >
+            Vše
+          </button>
+        </div>
       </header>
 
-      <section className="status-strip" aria-label="Souhrn programu">
-        <Metric label="Filmy" value={state.data?.totals.films ?? "?"} />
-        <Metric label="Promítání" value={state.data?.totals.screenings ?? "?"} />
-        <Metric label="S titulky" value={state.data?.totals.withSubtitles ?? "?"} accent />
-      </section>
+      {viewMode === "all" ? (
+        <section className="status-strip" aria-label="Souhrn programu">
+          <Metric label="Filmy" value={state.data?.totals.films ?? "?"} />
+          <Metric label="Promítání" value={state.data?.totals.screenings ?? "?"} />
+          <Metric label="S titulky" value={state.data?.totals.withSubtitles ?? "?"} accent />
+        </section>
+      ) : null}
 
       {state.status === "error" ? <div className="error-box">{state.error}</div> : null}
 
       {isLoading ? (
-        <LoadingRows />
+        viewMode === "week" ? <WeeklyLoading /> : <LoadingRows />
+      ) : state.data && viewMode === "week" ? (
+        <WeeklySchedule data={state.data} onNavigate={setSelectedWeek} />
       ) : state.data && state.data.films.length > 0 ? (
         <>
           <SubtitleSummary films={subtitleFilms} />
@@ -112,7 +172,7 @@ function App() {
           </section>
         </>
       ) : (
-        <div className="empty-box">Momentálně tu není žádný program Kina.</div>
+        <div className="empty-box">Momentálně tu není žádný program kina.</div>
       )}
     </main>
   );
@@ -124,6 +184,139 @@ function Metric({ label, value, accent = false }: { label: string; value: string
       <span>{label}</span>
       <strong>{value}</strong>
     </div>
+  );
+}
+
+function WeeklySchedule({ data, onNavigate }: { data: ScheduleResponse; onNavigate: (week: string) => void }) {
+  const { period } = data;
+  const days = period.weekStart ? getWeekDays(period.weekStart) : [];
+
+  return (
+    <section className="weekly-program" aria-labelledby="weekly-program-title">
+      <div className="week-toolbar">
+        <button
+          className="week-nav-button"
+          type="button"
+          disabled={!period.previousWeekStart}
+          onClick={() => period.previousWeekStart && onNavigate(period.previousWeekStart)}
+          aria-label="Předchozí týden s programem"
+          title="Předchozí týden"
+        >
+          <span aria-hidden="true">‹</span>
+        </button>
+        <div>
+          <span className="week-toolbar-label">Program na týden</span>
+          <h2 id="weekly-program-title">{formatWeekRange(period.weekStart, period.weekEnd)}</h2>
+        </div>
+        <button
+          className="week-nav-button"
+          type="button"
+          disabled={!period.nextWeekStart}
+          onClick={() => period.nextWeekStart && onNavigate(period.nextWeekStart)}
+          aria-label="Další týden s programem"
+          title="Další týden"
+        >
+          <span aria-hidden="true">›</span>
+        </button>
+      </div>
+
+      {data.films.length > 0 ? (
+        <div className="weekly-table-scroll" role="region" aria-label="Týdenní program" tabIndex={0}>
+          <table className="weekly-table">
+            <thead>
+              <tr>
+                <th className="weekly-film-heading" scope="col">Film</th>
+                {days.map((day) => (
+                  <th scope="col" key={day}>
+                    <span>{formatWeekday(day)}</span>
+                    <strong>{formatShortDate(day)}</strong>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {data.films.map((film) => (
+                <tr key={film.id}>
+                  <th className="weekly-film-cell" scope="row">
+                    <div className="weekly-film-summary">
+                      <div className="weekly-poster">
+                        {film.posterUrl ? <img src={film.posterUrl} alt="" loading="lazy" /> : <span>Film</span>}
+                      </div>
+                      <div className="weekly-film-copy">
+                        <strong>{film.title}</strong>
+                        <div className="weekly-film-meta">
+                          {film.csfd?.rating !== null && film.csfd?.rating !== undefined ? (
+                            film.csfd.url ? (
+                              <a
+                                className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
+                                href={film.csfd.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}
+                              >
+                                {film.csfd.rating}%
+                              </a>
+                            ) : (
+                              <span className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span>
+                            )
+                          ) : null}
+                          {film.hasSubtitles ? <span className="weekly-subtitle-mark">Titulky</span> : null}
+                        </div>
+                      </div>
+                    </div>
+                  </th>
+                  {days.map((day) => {
+                    const screenings = film.screenings.filter((screening) => screening.dateISO === day);
+
+                    return (
+                      <td key={day} aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}>
+                        <div className="weekly-times">
+                          {screenings.map((screening) => (
+                            <WeeklyScreeningLink screening={screening} key={screening.id} />
+                          ))}
+                        </div>
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-box weekly-empty">V tomto týdnu nejsou naplánované žádné projekce.</div>
+      )}
+    </section>
+  );
+}
+
+function WeeklyScreeningLink({ screening }: { screening: Screening }) {
+  return (
+    <a
+      className={screening.hasSubtitles ? "weekly-time-link has-subtitles" : "weekly-time-link"}
+      href={screening.fidikoUrl}
+      target="_blank"
+      rel="noreferrer"
+      title="Otevřít detail na Fidiko"
+    >
+      <strong>{screening.time ?? "Detail"}</strong>
+      <span>{screening.formats.join(" / ") || "Info"}</span>
+    </a>
+  );
+}
+
+function WeeklyLoading() {
+  return (
+    <section className="weekly-program" aria-label="Načítání týdenního programu">
+      <div className="week-toolbar weekly-toolbar-skeleton">
+        <div className="skeleton week-nav-skeleton" />
+        <div className="skeleton week-title-skeleton" />
+        <div className="skeleton week-nav-skeleton" />
+      </div>
+      <div className="weekly-table-scroll">
+        <div className="weekly-table-skeleton skeleton" />
+      </div>
+    </section>
   );
 }
 
@@ -280,6 +473,58 @@ function getRatingClass(rating: number) {
 function openInNewTab(event: React.MouseEvent<HTMLAnchorElement>, url: string) {
   event.preventDefault();
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function readStoredViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem("nzfd-view-mode");
+    return stored === "all" || stored === "week" ? stored : "week";
+  } catch {
+    return "week";
+  }
+}
+
+function getWeekDays(weekStart: string) {
+  return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
+}
+
+function addDays(value: string, days: number) {
+  const date = new Date(`${value}T00:00:00.000Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
+}
+
+function formatWeekday(value: string) {
+  return new Intl.DateTimeFormat("cs-CZ", { weekday: "short", timeZone: "UTC" })
+    .format(new Date(`${value}T00:00:00.000Z`))
+    .replace(".", "");
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric", timeZone: "UTC" }).format(
+    new Date(`${value}T00:00:00.000Z`)
+  );
+}
+
+function formatWeekRange(start: string | null, end: string | null) {
+  if (!start || !end) {
+    return "Aktuální týden";
+  }
+
+  const formatter = new Intl.DateTimeFormat("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: start.slice(0, 4) === end.slice(0, 4) ? undefined : "numeric",
+    timeZone: "UTC"
+  });
+  const endFormatter = new Intl.DateTimeFormat("cs-CZ", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC"
+  });
+
+  return `${formatter.format(new Date(`${start}T00:00:00.000Z`))} - ${endFormatter.format(new Date(`${end}T00:00:00.000Z`))}`;
 }
 
 function LoadingRows() {

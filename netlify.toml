@@ -9,6 +9,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+[functions."refresh-schedule"]
+  schedule = "0 22,23 * * *"
+
 [dev]
   command = "npm run dev:client"
   targetPort = 5173
