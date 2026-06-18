@@ -265,7 +265,9 @@ async function groupScreenings(screenings: RawScreening[]) {
     map.set(key, bucket);
   }
 
-  const groups = await mapConcurrent([...map.entries()], CSFD_CONCURRENCY, async ([title, items]) => {
+  const entries = [...map.entries()];
+  const activeCsfdKeys = new Set(entries.map(([title, items]) => createCsfdCacheKey(title, getScreeningHints(items))));
+  const groups = await mapConcurrent(entries, CSFD_CONCURRENCY, async ([title, items]) => {
       const sortedScreenings = items.sort(compareScreenings);
       const csfdMatch = await getCsfdMatch(title, sortedScreenings);
 
@@ -280,6 +282,7 @@ async function groupScreenings(screenings: RawScreening[]) {
       } satisfies FilmGroup;
     });
 
+  await pruneCsfdCache(activeCsfdKeys);
   return groups.sort((left, right) => compareScreenings(left.screenings[0], right.screenings[0]) || left.title.localeCompare(right.title, "cs"));
 }
 
@@ -313,7 +316,7 @@ function getCsfdMatch(query: string, screenings: RawScreening[]) {
 }
 
 async function loadOrLookupCsfd(query: string, hints: ScreeningHints) {
-  const persistentKey = `${CSFD_CACHE_VERSION}/${slugify(query)}--${hints.countries.map(slugify).join("-") || "unknown"}`;
+  const persistentKey = createCsfdCacheKey(query, hints);
 
   try {
     const cached = (await getCsfdStore().get(persistentKey, { type: "json" })) as CsfdMatch | null;
@@ -335,6 +338,26 @@ async function loadOrLookupCsfd(query: string, hints: ScreeningHints) {
   }
 
   return match;
+}
+
+function createCsfdCacheKey(query: string, hints: ScreeningHints) {
+  return `${CSFD_CACHE_VERSION}/${slugify(query)}--${hints.countries.map(slugify).join("-") || "unknown"}`;
+}
+
+async function pruneCsfdCache(activeKeys: Set<string>) {
+  try {
+    const store = getCsfdStore();
+    const { blobs } = await store.list();
+    const staleKeys = blobs.map((blob) => blob.key).filter((key) => !activeKeys.has(key));
+
+    await Promise.all(staleKeys.map((key) => store.delete(key)));
+
+    if (staleKeys.length > 0) {
+      console.log(`Removed ${staleKeys.length} stale CSFD cache entries`);
+    }
+  } catch (error) {
+    console.warn("Persistent CSFD cache cleanup failed", error);
+  }
 }
 
 async function lookupCsfd(query: string, hints: ScreeningHints): Promise<CsfdMatch | null> {
