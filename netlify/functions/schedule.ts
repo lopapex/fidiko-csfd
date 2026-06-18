@@ -1,4 +1,5 @@
 import * as cheerio from "cheerio";
+import { getStore } from "@netlify/blobs";
 import { csfd } from "node-csfd-api";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
@@ -7,6 +8,8 @@ const FETCH_TIMEOUT_MS = 12000;
 const FETCH_RETRIES = 2;
 const CSFD_TIMEOUT_MS = 6500;
 const CSFD_CONCURRENCY = 6;
+const SCHEDULE_CACHE_STORE = "schedule-cache";
+const SCHEDULE_CACHE_KEY = "current";
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
@@ -50,27 +53,39 @@ type FilmGroup = {
   screenings: RawScreening[];
 };
 
+export type ScheduleResponse = {
+  fetchedAt: string;
+  source: string;
+  totals: {
+    films: number;
+    screenings: number;
+    withSubtitles: number;
+  };
+  films: FilmGroup[];
+};
+
 type ScreeningHints = {
   countries: string[];
 };
 
 const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
 
-export default async function handler() {
+export default async function handler(request: Request) {
   try {
-    const rawScreenings = await fetchAllScreenings();
-    const groups = await groupScreenings(rawScreenings);
+    const url = new URL(request.url);
+    const forceRefresh = request.method === "POST" && url.searchParams.get("refresh") === "1";
 
-    return jsonResponse({
-      fetchedAt: new Date().toISOString(),
-      source: FIDIKO_BASE,
-      totals: {
-        films: groups.length,
-        screenings: rawScreenings.length,
-        withSubtitles: groups.filter((group) => group.hasSubtitles).length
-      },
-      films: groups
-    });
+    if (!forceRefresh) {
+      const cached = await readScheduleCache();
+
+      if (cached) {
+        return jsonResponse(cached, 200, "hit");
+      }
+    }
+
+    const schedule = await refreshScheduleCache();
+
+    return jsonResponse(schedule, 200, forceRefresh ? "refreshed" : "miss");
   } catch (error) {
     console.error(error);
 
@@ -84,11 +99,39 @@ export default async function handler() {
   }
 }
 
-function jsonResponse(body: unknown, status = 200) {
+export async function refreshScheduleCache() {
+  const rawScreenings = await fetchAllScreenings();
+  const groups = await groupScreenings(rawScreenings);
+  const schedule: ScheduleResponse = {
+    fetchedAt: new Date().toISOString(),
+    source: FIDIKO_BASE,
+    totals: {
+      films: groups.length,
+      screenings: rawScreenings.length,
+      withSubtitles: groups.filter((group) => group.hasSubtitles).length
+    },
+    films: groups
+  };
+
+  await getScheduleStore().setJSON(SCHEDULE_CACHE_KEY, schedule);
+  return schedule;
+}
+
+async function readScheduleCache() {
+  return (await getScheduleStore().get(SCHEDULE_CACHE_KEY, { type: "json" })) as ScheduleResponse | null;
+}
+
+function getScheduleStore() {
+  return getStore(SCHEDULE_CACHE_STORE, { consistency: "strong" });
+}
+
+function jsonResponse(body: unknown, status = 200, cacheStatus?: string) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
-      "content-type": "application/json; charset=utf-8"
+      "content-type": "application/json; charset=utf-8",
+      "cache-control": "no-store",
+      ...(cacheStatus ? { "x-schedule-cache": cacheStatus } : {})
     }
   });
 }

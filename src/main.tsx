@@ -54,11 +54,13 @@ function App() {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
   const isLoading = state.status === "loading";
 
-  const loadSchedule = async () => {
+  const loadSchedule = async (forceRefresh = false) => {
     setState((current) => ({ status: "loading", data: current.data, error: null }));
 
     try {
-      const response = await fetch("/api/schedule");
+      const response = await fetch(forceRefresh ? "/api/schedule?refresh=1" : "/api/schedule", {
+        method: forceRefresh ? "POST" : "GET"
+      });
       const body = await response.json();
 
       if (!response.ok) {
@@ -90,7 +92,13 @@ function App() {
         <div className="brand-block">
           <img className="app-wordmark" src="/nzfd-wordmark.png" alt="NŽFD" />
         </div>
-        <button className="refresh-button" disabled={isLoading} onClick={loadSchedule} type="button" aria-busy={isLoading}>
+        <button
+          className="refresh-button"
+          disabled={isLoading}
+          onClick={() => void loadSchedule(true)}
+          type="button"
+          aria-busy={isLoading}
+        >
           <span className="refresh-spinner" aria-hidden="true" />
           {isLoading ? "Načítám" : "Obnovit"}
         </button>
@@ -183,7 +191,20 @@ function FilmRow({ film }: { film: FilmGroup }) {
           <div className="csfd-block">
             <div className="csfd-line">
               {film.csfd?.rating !== null && film.csfd?.rating !== undefined ? (
-                <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span>
+                film.csfd.url ? (
+                  <a
+                    className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`}
+                    href={film.csfd.url}
+                    onClick={(event) => openInNewTab(event, film.csfd!.url!)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}
+                  >
+                    {film.csfd.rating}%
+                  </a>
+                ) : (
+                  <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span>
+                )
               ) : (
                 <span className="rating-badge rating-missing">?</span>
               )}

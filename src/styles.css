@@ -336,6 +336,7 @@ a {
 }
 
 .rating-badge {
+  display: block;
   width: 62px;
   padding: 9px 10px;
   border-radius: 4px;
@@ -345,6 +346,22 @@ a {
   font-size: 20px;
   line-height: 1;
   font-weight: 900;
+}
+
+.rating-link {
+  text-decoration: none;
+  cursor: pointer;
+  transition: filter 160ms ease, transform 160ms ease;
+}
+
+.rating-link:hover {
+  filter: brightness(1.12);
+  transform: translateY(-1px);
+}
+
+.rating-link:focus-visible {
+  outline: 3px solid var(--text);
+  outline-offset: 3px;
 }
 
 .rating-missing {
