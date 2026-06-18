@@ -8,9 +8,8 @@ const FETCH_TIMEOUT_MS = 12000;
 const FETCH_RETRIES = 2;
 const CSFD_TIMEOUT_MS = 6500;
 const CSFD_CONCURRENCY = 6;
-const SCHEDULE_CACHE_STORE = "schedule-cache";
-const SCHEDULE_CACHE_KEY = "current";
-const SCHEDULE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+const CSFD_CACHE_STORE = "csfd-cache";
+const CSFD_CACHE_VERSION = "v1";
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
@@ -71,32 +70,11 @@ type ScreeningHints = {
 
 const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
 
-export default async function handler(request: Request) {
+export default async function handler() {
   try {
-    const url = new URL(request.url);
-    const forceRefresh = request.method === "POST" && url.searchParams.get("refresh") === "1";
+    const schedule = await fetchSchedule();
 
-    if (!forceRefresh) {
-      const cached = await readScheduleCache();
-
-      if (cached && isScheduleCacheFresh(cached)) {
-        return jsonResponse(cached, 200, "hit");
-      }
-
-      if (cached) {
-        try {
-          const schedule = await refreshScheduleCache();
-          return jsonResponse(schedule, 200, "expired-refreshed");
-        } catch (error) {
-          console.error("Expired schedule cache could not be refreshed", error);
-          return jsonResponse(cached, 200, "stale");
-        }
-      }
-    }
-
-    const schedule = await refreshScheduleCache();
-
-    return jsonResponse(schedule, 200, forceRefresh ? "refreshed" : "miss");
+    return jsonResponse(schedule);
   } catch (error) {
     console.error(error);
 
@@ -110,7 +88,7 @@ export default async function handler(request: Request) {
   }
 }
 
-export async function refreshScheduleCache() {
+async function fetchSchedule() {
   const rawScreenings = await fetchAllScreenings();
   const groups = await groupScreenings(rawScreenings);
   const schedule: ScheduleResponse = {
@@ -124,30 +102,19 @@ export async function refreshScheduleCache() {
     films: groups
   };
 
-  await getScheduleStore().setJSON(SCHEDULE_CACHE_KEY, schedule);
   return schedule;
 }
 
-async function readScheduleCache() {
-  return (await getScheduleStore().get(SCHEDULE_CACHE_KEY, { type: "json" })) as ScheduleResponse | null;
+function getCsfdStore() {
+  return getStore(CSFD_CACHE_STORE, { consistency: "strong" });
 }
 
-function isScheduleCacheFresh(schedule: ScheduleResponse) {
-  const fetchedAt = Date.parse(schedule.fetchedAt);
-  return Number.isFinite(fetchedAt) && Date.now() - fetchedAt < SCHEDULE_CACHE_MAX_AGE_MS;
-}
-
-function getScheduleStore() {
-  return getStore(SCHEDULE_CACHE_STORE, { consistency: "strong" });
-}
-
-function jsonResponse(body: unknown, status = 200, cacheStatus?: string) {
+function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      ...(cacheStatus ? { "x-schedule-cache": cacheStatus } : {})
+      "cache-control": "no-store"
     }
   });
 }
@@ -340,9 +307,34 @@ function getCsfdMatch(query: string, screenings: RawScreening[]) {
     return cached;
   }
 
-  const promise = withTimeout(lookupCsfd(query, hints), CSFD_TIMEOUT_MS, null);
+  const promise = loadOrLookupCsfd(query, hints);
   csfdCache.set(cacheKey, promise);
   return promise;
+}
+
+async function loadOrLookupCsfd(query: string, hints: ScreeningHints) {
+  const persistentKey = `${CSFD_CACHE_VERSION}/${slugify(query)}--${hints.countries.map(slugify).join("-") || "unknown"}`;
+
+  try {
+    const cached = (await getCsfdStore().get(persistentKey, { type: "json" })) as CsfdMatch | null;
+    if (cached) {
+      return cached;
+    }
+  } catch (error) {
+    console.warn(`Persistent CSFD cache read failed for "${query}"`, error);
+  }
+
+  const match = await withTimeout(lookupCsfd(query, hints), CSFD_TIMEOUT_MS, null);
+
+  if (match) {
+    try {
+      await getCsfdStore().setJSON(persistentKey, match);
+    } catch (error) {
+      console.warn(`Persistent CSFD cache write failed for "${query}"`, error);
+    }
+  }
+
+  return match;
 }
 
 async function lookupCsfd(query: string, hints: ScreeningHints): Promise<CsfdMatch | null> {

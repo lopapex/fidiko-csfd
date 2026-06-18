@@ -54,13 +54,11 @@ function App() {
   const [state, setState] = useState<LoadState>({ status: "loading", data: null, error: null });
   const isLoading = state.status === "loading";
 
-  const loadSchedule = async (forceRefresh = false) => {
+  const loadSchedule = async () => {
     setState((current) => ({ status: "loading", data: current.data, error: null }));
 
     try {
-      const response = await fetch(forceRefresh ? "/api/schedule?refresh=1" : "/api/schedule", {
-        method: forceRefresh ? "POST" : "GET"
-      });
+      const response = await fetch("/api/schedule");
       const body = await response.json();
 
       if (!response.ok) {
@@ -92,23 +90,12 @@ function App() {
         <div className="brand-block">
           <img className="app-wordmark" src="/nzfd-wordmark.png" alt="NŽFD" />
         </div>
-        <button
-          className="refresh-button"
-          disabled={isLoading}
-          onClick={() => void loadSchedule(true)}
-          type="button"
-          aria-busy={isLoading}
-        >
-          <span className="refresh-spinner" aria-hidden="true" />
-          {isLoading ? "Načítám" : "Obnovit"}
-        </button>
       </header>
 
       <section className="status-strip" aria-label="Souhrn programu">
         <Metric label="Filmy" value={state.data?.totals.films ?? "?"} />
         <Metric label="Promítání" value={state.data?.totals.screenings ?? "?"} />
         <Metric label="S titulky" value={state.data?.totals.withSubtitles ?? "?"} accent />
-        <Metric label="Načteno" value={formatLoadedAt(state.data?.fetchedAt)} />
       </section>
 
       {state.status === "error" ? <div className="error-box">{state.error}</div> : null}
@@ -317,19 +304,6 @@ function LoadingRows() {
       ))}
     </section>
   );
-}
-
-function formatLoadedAt(value?: string) {
-  if (!value) {
-    return "?";
-  }
-
-  return new Intl.DateTimeFormat("cs-CZ", {
-    hour: "2-digit",
-    minute: "2-digit",
-    day: "2-digit",
-    month: "2-digit"
-  }).format(new Date(value));
 }
 
 createRoot(document.getElementById("root")!).render(

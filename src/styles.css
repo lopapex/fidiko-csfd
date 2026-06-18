@@ -47,7 +47,7 @@ a {
   color: #ffffff;
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
   gap: 16px;
   padding: 16px 20px;
   border-radius: 6px 6px 0 0;
@@ -83,7 +83,6 @@ a {
   display: block;
 }
 
-.refresh-button,
 .csfd-button {
   border: 0;
   border-radius: 4px;
@@ -95,37 +94,6 @@ a {
     background 160ms ease;
 }
 
-.refresh-button {
-  background: #ffffff;
-  color: var(--accent-dark);
-  padding: 10px 15px;
-  min-width: 92px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-}
-
-.refresh-button:disabled {
-  cursor: wait;
-  opacity: 0.82;
-}
-
-.refresh-spinner {
-  display: none;
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgb(158 17 26 / 0.24);
-  border-top-color: var(--accent-dark);
-  border-radius: 999px;
-  animation: spin 800ms linear infinite;
-}
-
-.refresh-button[aria-busy="true"] .refresh-spinner {
-  display: inline-block;
-}
-
-.refresh-button:active,
 .csfd-button:active,
 .screening-button:active {
   transform: translateY(1px);
@@ -133,7 +101,7 @@ a {
 
 .status-strip {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   background: #252525;
   color: #ffffff;
   border-radius: 0 0 6px 6px;
@@ -515,12 +483,6 @@ a {
   }
 }
 
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 @media (max-width: 860px) {
   .app-shell {
     width: min(100% - 18px, 680px);
@@ -539,11 +501,7 @@ a {
   }
 
   .status-strip {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .metric:nth-child(2) {
-    border-right: 0;
+    grid-template-columns: repeat(3, 1fr);
   }
 
   .film-row {
