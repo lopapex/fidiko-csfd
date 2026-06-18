@@ -10,6 +10,7 @@ const CSFD_TIMEOUT_MS = 6500;
 const CSFD_CONCURRENCY = 6;
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current";
+const SCHEDULE_CACHE_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
@@ -78,8 +79,18 @@ export default async function handler(request: Request) {
     if (!forceRefresh) {
       const cached = await readScheduleCache();
 
-      if (cached) {
+      if (cached && isScheduleCacheFresh(cached)) {
         return jsonResponse(cached, 200, "hit");
+      }
+
+      if (cached) {
+        try {
+          const schedule = await refreshScheduleCache();
+          return jsonResponse(schedule, 200, "expired-refreshed");
+        } catch (error) {
+          console.error("Expired schedule cache could not be refreshed", error);
+          return jsonResponse(cached, 200, "stale");
+        }
       }
     }
 
@@ -119,6 +130,11 @@ export async function refreshScheduleCache() {
 
 async function readScheduleCache() {
   return (await getScheduleStore().get(SCHEDULE_CACHE_KEY, { type: "json" })) as ScheduleResponse | null;
+}
+
+function isScheduleCacheFresh(schedule: ScheduleResponse) {
+  const fetchedAt = Date.parse(schedule.fetchedAt);
+  return Number.isFinite(fetchedAt) && Date.now() - fetchedAt < SCHEDULE_CACHE_MAX_AGE_MS;
 }
 
 function getScheduleStore() {
