@@ -589,6 +589,7 @@ a.weekly-rating:hover {
   display: grid;
   grid-template-columns: minmax(360px, 0.95fr) minmax(360px, 1.35fr);
   gap: 18px;
+  scroll-margin-top: 0;
 }
 
 .film-row-subtitles {

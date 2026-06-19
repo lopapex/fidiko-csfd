@@ -158,16 +158,16 @@ function App() {
   }, [page.view]);
 
   useEffect(() => {
-    if (!pendingFilmScroll || page.view !== "all" || load.status !== "ready") return;
+    if (!pendingFilmScroll || page.view !== "all" || load.status !== "ready" || load.data.period.mode !== "all") return;
     const animationFrame = window.requestAnimationFrame(() => {
-      document.getElementById(`film-title-${pendingFilmScroll}`)?.scrollIntoView({
+      document.getElementById(pendingFilmScroll)?.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
         block: "start"
       });
       setPendingFilmScroll(null);
     });
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [load.status, page.view, pendingFilmScroll]);
+  }, [load, page.view, pendingFilmScroll]);
 
   const filteredFilms = useMemo(() => {
     if (!load.data) return [];
