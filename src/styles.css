@@ -649,6 +649,7 @@ a.weekly-rating:hover {
   margin: 0;
   font-size: 22px;
   line-height: 1.14;
+  scroll-margin-top: 12px;
 }
 
 .film-copy p {
@@ -1175,11 +1176,6 @@ a.weekly-rating:hover {
   color: #5f430d;
   font-size: 13px;
   font-weight: 700;
-}
-
-.film-row {
-  content-visibility: auto;
-  contain-intrinsic-size: 230px;
 }
 
 .weekly-film-summary {

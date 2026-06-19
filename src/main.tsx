@@ -160,7 +160,7 @@ function App() {
   useEffect(() => {
     if (!pendingFilmScroll || page.view !== "all" || load.status !== "ready") return;
     const animationFrame = window.requestAnimationFrame(() => {
-      document.getElementById(pendingFilmScroll)?.scrollIntoView({
+      document.getElementById(`film-title-${pendingFilmScroll}`)?.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
         block: "start"
       });
@@ -369,7 +369,7 @@ function FilmRow({ film, priority, onSelectFilm }: { film: FilmGroup; priority: 
       <div className="film-info">
         <div className="poster-column"><Poster film={film} priority={priority} /></div>
         <div className="film-copy">
-          <div className="title-line"><h2>{onSelectFilm ? <button className="film-title-button" type="button" onClick={() => onSelectFilm(film.id)}>{film.title}</button> : film.title}</h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
+          <div className="title-line"><h2 id={`film-title-${film.id}`}>{onSelectFilm ? <button className="film-title-button" type="button" onClick={() => onSelectFilm(film.id)}>{film.title}</button> : film.title}</h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
           <p>{film.description}</p>
           <div className="csfd-block"><div className="csfd-line">{film.csfd?.rating != null ? film.csfd.url ? <a className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="rating-badge rating-link rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : <span className="rating-badge rating-missing">?</span>}<span className="rating-copy">{getCsfdStatusText(film.csfd)}</span></div></div>
         </div>
