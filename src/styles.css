@@ -128,18 +128,6 @@ a {
   outline-offset: 2px;
 }
 
-.csfd-button {
-  border: 0;
-  border-radius: 4px;
-  font-weight: 800;
-  cursor: pointer;
-  text-decoration: none;
-  transition:
-    transform 160ms ease,
-    background 160ms ease;
-}
-
-.csfd-button:active,
 .screening-button:active {
   transform: translateY(1px);
 }
@@ -404,6 +392,11 @@ a {
   line-height: 1;
   font-weight: 900;
   text-decoration: none;
+}
+
+.weekly-rating {
+  width: 38px;
+  flex: 0 0 38px;
 }
 
 .weekly-subtitle-mark {
@@ -701,19 +694,6 @@ a {
   flex: 0 0 118px;
 }
 
-.csfd-button {
-  background: #252525;
-  color: #ffffff;
-  padding: 8px 10px;
-  font-size: 13px;
-  text-align: center;
-}
-
-.csfd-button-mobile {
-  display: none;
-  width: 100%;
-}
-
 .screening-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, var(--screening-card-width));
@@ -963,15 +943,6 @@ a {
     width: 82px;
   }
 
-  .csfd-button-desktop {
-    display: none;
-  }
-
-  .csfd-button-mobile {
-    display: inline-flex;
-    justify-content: center;
-  }
-
   .title-line h2 {
     font-size: 18px;
   }
@@ -1214,6 +1185,7 @@ a {
 
 .weekly-mobile {
   display: none;
+  border-top: 8px solid #eeeeee;
 }
 
 .mobile-day-tabs {
@@ -1221,7 +1193,6 @@ a {
   grid-template-columns: repeat(7, minmax(62px, 1fr));
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-top: 0;
   background: #ffffff;
   scrollbar-width: thin;
 }

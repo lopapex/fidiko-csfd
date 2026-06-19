@@ -172,15 +172,6 @@ function App() {
       .filter((film) => film.screenings.length > 0);
   }, [load.data, page.query, page.subtitles]);
 
-  const totals = useMemo(
-    () => ({
-      films: filteredFilms.length,
-      screenings: filteredFilms.reduce((sum, film) => sum + film.screenings.length, 0),
-      withSubtitles: filteredFilms.filter((film) => film.screenings.some((screening) => screening.hasSubtitles)).length
-    }),
-    [filteredFilms]
-  );
-
   const filtersActive = Boolean(page.query || page.subtitles);
 
   function changePage(patch: Partial<PageState>, mode: "push" | "replace" = "push") {
@@ -205,7 +196,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className={page.view === "week" ? "topbar topbar-standalone" : "topbar"}>
+      <header className="topbar topbar-standalone">
         <div className="brand-block"><img className="app-wordmark" src="/nzfd-wordmark.png" alt="NZFD" width="430" height="48" fetchPriority="high" /></div>
         <div className="topbar-actions">
           {installPrompt ? (
@@ -219,14 +210,6 @@ function App() {
           </div>
         </div>
       </header>
-
-      {page.view === "all" ? (
-        <section className="status-strip" aria-label="Souhrn programu">
-          <Metric label="Filmy" value={load.data ? totals.films : "?"} />
-          <Metric label="Promítání" value={load.data ? totals.screenings : "?"} />
-          <Metric label="S titulky" value={load.data ? totals.withSubtitles : "?"} accent />
-        </section>
-      ) : null}
 
       {page.view === "all" ? (
         <FilterToolbar page={page} onChange={changePage} />
@@ -281,10 +264,6 @@ function FilterToolbar({ page, onChange }: {
 
     </section>
   );
-}
-
-function Metric({ label, value, accent = false }: { label: string; value: string | number; accent?: boolean }) {
-  return <div className={accent ? "metric metric-accent" : "metric"}><span>{label}</span><strong>{value}</strong></div>;
 }
 
 function WeeklySchedule({ data, films, selectedDay, onNavigate, onDayChange }: {
@@ -368,11 +347,11 @@ function FilmRow({ film, priority }: { film: FilmGroup; priority: boolean }) {
   return (
     <article className={film.hasSubtitles ? "film-row film-row-subtitles" : "film-row"} id={film.id}>
       <div className="film-info">
-        <div className="poster-column"><Poster film={film} priority={priority} />{film.csfd?.url ? <a className="csfd-button csfd-button-mobile" href={film.csfd.url} target="_blank" rel="noopener noreferrer">ČSFD</a> : null}</div>
+        <div className="poster-column"><Poster film={film} priority={priority} /></div>
         <div className="film-copy">
           <div className="title-line"><h2>{film.title}</h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
           <p>{film.description}</p>
-          <div className="csfd-block"><div className="csfd-line">{film.csfd?.rating != null ? film.csfd.url ? <a className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="rating-badge rating-link rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : <span className="rating-badge rating-missing">?</span>}<span className="rating-copy">{getCsfdStatusText(film.csfd)}</span>{film.csfd?.url ? <a className="csfd-button csfd-button-desktop" href={film.csfd.url} target="_blank" rel="noopener noreferrer">ČSFD</a> : null}</div></div>
+          <div className="csfd-block"><div className="csfd-line">{film.csfd?.rating != null ? film.csfd.url ? <a className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="rating-badge rating-link rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : <span className="rating-badge rating-missing">?</span>}<span className="rating-copy">{getCsfdStatusText(film.csfd)}</span></div></div>
         </div>
       </div>
       <div className="screening-grid">{film.screenings.map((screening) => <ScreeningCard film={film} screening={screening} key={screening.id} />)}</div>
