@@ -9,7 +9,7 @@ const FETCH_RETRIES = 2;
 const CSFD_TIMEOUT_MS = 6500;
 const CSFD_CONCURRENCY = 6;
 const CSFD_CACHE_STORE = "csfd-cache";
-const CSFD_CACHE_VERSION = "v1";
+const CSFD_CACHE_VERSION = "v2";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
@@ -272,7 +272,7 @@ async function groupScreenings(screenings: RawScreening[], pruneCache: boolean) 
       return {
         id: slugify(title),
         title,
-        posterUrl: csfdMatch?.poster ?? sortedScreenings.find((screening) => screening.posterUrl)?.posterUrl ?? null,
+        posterUrl: optimizeCsfdPoster(csfdMatch?.poster ?? null) ?? sortedScreenings.find((screening) => screening.posterUrl)?.posterUrl ?? null,
         description: cleanMovieDescription(firstUsefulDescription(sortedScreenings)),
         hasSubtitles: sortedScreenings.some((screening) => screening.hasSubtitles),
         csfd: csfdMatch,
@@ -385,12 +385,20 @@ async function lookupCsfd(query: string, hints: ScreeningHints): Promise<CsfdMat
       rating: numberOrNull(details?.rating) ?? numberOrNull(match.rating),
       ratingCount: numberOrNull(details?.ratingCount) ?? numberOrNull(match.ratingCount),
       url: details?.url ?? match.url ?? null,
-      poster: details?.poster ?? match.poster ?? null
+      poster: optimizeCsfdPoster(details?.poster ?? match.poster ?? null)
     };
   } catch (error) {
     console.warn(`CSFD lookup failed for "${query}"`, error);
     return null;
   }
+}
+
+function optimizeCsfdPoster(url: string | null) {
+  if (!url) {
+    return null;
+  }
+
+  return url.replace(/\/cache\/resized\/w\d+\//, "/cache/resized/w360/");
 }
 
 function getScreeningHints(screenings: RawScreening[]): ScreeningHints {
