@@ -338,7 +338,7 @@ function FilmMini({ film }: { film: FilmGroup }) {
   return (
     <div className="weekly-film-summary">
       <Poster film={film} variant="mini" />
-      <div className="weekly-film-copy"><strong>{film.title}</strong><div className="weekly-film-meta">{film.csfd?.rating != null ? film.csfd.url ? <a className={`weekly-rating ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="weekly-rating rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : null}{film.hasSubtitles ? <span className="weekly-subtitle-mark">Titulky</span> : null}</div></div>
+      <div className="weekly-film-copy"><a className="weekly-film-title-link" href={film.screenings[0].fidikoUrl} target="_blank" rel="noopener noreferrer">{film.title}</a><div className="weekly-film-meta">{film.csfd?.rating != null ? film.csfd.url ? <a className={`weekly-rating ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="weekly-rating rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : null}{film.hasSubtitles ? <span className="weekly-subtitle-mark">Titulky</span> : null}</div></div>
     </div>
   );
 }
@@ -349,7 +349,7 @@ function FilmRow({ film, priority }: { film: FilmGroup; priority: boolean }) {
       <div className="film-info">
         <div className="poster-column"><Poster film={film} priority={priority} /></div>
         <div className="film-copy">
-          <div className="title-line"><h2>{film.title}</h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
+          <div className="title-line"><h2><a className="film-title-link" href={film.screenings[0].fidikoUrl} target="_blank" rel="noopener noreferrer">{film.title}</a></h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
           <p>{film.description}</p>
           <div className="csfd-block"><div className="csfd-line">{film.csfd?.rating != null ? film.csfd.url ? <a className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="rating-badge rating-link rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : <span className="rating-badge rating-missing">?</span>}<span className="rating-copy">{getCsfdStatusText(film.csfd)}</span></div></div>
         </div>
