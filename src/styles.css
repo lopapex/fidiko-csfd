@@ -1303,6 +1303,14 @@ a.weekly-rating:hover {
   box-shadow: inset 0 -3px 0 var(--accent);
 }
 
+.mobile-day-tabs button.has-subtitles {
+  box-shadow: inset 0 -3px 0 var(--subtitle);
+}
+
+.mobile-day-tabs button.today.has-subtitles {
+  box-shadow: inset 0 -3px 0 var(--subtitle), inset 0 -6px 0 var(--accent);
+}
+
 .mobile-day-tabs button.empty {
   background: #f1f1f1;
   color: #9a9a9a;

@@ -74,6 +74,8 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
+const VIEW_MODE_KEY = "nzfd-view-mode-v2";
+
 function App() {
   const [page, setPage] = useState<PageState>(readPageState);
   const [load, setLoad] = useState<LoadState>({ status: "loading", data: null, error: null });
@@ -151,7 +153,7 @@ function App() {
 
   useEffect(() => {
     try {
-      sessionStorage.setItem("nzfd-view-mode", page.view);
+      sessionStorage.setItem(VIEW_MODE_KEY, page.view);
     } catch {
       // View preference remains optional when browser storage is unavailable.
     }
@@ -343,8 +345,9 @@ function MobileWeek({ films, days, today, activeDay, onDayChange, onSelectFilm }
       <div className="mobile-day-tabs" role="tablist" aria-label="Dny v týdnu">
         {days.map((day) => {
           const count = films.reduce((sum, film) => sum + film.screenings.filter((screening) => screening.dateISO === day).length, 0);
-          const classes = [day === activeDay ? "active" : "", day === today ? "today" : "", count === 0 ? "empty" : ""].filter(Boolean).join(" ");
-          return <button className={classes} type="button" role="tab" aria-selected={day === activeDay} aria-label={`${formatWeekday(day)} ${formatShortDate(day)}${count === 0 ? ", bez projekce" : ""}`} onClick={() => onDayChange(day)} key={day}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></button>;
+          const hasSubtitles = films.some((film) => film.screenings.some((screening) => screening.dateISO === day && screening.hasSubtitles));
+          const classes = [day === activeDay ? "active" : "", day === today ? "today" : "", hasSubtitles ? "has-subtitles" : "", count === 0 ? "empty" : ""].filter(Boolean).join(" ");
+          return <button className={classes} type="button" role="tab" aria-selected={day === activeDay} aria-label={`${formatWeekday(day)} ${formatShortDate(day)}${count === 0 ? ", bez projekce" : hasSubtitles ? ", obsahuje film s titulky" : ""}`} onClick={() => onDayChange(day)} key={day}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></button>;
         })}
       </div>
       <div className="mobile-day-program" role="tabpanel">
@@ -449,15 +452,16 @@ function writePageState(page: PageState, mode: "push" | "replace") {
 function readStoredViewMode(): ViewMode {
   try {
     localStorage.removeItem("nzfd-view-mode");
+    sessionStorage.removeItem("nzfd-view-mode");
   } catch {
     // Ignore unavailable persistent storage while migrating the old preference.
   }
 
   try {
-    const stored = sessionStorage.getItem("nzfd-view-mode");
-    return stored === "all" || stored === "week" ? stored : "week";
+    const stored = sessionStorage.getItem(VIEW_MODE_KEY);
+    return stored === "all" || stored === "week" ? stored : "all";
   } catch {
-    return "week";
+    return "all";
   }
 }
 
