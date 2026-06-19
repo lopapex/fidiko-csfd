@@ -311,6 +311,10 @@ a {
   font-size: 17px;
 }
 
+.weekly-table thead th.weekly-today {
+  background: var(--accent-dark);
+}
+
 .weekly-table .weekly-film-heading {
   left: 0;
   z-index: 5;
@@ -325,6 +329,13 @@ a {
   min-height: 100px;
   padding: 9px;
   scroll-snap-align: start;
+}
+
+.weekly-table tbody td.weekly-today {
+  background: #fff0f1;
+  box-shadow:
+    inset 2px 0 0 #ed9ca3,
+    inset -2px 0 0 #ed9ca3;
 }
 
 .weekly-film-cell {

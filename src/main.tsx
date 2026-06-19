@@ -190,6 +190,7 @@ function Metric({ label, value, accent = false }: { label: string; value: string
 function WeeklySchedule({ data, onNavigate }: { data: ScheduleResponse; onNavigate: (week: string) => void }) {
   const { period } = data;
   const days = period.weekStart ? getWeekDays(period.weekStart) : [];
+  const today = getPragueTodayISO();
 
   return (
     <section className="weekly-program" aria-labelledby="weekly-program-title">
@@ -227,7 +228,7 @@ function WeeklySchedule({ data, onNavigate }: { data: ScheduleResponse; onNaviga
               <tr>
                 <th className="weekly-film-heading" scope="col">Film</th>
                 {days.map((day) => (
-                  <th scope="col" key={day}>
+                  <th className={day === today ? "weekly-today" : undefined} scope="col" key={day} aria-current={day === today ? "date" : undefined}>
                     <span>{formatWeekday(day)}</span>
                     <strong>{formatShortDate(day)}</strong>
                   </th>
@@ -269,7 +270,11 @@ function WeeklySchedule({ data, onNavigate }: { data: ScheduleResponse; onNaviga
                     const screenings = film.screenings.filter((screening) => screening.dateISO === day);
 
                     return (
-                      <td key={day} aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}>
+                      <td
+                        className={day === today ? "weekly-today" : undefined}
+                        key={day}
+                        aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}
+                      >
                         <div className="weekly-times">
                           {screenings.map((screening) => (
                             <WeeklyScreeningLink screening={screening} key={screening.id} />
@@ -478,10 +483,22 @@ function openInNewTab(event: React.MouseEvent<HTMLAnchorElement>, url: string) {
 function readStoredViewMode(): ViewMode {
   try {
     const stored = localStorage.getItem("nzfd-view-mode");
-    return stored === "all" || stored === "week" ? stored : "week";
+    return stored === "all" || stored === "week" ? stored : "all";
   } catch {
-    return "week";
+    return "all";
   }
+}
+
+function getPragueTodayISO() {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit"
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return `${values.year}-${values.month}-${values.day}`;
 }
 
 function getWeekDays(weekStart: string) {
