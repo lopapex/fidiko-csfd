@@ -79,6 +79,7 @@ function App() {
   const [load, setLoad] = useState<LoadState>({ status: "loading", data: null, error: null });
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(null);
+  const [pendingFilmScroll, setPendingFilmScroll] = useState<string | null>(null);
 
   useEffect(() => {
     const onPopState = () => setPage(readPageState());
@@ -150,11 +151,23 @@ function App() {
 
   useEffect(() => {
     try {
-      localStorage.setItem("nzfd-view-mode", page.view);
+      sessionStorage.setItem("nzfd-view-mode", page.view);
     } catch {
       // View preference remains optional when browser storage is unavailable.
     }
   }, [page.view]);
+
+  useEffect(() => {
+    if (!pendingFilmScroll || page.view !== "all" || load.status !== "ready") return;
+    const animationFrame = window.requestAnimationFrame(() => {
+      document.getElementById(pendingFilmScroll)?.scrollIntoView({
+        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth",
+        block: "start"
+      });
+      setPendingFilmScroll(null);
+    });
+    return () => window.cancelAnimationFrame(animationFrame);
+  }, [load.status, page.view, pendingFilmScroll]);
 
   const filteredFilms = useMemo(() => {
     if (!load.data) return [];
@@ -185,6 +198,11 @@ function App() {
   function changeView(view: ViewMode) {
     if (view === page.view) return;
     changePage({ view, week: null, day: null });
+  }
+
+  function showFilmInAll(id: string) {
+    setPendingFilmScroll(id);
+    changePage({ view: "all", week: null, day: null, query: "", subtitles: false });
   }
 
   async function installApp() {
@@ -229,6 +247,7 @@ function App() {
           selectedDay={page.day}
           onNavigate={(week) => changePage({ week, day: null })}
           onDayChange={(day) => changePage({ day })}
+          onSelectFilm={showFilmInAll}
         />
       ) : load.data && filteredFilms.length > 0 ? (
         <section className="program-list" aria-label="Program filmů">
@@ -266,12 +285,13 @@ function FilterToolbar({ page, onChange }: {
   );
 }
 
-function WeeklySchedule({ data, films, selectedDay, onNavigate, onDayChange }: {
+function WeeklySchedule({ data, films, selectedDay, onNavigate, onDayChange, onSelectFilm }: {
   data: ScheduleResponse;
   films: FilmGroup[];
   selectedDay: string | null;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
+  onSelectFilm: (id: string) => void;
 }) {
   const { period } = data;
   const days = period.weekStart ? getWeekDays(period.weekStart) : [];
@@ -288,22 +308,22 @@ function WeeklySchedule({ data, films, selectedDay, onNavigate, onDayChange }: {
 
       {films.length > 0 ? (
         <>
-          <div className="weekly-desktop"><WeeklyTable films={films} days={days} today={today} /></div>
-          <div className="weekly-mobile"><MobileWeek films={films} days={days} today={today} activeDay={activeDay} onDayChange={onDayChange} /></div>
+          <div className="weekly-desktop"><WeeklyTable films={films} days={days} today={today} onSelectFilm={onSelectFilm} /></div>
+          <div className="weekly-mobile"><MobileWeek films={films} days={days} today={today} activeDay={activeDay} onDayChange={onDayChange} onSelectFilm={onSelectFilm} /></div>
         </>
       ) : <div className="empty-box weekly-empty">V tomto týdnu nejsou projekce odpovídající vybraným filtrům.</div>}
     </section>
   );
 }
 
-function WeeklyTable({ films, days, today }: { films: FilmGroup[]; days: string[]; today: string }) {
+function WeeklyTable({ films, days, today, onSelectFilm }: { films: FilmGroup[]; days: string[]; today: string; onSelectFilm: (id: string) => void }) {
   return (
     <div className="weekly-table-scroll" role="region" aria-label="Týdenní program" tabIndex={0}>
       <table className="weekly-table">
         <thead><tr><th className="weekly-film-heading" scope="col">Film</th>{days.map((day) => <th className={day === today ? "weekly-today" : undefined} scope="col" key={day} aria-current={day === today ? "date" : undefined}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></th>)}</tr></thead>
         <tbody>{films.map((film) => (
           <tr key={film.id}>
-            <th className="weekly-film-cell" scope="row"><FilmMini film={film} /></th>
+            <th className="weekly-film-cell" scope="row"><FilmMini film={film} onSelectFilm={onSelectFilm} /></th>
             {days.map((day) => {
               const screenings = film.screenings.filter((screening) => screening.dateISO === day);
               return <td className={day === today ? "weekly-today" : undefined} key={day} aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}><div className="weekly-times">{screenings.map((screening) => <CompactScreening film={film} screening={screening} key={screening.id} />)}</div></td>;
@@ -315,7 +335,7 @@ function WeeklyTable({ films, days, today }: { films: FilmGroup[]; days: string[
   );
 }
 
-function MobileWeek({ films, days, today, activeDay, onDayChange }: { films: FilmGroup[]; days: string[]; today: string; activeDay: string; onDayChange: (day: string) => void }) {
+function MobileWeek({ films, days, today, activeDay, onDayChange, onSelectFilm }: { films: FilmGroup[]; days: string[]; today: string; activeDay: string; onDayChange: (day: string) => void; onSelectFilm: (id: string) => void }) {
   const dayFilms = films.map((film) => ({ ...film, screenings: film.screenings.filter((screening) => screening.dateISO === activeDay) })).filter((film) => film.screenings.length > 0);
 
   return (
@@ -328,28 +348,28 @@ function MobileWeek({ films, days, today, activeDay, onDayChange }: { films: Fil
         })}
       </div>
       <div className="mobile-day-program" role="tabpanel">
-        {dayFilms.length ? dayFilms.map((film, index) => <FilmRow film={film} priority={index === 0} key={film.id} />) : <div className="empty-box mobile-day-empty">V tento den není žádná projekce.</div>}
+        {dayFilms.length ? dayFilms.map((film, index) => <FilmRow film={film} priority={index === 0} onSelectFilm={onSelectFilm} key={film.id} />) : <div className="empty-box mobile-day-empty">V tento den není žádná projekce.</div>}
       </div>
     </div>
   );
 }
 
-function FilmMini({ film }: { film: FilmGroup }) {
+function FilmMini({ film, onSelectFilm }: { film: FilmGroup; onSelectFilm: (id: string) => void }) {
   return (
     <div className="weekly-film-summary">
       <Poster film={film} variant="mini" />
-      <div className="weekly-film-copy"><a className="weekly-film-title-link" href={film.screenings[0].fidikoUrl} target="_blank" rel="noopener noreferrer">{film.title}</a><div className="weekly-film-meta">{film.csfd?.rating != null ? film.csfd.url ? <a className={`weekly-rating ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="weekly-rating rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : null}{film.hasSubtitles ? <span className="weekly-subtitle-mark">Titulky</span> : null}</div></div>
+      <div className="weekly-film-copy"><button className="weekly-film-title-button" type="button" onClick={() => onSelectFilm(film.id)}>{film.title}</button><div className="weekly-film-meta">{film.csfd?.rating != null ? film.csfd.url ? <a className={`weekly-rating ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="weekly-rating rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : null}{film.hasSubtitles ? <span className="weekly-subtitle-mark">Titulky</span> : null}</div></div>
     </div>
   );
 }
 
-function FilmRow({ film, priority }: { film: FilmGroup; priority: boolean }) {
+function FilmRow({ film, priority, onSelectFilm }: { film: FilmGroup; priority: boolean; onSelectFilm?: (id: string) => void }) {
   return (
     <article className={film.hasSubtitles ? "film-row film-row-subtitles" : "film-row"} id={film.id}>
       <div className="film-info">
         <div className="poster-column"><Poster film={film} priority={priority} /></div>
         <div className="film-copy">
-          <div className="title-line"><h2><a className="film-title-link" href={film.screenings[0].fidikoUrl} target="_blank" rel="noopener noreferrer">{film.title}</a></h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
+          <div className="title-line"><h2>{onSelectFilm ? <button className="film-title-button" type="button" onClick={() => onSelectFilm(film.id)}>{film.title}</button> : film.title}</h2>{film.hasSubtitles ? <span className="subtitle-mark">Titulky</span> : null}</div>
           <p>{film.description}</p>
           <div className="csfd-block"><div className="csfd-line">{film.csfd?.rating != null ? film.csfd.url ? <a className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`} href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}>{film.csfd.rating}%</a> : <span className={`rating-badge ${getRatingClass(film.csfd.rating)}`}>{film.csfd.rating}%</span> : film.csfd?.url ? <a className="rating-badge rating-link rating-missing" href={film.csfd.url} target="_blank" rel="noopener noreferrer" aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}>?</a> : <span className="rating-badge rating-missing">?</span>}<span className="rating-copy">{getCsfdStatusText(film.csfd)}</span></div></div>
         </div>
@@ -427,7 +447,18 @@ function writePageState(page: PageState, mode: "push" | "replace") {
 }
 
 function readStoredViewMode(): ViewMode {
-  try { const stored = localStorage.getItem("nzfd-view-mode"); return stored === "all" || stored === "week" ? stored : "all"; } catch { return "all"; }
+  try {
+    localStorage.removeItem("nzfd-view-mode");
+  } catch {
+    // Ignore unavailable persistent storage while migrating the old preference.
+  }
+
+  try {
+    const stored = sessionStorage.getItem("nzfd-view-mode");
+    return stored === "all" || stored === "week" ? stored : "week";
+  } catch {
+    return "week";
+  }
 }
 
 function validISODate(value: string | null) { return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null; }

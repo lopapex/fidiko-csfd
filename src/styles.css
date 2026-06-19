@@ -374,13 +374,20 @@ a {
   line-height: 1.2;
 }
 
-.weekly-film-title-link,
-.film-title-link {
+.weekly-film-title-button,
+.film-title-button {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
   color: inherit;
-  text-decoration: none;
+  font: inherit;
+  font-weight: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 
-.weekly-film-title-link {
+.weekly-film-title-button {
   display: block;
   overflow-wrap: anywhere;
   font-size: 14px;
@@ -388,16 +395,15 @@ a {
   font-weight: 800;
 }
 
-.weekly-film-title-link:hover,
-.film-title-link:hover {
+.weekly-film-title-button:hover,
+.film-title-button:hover {
   color: var(--accent-dark);
   text-decoration: underline;
-  text-decoration-thickness: 1px;
   text-underline-offset: 2px;
 }
 
-.weekly-film-title-link:focus-visible,
-.film-title-link:focus-visible {
+.weekly-film-title-button:focus-visible,
+.film-title-button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
@@ -968,7 +974,7 @@ a.weekly-rating:hover {
   }
 
   .weekly-film-copy > strong,
-  .weekly-film-title-link {
+  .weekly-film-title-button {
     font-size: 12px;
   }
 
