@@ -221,7 +221,7 @@ function App() {
       {load.status === "error" ? <div className="error-box">{load.error}</div> : null}
 
       {load.status === "loading" && !load.data ? (
-        page.view === "week" ? <WeeklyLoading /> : <LoadingRows />
+        page.view === "week" ? <WeeklyLoading weekStart={page.week} selectedDay={page.day} /> : <LoadingRows />
       ) : load.data && page.view === "week" ? (
         <WeeklySchedule
           data={load.data}
@@ -381,8 +381,29 @@ function CompactScreening({ film, screening }: { film: FilmGroup; screening: Scr
   return <a className={screening.hasSubtitles ? "weekly-screening has-subtitles" : "weekly-screening"} href={targetUrl} target="_blank" rel="noopener noreferrer" aria-label={`${film.title}, ${screening.time ?? "detail"}${screening.ticketUrl ? ", vstupenky" : ""}`}><strong>{screening.time ?? "Detail"}</strong><span>{screening.formats.join(" / ") || "Info"}</span></a>;
 }
 
-function WeeklyLoading() {
-  return <section className="weekly-program" aria-label="Načítání týdenního programu"><div className="week-toolbar weekly-toolbar-skeleton"><div className="skeleton week-nav-skeleton" /><div className="skeleton week-title-skeleton" /><div className="skeleton week-nav-skeleton" /></div><div className="weekly-table-scroll"><div className="weekly-table-skeleton skeleton" /></div></section>;
+function WeeklyLoading({ weekStart, selectedDay }: { weekStart: string | null; selectedDay: string | null }) {
+  const start = weekStart ?? startOfWeek(getPragueTodayISO());
+  const days = getWeekDays(start);
+  const end = days[6];
+  const today = getPragueTodayISO();
+  const activeDay = selectedDay && days.includes(selectedDay) ? selectedDay : days.includes(today) ? today : days[0];
+
+  return (
+    <section className="weekly-program" aria-label="Načítání týdenního programu">
+      <div className="week-toolbar">
+        <button className="week-nav-button" type="button" disabled aria-label="Předchozí týden"><span aria-hidden="true">‹</span></button>
+        <div><span className="week-toolbar-label">Program na týden</span><h2>{formatWeekRange(start, end)}</h2></div>
+        <button className="week-nav-button" type="button" disabled aria-label="Další týden"><span aria-hidden="true">›</span></button>
+      </div>
+      <div className="weekly-desktop"><div className="weekly-table-scroll"><div className="weekly-table-skeleton skeleton" /></div></div>
+      <div className="weekly-mobile">
+        <div className="mobile-day-tabs" role="tablist" aria-label="Dny v týdnu">
+          {days.map((day) => <button className={[day === activeDay ? "active" : "", day === today ? "today" : ""].filter(Boolean).join(" ")} type="button" role="tab" aria-selected={day === activeDay} disabled key={day}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></button>)}
+        </div>
+        <div className="mobile-day-program"><LoadingRows /></div>
+      </div>
+    </section>
+  );
 }
 
 function LoadingRows() {
@@ -433,6 +454,7 @@ function getPragueTodayISO() {
 }
 
 function getWeekDays(weekStart: string) { return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index)); }
+function startOfWeek(value: string) { const date = new Date(`${value}T00:00:00.000Z`); const day = date.getUTCDay(); date.setUTCDate(date.getUTCDate() + (day === 0 ? -6 : 1 - day)); return date.toISOString().slice(0, 10); }
 function addDays(value: string, days: number) { const date = new Date(`${value}T00:00:00.000Z`); date.setUTCDate(date.getUTCDate() + days); return date.toISOString().slice(0, 10); }
 function formatWeekday(value: string) { return new Intl.DateTimeFormat("cs-CZ", { weekday: "short", timeZone: "UTC" }).format(new Date(`${value}T00:00:00.000Z`)).replace(".", ""); }
 function formatShortDate(value: string) { return new Intl.DateTimeFormat("cs-CZ", { day: "numeric", month: "numeric", timeZone: "UTC" }).format(new Date(`${value}T00:00:00.000Z`)); }

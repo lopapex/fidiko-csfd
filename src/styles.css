@@ -10,6 +10,10 @@
   -webkit-font-smoothing: antialiased;
   --accent: #d31724;
   --accent-dark: #9e111a;
+  --subtitle: #0b6b64;
+  --subtitle-dark: #07564f;
+  --subtitle-soft: #edf8f7;
+  --subtitle-line: #7fc5bf;
   --line: #d3d3d3;
   --soft: #f7f7f7;
   --text-muted: #6f6f6f;
@@ -236,7 +240,6 @@ a {
   border-radius: 0 0 6px 6px;
   background: #ffffff;
   overscroll-behavior-inline: contain;
-  scrollbar-gutter: stable;
 }
 
 .weekly-table-scroll:focus-visible {
@@ -410,7 +413,7 @@ a.weekly-rating:hover {
 }
 
 .weekly-subtitle-mark {
-  background: var(--accent);
+  background: var(--subtitle);
 }
 
 .weekly-times {
@@ -445,8 +448,8 @@ a.weekly-rating:hover {
 }
 
 .weekly-time-link.has-subtitles {
-  border-color: #e69299;
-  background: #fff4f5;
+  border-color: var(--subtitle-line);
+  background: var(--subtitle-soft);
 }
 
 .weekly-time-link strong {
@@ -555,8 +558,8 @@ a.weekly-rating:hover {
 }
 
 .film-row-subtitles {
-  border-left-color: var(--accent);
-  background: linear-gradient(90deg, #fff2f3 0, #ffffff 140px);
+  border-left-color: var(--subtitle);
+  background: linear-gradient(90deg, var(--subtitle-soft) 0, #ffffff 140px);
 }
 
 .film-info {
@@ -634,7 +637,7 @@ a.weekly-rating:hover {
 }
 
 .subtitle-mark {
-  background: var(--accent);
+  background: var(--subtitle);
   color: #ffffff;
   padding: 6px 7px;
 }
@@ -737,8 +740,17 @@ a.weekly-rating:hover {
 }
 
 .screening-subtitles {
-  border-color: #ed9ca3;
-  background: #fff6f7;
+  border-color: var(--subtitle-line);
+  background: var(--subtitle-soft);
+}
+
+.screening-subtitles:hover {
+  border-color: var(--subtitle-dark);
+  box-shadow: 0 8px 20px rgb(11 107 100 / 0.16);
+}
+
+.screening-subtitles .screening-time {
+  color: var(--subtitle-dark);
 }
 
 .screening-date {
@@ -772,7 +784,7 @@ a.weekly-rating:hover {
 }
 
 .format-subtitles {
-  background: var(--accent);
+  background: var(--subtitle);
   color: #ffffff;
 }
 
@@ -854,10 +866,16 @@ a.weekly-rating:hover {
 }
 
 @media (max-width: 520px) {
+  .app-shell {
+    width: 100%;
+    padding: 0 0 32px;
+  }
+
   .topbar {
     min-height: 66px;
     gap: 6px;
     padding: 8px;
+    border-radius: 0;
   }
 
   .app-wordmark {
@@ -1100,8 +1118,8 @@ a.weekly-rating:hover {
 }
 
 .filter-button.active {
-  border-color: var(--accent-dark);
-  background: var(--accent);
+  border-color: var(--subtitle-dark);
+  background: var(--subtitle);
   color: #ffffff;
 }
 
@@ -1173,8 +1191,18 @@ a.weekly-rating:hover {
 }
 
 .weekly-screening.has-subtitles {
-  border-color: #ed9ca3;
-  background: #fff6f7;
+  border-color: var(--subtitle-line);
+  background: var(--subtitle-soft);
+}
+
+.weekly-screening.has-subtitles:hover,
+.weekly-screening.has-subtitles:focus-visible {
+  border-color: var(--subtitle-dark);
+  background: #e1f2f0;
+}
+
+.weekly-screening.has-subtitles > strong {
+  color: var(--subtitle-dark);
 }
 
 .weekly-screening > strong,
@@ -1280,8 +1308,27 @@ a.weekly-rating:hover {
     display: block;
   }
 
+  .mobile-day-tabs {
+    width: 100%;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .mobile-day-tabs button {
+    min-width: 0;
+  }
+
   .mobile-day-program .film-row {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 340px) {
+  .mobile-day-tabs {
+    grid-template-columns: repeat(7, minmax(48px, 1fr));
+  }
+
+  .mobile-day-tabs button {
+    min-width: 48px;
   }
 }
 
