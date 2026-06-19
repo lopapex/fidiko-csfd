@@ -221,7 +221,7 @@ function App() {
       {load.status === "error" ? <div className="error-box">{load.error}</div> : null}
 
       {load.status === "loading" && !load.data ? (
-        page.view === "week" ? <WeeklyLoading weekStart={page.week} selectedDay={page.day} /> : <LoadingRows />
+        page.view === "week" ? <WeeklyLoading weekStart={page.week} /> : <LoadingRows />
       ) : load.data && page.view === "week" ? (
         <WeeklySchedule
           data={load.data}
@@ -381,12 +381,10 @@ function CompactScreening({ film, screening }: { film: FilmGroup; screening: Scr
   return <a className={screening.hasSubtitles ? "weekly-screening has-subtitles" : "weekly-screening"} href={targetUrl} target="_blank" rel="noopener noreferrer" aria-label={`${film.title}, ${screening.time ?? "detail"}${screening.ticketUrl ? ", vstupenky" : ""}`}><strong>{screening.time ?? "Detail"}</strong><span>{screening.formats.join(" / ") || "Info"}</span></a>;
 }
 
-function WeeklyLoading({ weekStart, selectedDay }: { weekStart: string | null; selectedDay: string | null }) {
+function WeeklyLoading({ weekStart }: { weekStart: string | null }) {
   const start = weekStart ?? startOfWeek(getPragueTodayISO());
   const days = getWeekDays(start);
   const end = days[6];
-  const today = getPragueTodayISO();
-  const activeDay = selectedDay && days.includes(selectedDay) ? selectedDay : days.includes(today) ? today : days[0];
 
   return (
     <section className="weekly-program" aria-label="Načítání týdenního programu">
@@ -398,7 +396,7 @@ function WeeklyLoading({ weekStart, selectedDay }: { weekStart: string | null; s
       <div className="weekly-desktop"><div className="weekly-table-scroll"><div className="weekly-table-skeleton skeleton" /></div></div>
       <div className="weekly-mobile">
         <div className="mobile-day-tabs" role="tablist" aria-label="Dny v týdnu">
-          {days.map((day) => <button className={[day === activeDay ? "active" : "", day === today ? "today" : ""].filter(Boolean).join(" ")} type="button" role="tab" aria-selected={day === activeDay} disabled key={day}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></button>)}
+          {days.map((day) => <button className="day-tab-skeleton" type="button" role="tab" aria-label="Načítání dne" disabled key={day}><span className="skeleton day-name-skeleton" /><span className="skeleton day-date-skeleton" /></button>)}
         </div>
         <div className="mobile-day-program"><LoadingRows /></div>
       </div>

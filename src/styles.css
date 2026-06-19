@@ -1286,9 +1286,38 @@ a.weekly-rating:hover {
   color: #eeeeee;
 }
 
+.mobile-day-tabs .day-tab-skeleton {
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  background: #ffffff;
+}
+
+.day-tab-skeleton .day-name-skeleton,
+.day-tab-skeleton .day-date-skeleton {
+  display: block;
+  margin: 0 auto;
+  border-radius: 3px;
+}
+
+.day-name-skeleton {
+  width: 24px;
+  height: 8px;
+}
+
+.day-date-skeleton {
+  width: 34px;
+  height: 15px;
+}
+
 .mobile-day-program .program-list,
 .mobile-day-program {
   margin-top: 12px;
+}
+
+.mobile-day-program {
+  display: grid;
+  gap: 12px;
 }
 
 .mobile-day-empty {
