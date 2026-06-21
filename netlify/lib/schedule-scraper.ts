@@ -454,7 +454,7 @@ function parseDateText(value: string) {
   return { dateLabel, weekday, time };
 }
 
-function inferScreeningDateISO(dateLabel: string) {
+export function inferScreeningDateISO(dateLabel: string) {
   const match = dateLabel.match(/(\d{1,2})\.(\d{1,2})\./);
   if (!match) {
     throw new Error(`Unsupported screening date: ${dateLabel}`);
@@ -539,7 +539,7 @@ function daysBetweenISO(earlier: string, later: string) {
   return (laterDate.getTime() - earlierDate.getTime()) / 86_400_000;
 }
 
-function normalizeFilmTitle(title: string) {
+export function normalizeFilmTitle(title: string) {
   return cleanText(
     title
       .replace(FORMAT_TAG_GROUP_RE, "")

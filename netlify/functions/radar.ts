@@ -3,14 +3,12 @@ import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 
 const RADAR_CACHE_STORE = "radar-cache";
 const RADAR_CACHE_KEY = "current-v7";
-const RADAR_MONTH_CACHE_VERSION = "month-v6";
 const RADAR_WEEK_CACHE_VERSION = "week-v6";
 const LEGACY_RADAR_CACHE_KEYS = ["current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
-const LEGACY_MONTH_CACHE_VERSIONS = ["month-v5", "month-v4", "month-v3", "month-v2", "month-v1"];
 const LEGACY_WEEK_CACHE_VERSIONS = ["week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
+const FUTURE_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 
-type RadarPeriod = "week" | "month";
 type RadarType = "all" | RadarMediaType;
 const initializationPromises = new Map<string, Promise<RadarSnapshot>>();
 
@@ -22,20 +20,15 @@ export default async function handler(request: Request) {
   }
 
   const url = new URL(request.url);
-  const periodParam = url.searchParams.get("period") ?? "week";
-  const period = (periodParam === "upcoming" ? "month" : periodParam) as RadarPeriod;
+  const period = url.searchParams.get("period") ?? "week";
   const type = (url.searchParams.get("type") ?? "all") as RadarType;
-  const requestedMonth = url.searchParams.get("month") ?? getPragueTodayISO().slice(0, 7);
   const currentWeekStart = startOfISOWeek(getPragueTodayISO());
   const requestedWeek = url.searchParams.get("week") ?? currentWeekStart;
 
-  if (period !== "week" && period !== "month") {
+  if (period !== "week" || url.searchParams.has("month")) {
     return errorResponse({ error: "Invalid radar period" }, 400);
   }
-  if (period === "month" && !validMonth(requestedMonth)) {
-    return errorResponse({ error: "Invalid radar month" }, 400);
-  }
-  if (period === "week" && !validWeek(requestedWeek)) {
+  if (!validWeek(requestedWeek)) {
     return errorResponse({ error: "Invalid radar week" }, 400);
   }
   if (type !== "all" && type !== "movie" && type !== "series") {
@@ -45,29 +38,43 @@ export default async function handler(request: Request) {
   try {
     const weekStart = requestedWeek;
     const weekEnd = addDaysISO(weekStart, 6);
-    const start = period === "week" ? weekStart : `${requestedMonth}-01`;
-    const end = period === "week" ? weekEnd : addDaysISO(addMonthsISO(start, 1), -1);
+    const start = weekStart;
+    const end = weekEnd;
     const blobStarted = performance.now();
-    const cacheKey = period === "month" ? `${RADAR_MONTH_CACHE_VERSION}/${requestedMonth}` : `${RADAR_WEEK_CACHE_VERSION}/${requestedWeek}`;
-    let snapshot = await readRadarCache(cacheKey);
+    const cacheKey = `${RADAR_WEEK_CACHE_VERSION}/${requestedWeek}`;
+    const currentSnapshot = await readRadarCache(RADAR_CACHE_KEY);
+    let snapshot = currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end
+      ? currentSnapshot
+      : null;
+    let staleSnapshot: RadarSnapshot | null = null;
     const blobDuration = performance.now() - blobStarted;
     let initializationDuration = 0;
-    let cacheStatus = "hit";
+    let cacheStatus = snapshot ? "range-hit" : "miss";
+
+    if (snapshot && isStaleFutureSnapshot(snapshot, start)) {
+      staleSnapshot = snapshot;
+      snapshot = null;
+      cacheStatus = "stale-range";
+    }
 
     if (!snapshot) {
-      const currentSnapshot = await readRadarCache(RADAR_CACHE_KEY);
-      if (currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end) {
-        snapshot = currentSnapshot;
-        cacheStatus = "range-hit";
+      snapshot = await readRadarCache(cacheKey);
+      if (snapshot) {
+        cacheStatus = "hit";
+        if (isStaleFutureSnapshot(snapshot, start)) {
+          staleSnapshot ??= snapshot;
+          snapshot = null;
+          cacheStatus = "stale";
+        }
       }
     }
 
     if (!snapshot) {
       const initializationStarted = performance.now();
       try {
-        snapshot = await initializeSnapshot(cacheKey, period, requestedMonth, requestedWeek);
+        snapshot = await initializeSnapshot(cacheKey, requestedWeek);
       } catch (error) {
-        snapshot = await readLegacySnapshot(period, requestedMonth, requestedWeek, start, end);
+        snapshot = staleSnapshot ?? await readLegacySnapshot(requestedWeek, start, end);
         if (snapshot) {
           cacheStatus = "stale-fallback";
         } else if (error instanceof Error && error.message.includes("TMDB_API_TOKEN")) {
@@ -81,25 +88,17 @@ export default async function handler(request: Request) {
     }
 
     const filterStarted = performance.now();
-    const items = snapshot.items
-      .filter((item) => item.releaseDate >= start && item.releaseDate <= end && (type === "all" || item.mediaType === type))
-      .map((item) => ({
-        ...item,
-        providers: item.providers.filter((provider) => !isHiddenProvider(provider.name))
-      }));
+    const items = filterRadarItems(snapshot, start, end, type);
     const body = {
       fetchedAt: snapshot.fetchedAt,
       period: {
-        mode: period,
+        mode: "week",
         start,
         end,
-        month: period === "month" ? requestedMonth : null,
-        previousMonth: period === "month" ? addMonthsISO(start, -1).slice(0, 7) : null,
-        nextMonth: period === "month" ? addMonthsISO(start, 1).slice(0, 7) : null,
-        weekStart: period === "week" ? start : null,
-        weekEnd: period === "week" ? end : null,
-        previousWeekStart: period === "week" ? addDaysISO(start, -7) : null,
-        nextWeekStart: period === "week" ? addDaysISO(start, 7) : null
+        weekStart: start,
+        weekEnd: end,
+        previousWeekStart: addDaysISO(start, -7),
+        nextWeekStart: addDaysISO(start, 7)
       },
       items
     };
@@ -117,11 +116,9 @@ export default async function handler(request: Request) {
   }
 }
 
-async function readLegacySnapshot(period: RadarPeriod, month: string, week: string, start: string, end: string) {
-  const versions = period === "month" ? LEGACY_MONTH_CACHE_VERSIONS : LEGACY_WEEK_CACHE_VERSIONS;
-  const value = period === "month" ? month : week;
-  for (const version of versions) {
-    const periodSnapshot = await readRadarCache(`${version}/${value}`);
+async function readLegacySnapshot(week: string, start: string, end: string) {
+  for (const version of LEGACY_WEEK_CACHE_VERSIONS) {
+    const periodSnapshot = await readRadarCache(`${version}/${week}`);
     if (periodSnapshot) return periodSnapshot;
   }
 
@@ -132,12 +129,12 @@ async function readLegacySnapshot(period: RadarPeriod, month: string, week: stri
   return null;
 }
 
-async function initializeSnapshot(cacheKey: string, period: RadarPeriod, month: string, week: string) {
+async function initializeSnapshot(cacheKey: string, week: string) {
   const running = initializationPromises.get(cacheKey);
   if (running) return running;
 
   const promise = import("../lib/radar-refresh")
-    .then((refresh) => period === "month" ? refresh.refreshRadarMonth(month) : refresh.refreshRadarWeek(week))
+    .then((refresh) => refresh.refreshRadarWeek(week))
     .finally(() => initializationPromises.delete(cacheKey));
   initializationPromises.set(cacheKey, promise);
   return promise;
@@ -201,19 +198,6 @@ function addDaysISO(value: string, days: number) {
   return date.toISOString().slice(0, 10);
 }
 
-function addMonthsISO(value: string, months: number) {
-  const date = parseISODate(value);
-  date.setUTCMonth(date.getUTCMonth() + months);
-  return date.toISOString().slice(0, 10);
-}
-
-function validMonth(value: string) {
-  if (!/^\d{4}-\d{2}$/.test(value)) return false;
-  const year = Number(value.slice(0, 4));
-  const month = Number(value.slice(5, 7));
-  return year >= 1900 && year <= 2100 && month >= 1 && month <= 12;
-}
-
 function validWeek(value: string) {
   try {
     return startOfISOWeek(value) === value;
@@ -222,7 +206,22 @@ function validWeek(value: string) {
   }
 }
 
-function isHiddenProvider(name: string) {
+function isStaleFutureSnapshot(snapshot: RadarSnapshot, weekStart: string) {
+  if (weekStart <= getPragueTodayISO()) return false;
+  const fetchedAt = Date.parse(snapshot.fetchedAt);
+  return !Number.isFinite(fetchedAt) || Date.now() - fetchedAt > FUTURE_SNAPSHOT_MAX_AGE_MS;
+}
+
+export function isHiddenProvider(name: string) {
   const normalized = name.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
   return /\blepsi\s*\.?\s*tv\b/.test(normalized) || /^canal\s*(?:\+|plus)$/.test(normalized.trim());
+}
+
+export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: string, type: RadarType) {
+  return snapshot.items
+    .filter((item) => item.releaseDate >= start && item.releaseDate <= end && (type === "all" || item.mediaType === type))
+    .map((item) => ({
+      ...item,
+      providers: item.providers.filter((provider) => !isHiddenProvider(provider.name))
+    }));
 }

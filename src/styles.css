@@ -187,6 +187,43 @@ a {
   font-weight: 700;
 }
 
+.load-notice {
+  margin-top: 12px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #efb1b7;
+  border-radius: 5px;
+  background: #fff3f3;
+  color: #7d1018;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.load-notice.warning {
+  border-color: #d9b05f;
+  background: #fff8e7;
+  color: #5f430d;
+}
+
+.load-notice button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.load-notice button:hover,
+.load-notice button:focus-visible {
+  background: rgb(255 255 255 / 0.72);
+}
+
 .weekly-program {
   margin-top: 18px;
 }
@@ -1831,16 +1868,11 @@ a.weekly-rating:hover {
     width: auto;
     padding-top: 0;
     display: grid;
-    grid-template-areas: "view mode install";
-    grid-template-columns: auto auto 34px;
+    grid-template-areas: "view mode";
+    grid-template-columns: auto auto;
     gap: 6px;
     align-items: center;
     border-top: 0;
-  }
-
-  .topbar-actions:not(:has(.header-icon-button)) {
-    grid-template-areas: "view mode";
-    grid-template-columns: auto auto;
   }
 
   .mode-switch {
@@ -1862,7 +1894,6 @@ a.weekly-rating:hover {
   }
 
   .header-icon-button {
-    grid-area: install;
     width: 34px;
     height: 34px;
   }

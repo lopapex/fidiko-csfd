@@ -7,6 +7,7 @@
     "dev": "netlify dev",
     "dev:client": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {
@@ -24,6 +25,7 @@
     "@types/react-dom": "^19.0.2",
     "netlify-cli": "^26.1.0",
     "typescript": "^5.7.2",
-    "vite": "^6.0.5"
+    "vite": "^6.0.5",
+    "vitest": "^3.2.4"
   }
 }

@@ -6,7 +6,6 @@ const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
 const RADAR_CACHE_KEY = "current-v7";
-const RADAR_MONTH_CACHE_VERSION = "month-v6";
 const RADAR_WEEK_CACHE_VERSION = "week-v6";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
@@ -116,18 +115,6 @@ export async function refreshRadarCache(): Promise<RadarSnapshot> {
   return snapshot;
 }
 
-export async function refreshRadarMonth(month: string): Promise<RadarSnapshot> {
-  const rangeStart = `${month}-01`;
-  const rangeEnd = addDaysISO(addMonthsISO(rangeStart, 1), -1);
-  const snapshot = await buildRadarSnapshot(rangeStart, rangeEnd);
-
-  if (snapshot.items.length > 0) {
-    const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
-    await store.setJSON(`${RADAR_MONTH_CACHE_VERSION}/${month}`, snapshot);
-  }
-  return snapshot;
-}
-
 export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot> {
   const snapshot = await buildRadarSnapshot(weekStart, addDaysISO(weekStart, 6));
   const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
@@ -136,33 +123,57 @@ export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot
 }
 
 async function buildRadarSnapshot(rangeStart: string, rangeEnd: string) {
+  const totalStarted = performance.now();
   const token = process.env.TMDB_API_TOKEN?.trim();
   if (!token) {
     throw new Error("TMDB_API_TOKEN is not configured");
   }
 
+  const discoveryStarted = performance.now();
   const [cinemaMovies, streamingMovies, streamingSeries, schedule] = await Promise.all([
     discoverMovies(token, rangeStart, rangeEnd, "2|3"),
     discoverMovies(token, rangeStart, rangeEnd, "4"),
     discoverSeries(token, rangeStart, rangeEnd),
     readScheduleCache()
   ]);
+  const discoveryMs = performance.now() - discoveryStarted;
 
   if (![cinemaMovies, streamingMovies, streamingSeries].some((result) => result.succeeded)) {
     throw new Error("TMDb discovery is temporarily unavailable");
   }
 
   const cinemaItems = cinemaMovies.items.map((item) => createRadarItem(item, "movie", "cinema", null));
+  const providersStarted = performance.now();
   const movieStreamingItems = await enrichStreamingItems(token, streamingMovies.items, "movie");
   const seriesPremieres = await resolveSeriesPremieres(token, streamingSeries.items.slice(0, 40), rangeStart, rangeEnd);
   const seriesStreamingItems = await enrichStreamingItems(token, seriesPremieres, "series", true);
+  const providersMs = performance.now() - providersStarted;
+  const csfdStarted = performance.now();
   const enrichedItems = await enrichRadarItemsWithCsfd(
     deduplicateItems([...cinemaItems, ...movieStreamingItems, ...seriesStreamingItems])
   );
+  const csfdMs = performance.now() - csfdStarted;
+  const linkingStarted = performance.now();
   const items = linkProgramMatches(enrichedItems, schedule).sort(compareItems);
+  const linkingMs = performance.now() - linkingStarted;
   const csfdMatches = items.filter((item) => item.csfd?.url).length;
   const programMatches = items.filter((item) => item.program).length;
-  console.log(`Radar snapshot ${rangeStart} to ${rangeEnd}: ${items.length} items, ${csfdMatches} CSFD matches, ${programMatches} Fidiko matches`);
+  console.log("Radar refresh metrics", {
+    rangeStart,
+    rangeEnd,
+    items: items.length,
+    csfdMatches,
+    missingCsfdMatches: items.length - csfdMatches,
+    programMatches,
+    scheduleCacheHit: Boolean(schedule),
+    timingsMs: {
+      discovery: Math.round(discoveryMs),
+      providers: Math.round(providersMs),
+      csfd: Math.round(csfdMs),
+      linking: Math.round(linkingMs),
+      total: Math.round(performance.now() - totalStarted)
+    }
+  });
   return {
     fetchedAt: new Date().toISOString(),
     range: { start: rangeStart, end: rangeEnd },
@@ -358,7 +369,7 @@ async function readScheduleCache() {
   }
 }
 
-function linkProgramMatches(items: RadarItem[], schedule: ScheduleResponse | null) {
+export function linkProgramMatches(items: RadarItem[], schedule: ScheduleResponse | null) {
   if (!schedule) return items;
 
   const byCsfdUrl = new Map<string, ScheduleResponse["films"][number]>();
@@ -410,12 +421,12 @@ function deduplicateProviders(providers: TmdbProvider[]) {
     .map((provider) => ({
       id: provider.provider_id,
       name: provider.provider_name,
-      logoUrl: `${TMDB_IMAGE_BASE}/w92${provider.logo_path}`,
+      logoUrl: `${TMDB_IMAGE_BASE}/w45${provider.logo_path}`,
       url: getProviderUrl(provider.provider_name)
     }));
 }
 
-function isHiddenProvider(name: string) {
+export function isHiddenProvider(name: string) {
   const normalized = name.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
   return /\blepsi\s*\.?\s*tv\b/.test(normalized) || /^canal\s*(?:\+|plus)$/.test(normalized.trim());
 }
@@ -535,11 +546,5 @@ function startOfISOWeek(value: string) {
 function addDaysISO(value: string, days: number) {
   const date = parseISODate(value);
   date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function addMonthsISO(value: string, months: number) {
-  const date = parseISODate(value);
-  date.setUTCMonth(date.getUTCMonth() + months);
   return date.toISOString().slice(0, 10);
 }

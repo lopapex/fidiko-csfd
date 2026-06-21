@@ -1,142 +1,52 @@
 import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { Clapperboard, Download, Radar, Search, X } from "lucide-react";
+import { Clapperboard, Search, X } from "lucide-react";
+import { AppHeader } from "./AppHeader";
+import { fetchJson, getCachedApi } from "./api";
+import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "./page-state";
+import type {
+  AppMode,
+  CsfdMatch,
+  FilmGroup,
+  InstallPromptEvent,
+  LoadState,
+  PageState,
+  RadarItem,
+  RadarResponse,
+  ScheduleResponse,
+  Screening,
+  ViewMode
+} from "./types";
 import "./styles.css";
 
-type Screening = {
-  id: string;
-  title: string;
-  fidikoUrl: string;
-  ticketUrl: string | null;
-  posterUrl: string | null;
-  dateText: string;
-  dateLabel: string;
-  dateISO: string;
-  weekday: string | null;
-  time: string | null;
-  description: string;
-  formats: string[];
-  hasSubtitles: boolean;
-};
+function getScheduleUrl(page: PageState) {
+  if (page.view !== "week") return "/api/schedule";
+  return `/api/schedule?view=week${page.week ? `&week=${encodeURIComponent(page.week)}` : ""}`;
+}
 
-type CsfdMatch = {
-  title: string;
-  rating: number | null;
-  ratingCount: number | null;
-  url: string | null;
-  poster: string | null;
-};
-
-type FilmGroup = {
-  id: string;
-  title: string;
-  posterUrl: string | null;
-  description: string;
-  hasSubtitles: boolean;
-  csfd: CsfdMatch | null;
-  screenings: Screening[];
-};
-
-type ViewMode = "week" | "all";
-type AppMode = "radar" | "program";
-
-type ScheduleResponse = {
-  fetchedAt: string;
-  totals: { films: number; screenings: number; withSubtitles: number };
-  period: {
-    mode: ViewMode;
-    weekStart: string | null;
-    weekEnd: string | null;
-    previousWeekStart: string | null;
-    nextWeekStart: string | null;
-  };
-  films: FilmGroup[];
-};
-
-type RadarProvider = {
-  id: number;
-  name: string;
-  logoUrl: string;
-  url: string | null;
-};
-type RadarProgramMatch = {
-  filmId: string;
-  firstScreeningDate: string;
-  screeningCount: number;
-};
-type RadarItem = {
-  id: string;
-  tmdbId: number;
-  mediaType: "movie" | "series";
-  channel: "cinema" | "streaming";
-  title: string;
-  originalTitle: string | null;
-  overview: string;
-  posterUrl: string | null;
-  releaseDate: string;
-  providers: RadarProvider[];
-  watchUrl: string | null;
-  csfd: CsfdMatch | null;
-  program: RadarProgramMatch | null;
-};
-type RadarResponse = {
-  fetchedAt: string;
-  period: {
-    mode: "week" | "month";
-    start: string;
-    end: string;
-    month: string | null;
-    previousMonth: string | null;
-    nextMonth: string | null;
-    weekStart: string | null;
-    weekEnd: string | null;
-    previousWeekStart: string | null;
-    nextWeekStart: string | null;
-  };
-  items: RadarItem[];
-};
-
-type PageState = {
-  mode: AppMode;
-  view: ViewMode;
-  week: string | null;
-  day: string | null;
-  query: string;
-  subtitles: boolean;
-  radarWeek: string | null;
-  radarDay: string | null;
-};
-
-type LoadState =
-  | { status: "loading"; data: ScheduleResponse | null; error: null }
-  | { status: "ready"; data: ScheduleResponse; error: null }
-  | { status: "error"; data: ScheduleResponse | null; error: string };
-
-type RadarLoadState =
-  | { status: "loading"; data: RadarResponse | null; error: null }
-  | { status: "ready"; data: RadarResponse; error: null }
-  | { status: "error"; data: RadarResponse | null; error: string };
-
-type InstallPromptEvent = Event & {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
-};
-
-const VIEW_MODE_KEY = "nzfd-view-mode-v2";
+function getRadarUrl(page: PageState) {
+  return `/api/radar?period=week&type=all${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
+}
 
 function App() {
   const [page, setPage] = useState<PageState>(readPageState);
   const pageRef = useRef(page);
-  const [load, setLoad] = useState<LoadState>({
+  const [load, setLoad] = useState<LoadState<ScheduleResponse>>({
     status: "loading",
     data: null,
     error: null,
+    refreshing: false,
   });
-  const [radarLoad, setRadarLoad] = useState<RadarLoadState>({
+  const [radarLoad, setRadarLoad] = useState<LoadState<RadarResponse>>({
     status: "loading",
     data: null,
     error: null,
+    refreshing: false,
   });
+  const scheduleRequestId = useRef(0);
+  const radarRequestId = useRef(0);
+  const [scheduleRetry, setScheduleRetry] = useState(0);
+  const [radarRetry, setRadarRetry] = useState(0);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
@@ -178,88 +88,93 @@ function App() {
   useEffect(() => {
     if (page.mode !== "program") return;
     const controller = new AbortController();
+    const requestId = ++scheduleRequestId.current;
+    const url = getScheduleUrl(page);
+    const cached = getCachedApi<ScheduleResponse>(url);
 
     async function loadSchedule() {
-      setLoad({ status: "loading", data: null, error: null });
+      if (cached) {
+        setLoad({
+          status: "ready",
+          data: cached.data,
+          error: null,
+          refreshing: !cached.fresh,
+        });
+        setOffline(cached.offline || !navigator.onLine);
+        if (cached.fresh) return;
+      } else {
+        setLoad({ status: "loading", data: null, error: null, refreshing: false });
+      }
 
       try {
-        const query =
-          page.view === "week"
-            ? `?view=week${page.week ? `&week=${encodeURIComponent(page.week)}` : ""}`
-            : "";
-        const response = await fetch(`/api/schedule${query}`, {
-          signal: controller.signal,
-        });
-        const body = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            body.detail || body.error || "Program se nepodařilo načíst.",
-          );
-        }
-
-        setOffline(
-          response.headers.get("x-nzfd-offline") === "1" || !navigator.onLine,
-        );
-        setLoad({ status: "ready", data: body, error: null });
+        const result = await fetchJson<ScheduleResponse>(url, controller.signal);
+        if (requestId !== scheduleRequestId.current) return;
+        setOffline(result.offline || !navigator.onLine);
+        setLoad({ status: "ready", data: result.data, error: null, refreshing: false });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        setLoad(current => ({
+        if (requestId !== scheduleRequestId.current) return;
+        setLoad({
           status: "error",
-          data: current.data,
+          data: cached?.data ?? null,
           error:
             error instanceof Error
               ? error.message
               : "Program se nepodařilo načíst.",
-        }));
+          refreshing: false,
+        });
       }
     }
 
     void loadSchedule();
     return () => controller.abort();
-  }, [page.mode, page.view, page.week]);
+  }, [page.mode, page.view, page.week, scheduleRetry]);
 
   useEffect(() => {
     if (page.mode !== "radar") return;
     const controller = new AbortController();
+    const requestId = ++radarRequestId.current;
+    const url = getRadarUrl(page);
+    const cached = getCachedApi<RadarResponse>(url);
 
     async function loadRadar() {
-      setRadarLoad({ status: "loading", data: null, error: null });
-      try {
-        const week = page.radarWeek
-          ? `&week=${encodeURIComponent(page.radarWeek)}`
-          : "";
-        const response = await fetch(`/api/radar?period=week&type=all${week}`, {
-          signal: controller.signal,
+      if (cached) {
+        setRadarLoad({
+          status: "ready",
+          data: cached.data,
+          error: null,
+          refreshing: !cached.fresh,
         });
-        const body = await response.json();
-        if (!response.ok) {
-          throw new Error(
-            body.detail || body.error || "Radar se nepodařilo načíst.",
-          );
-        }
-        setOffline(
-          response.headers.get("x-nzfd-offline") === "1" || !navigator.onLine,
-        );
-        setRadarLoad({ status: "ready", data: body, error: null });
+        setOffline(cached.offline || !navigator.onLine);
+        if (cached.fresh) return;
+      } else {
+        setRadarLoad({ status: "loading", data: null, error: null, refreshing: false });
+      }
+      try {
+        const result = await fetchJson<RadarResponse>(url, controller.signal);
+        if (requestId !== radarRequestId.current) return;
+        setOffline(result.offline || !navigator.onLine);
+        setRadarLoad({ status: "ready", data: result.data, error: null, refreshing: false });
       } catch (error) {
         if (error instanceof DOMException && error.name === "AbortError")
           return;
-        setRadarLoad(current => ({
+        if (requestId !== radarRequestId.current) return;
+        setRadarLoad({
           status: "error",
-          data: current.data,
+          data: cached?.data ?? null,
           error:
             error instanceof Error
               ? error.message
               : "Radar se nepodařilo načíst.",
-        }));
+          refreshing: false,
+        });
       }
     }
 
     void loadRadar();
     return () => controller.abort();
-  }, [page.mode, page.radarWeek]);
+  }, [page.mode, page.radarWeek, radarRetry]);
 
   useEffect(() => {
     if (page.mode !== "radar" || !radarLoad.data?.period.weekStart) return;
@@ -296,13 +211,7 @@ function App() {
     changePage({ day: nextDay }, "replace");
   }, [load.data, page.day, page.mode, page.view]);
 
-  useEffect(() => {
-    try {
-      sessionStorage.setItem(VIEW_MODE_KEY, page.view);
-    } catch {
-      // View preference remains optional when browser storage is unavailable.
-    }
-  }, [page.view]);
+  useEffect(() => storeViewMode(page.view), [page.view]);
 
   useEffect(() => {
     if (
@@ -310,6 +219,7 @@ function App() {
       page.mode !== "program" ||
       page.view !== "all" ||
       load.status !== "ready" ||
+      !load.data ||
       load.data.period.mode !== "all"
     )
       return;
@@ -371,10 +281,32 @@ function App() {
       next.mode === "radar" &&
       (current.mode !== "radar" || current.radarWeek !== next.radarWeek);
 
-    if (scheduleRequestChanged)
-      setLoad({ status: "loading", data: null, error: null });
-    if (radarRequestChanged)
-      setRadarLoad({ status: "loading", data: null, error: null });
+    if (scheduleRequestChanged) {
+      const cached = getCachedApi<ScheduleResponse>(getScheduleUrl(next));
+      setLoad(
+        cached
+          ? {
+              status: "ready",
+              data: cached.data,
+              error: null,
+              refreshing: !cached.fresh,
+            }
+          : { status: "loading", data: null, error: null, refreshing: false },
+      );
+    }
+    if (radarRequestChanged) {
+      const cached = getCachedApi<RadarResponse>(getRadarUrl(next));
+      setRadarLoad(
+        cached
+          ? {
+              status: "ready",
+              data: cached.data,
+              error: null,
+              refreshing: !cached.fresh,
+            }
+          : { status: "loading", data: null, error: null, refreshing: false },
+      );
+    }
   }
 
   function changeView(view: ViewMode) {
@@ -416,103 +348,14 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar topbar-standalone">
-        <div className="brand-block">
-          <img
-            className="app-wordmark"
-            src="/nzfd-wordmark.png"
-            alt="NZFD"
-            width="430"
-            height="48"
-            fetchPriority="high"
-          />
-        </div>
-        <div className="topbar-actions">
-          {page.mode === "program" ? (
-            <div
-              className="view-switch"
-              role="group"
-              aria-label="Zobrazení programu"
-            >
-              <button
-                className={
-                  page.view === "week"
-                    ? "view-switch-button active"
-                    : "view-switch-button"
-                }
-                type="button"
-                aria-pressed={page.view === "week"}
-                onClick={() => changeView("week")}
-              >
-                Týden
-              </button>
-              <button
-                className={
-                  page.view === "all"
-                    ? "view-switch-button active"
-                    : "view-switch-button"
-                }
-                type="button"
-                aria-pressed={page.view === "all"}
-                onClick={() => changeView("all")}
-              >
-                Vše
-              </button>
-            </div>
-          ) : (
-            <div
-              className="view-switch view-switch-placeholder"
-              aria-hidden="true"
-            >
-              <span className="view-switch-button">Týden</span>
-              <span className="view-switch-button">Vše</span>
-            </div>
-          )}
-          <div
-            className="mode-switch"
-            role="group"
-            aria-label="Hlavní část aplikace"
-          >
-            <button
-              className={
-                page.mode === "program" ? "mode-button active" : "mode-button"
-              }
-              type="button"
-              aria-pressed={page.mode === "program"}
-              onClick={() => changeMode("program")}
-              aria-label="Program"
-              title="Program"
-            >
-              <Clapperboard size={18} aria-hidden="true" />
-              <span>Program</span>
-            </button>
-            <button
-              className={
-                page.mode === "radar" ? "mode-button active" : "mode-button"
-              }
-              type="button"
-              aria-pressed={page.mode === "radar"}
-              onClick={() => changeMode("radar")}
-              aria-label="Radar"
-              title="Radar"
-            >
-              <Radar size={18} aria-hidden="true" />
-              <span>Radar</span>
-            </button>
-          </div>
-          {installPrompt ? (
-            <button
-              className="header-icon-button"
-              type="button"
-              onClick={() => void installApp()}
-              title="Nainstalovat aplikaci"
-              aria-label="Nainstalovat aplikaci"
-            >
-              <Download size={19} />
-            </button>
-          ) : null}
-        </div>
-      </header>
+      <AppHeader
+        mode={page.mode}
+        view={page.view}
+        canInstall={Boolean(installPrompt)}
+        onModeChange={changeMode}
+        onViewChange={changeView}
+        onInstall={() => void installApp()}
+      />
 
       {page.mode === "radar" ? (
         <RadarView
@@ -520,6 +363,7 @@ function App() {
           page={page}
           offline={offline}
           onChange={changePage}
+          onRetry={() => setRadarRetry(value => value + 1)}
           onSelectProgramFilm={showFilmInAll}
         />
       ) : (
@@ -534,7 +378,11 @@ function App() {
             </div>
           ) : null}
           {load.status === "error" ? (
-            <div className="error-box">{load.error}</div>
+            <LoadNotice
+              message={load.error ?? "Program se nepodařilo načíst."}
+              warning={Boolean(load.data)}
+              onRetry={() => setScheduleRetry(value => value + 1)}
+            />
           ) : null}
           {load.status === "loading" && !load.data ? (
             page.view === "week" ? (
@@ -575,12 +423,14 @@ function RadarView({
   page,
   offline,
   onChange,
+  onRetry,
   onSelectProgramFilm,
 }: {
-  load: RadarLoadState;
+  load: LoadState<RadarResponse>;
   page: PageState;
   offline: boolean;
   onChange: (patch: Partial<PageState>, mode?: "push" | "replace") => void;
+  onRetry: () => void;
   onSelectProgramFilm: (id: string) => void;
 }) {
   const items = load.data?.items ?? [];
@@ -593,7 +443,11 @@ function RadarView({
         </div>
       ) : null}
       {load.status === "error" ? (
-        <div className="error-box">{load.error}</div>
+        <LoadNotice
+          message={load.error ?? "Radar se nepodařilo načíst."}
+          warning={Boolean(load.data)}
+          onRetry={onRetry}
+        />
       ) : null}
       {load.status === "loading" && !load.data ? (
         <RadarWeeklyLoading weekStart={page.radarWeek} />
@@ -842,7 +696,9 @@ function RadarMini({ item }: { item: RadarItem }) {
       <div className="weekly-poster">
         {item.posterUrl ? (
           <img
-            src={item.posterUrl}
+            src={getRadarPosterSources(item.posterUrl).small}
+            srcSet={`${getRadarPosterSources(item.posterUrl).small} 185w, ${getRadarPosterSources(item.posterUrl).large} 342w`}
+            sizes="48px"
             alt=""
             width="48"
             height="72"
@@ -961,7 +817,9 @@ function RadarCard({
       <div className="radar-poster">
         {item.posterUrl ? (
           <img
-            src={item.posterUrl}
+            src={getRadarPosterSources(item.posterUrl).small}
+            srcSet={`${getRadarPosterSources(item.posterUrl).small} 185w, ${getRadarPosterSources(item.posterUrl).large} 342w`}
+            sizes="(max-width: 520px) 86px, 114px"
             alt=""
             width="114"
             height="171"
@@ -1882,66 +1740,23 @@ function LoadingRows() {
   );
 }
 
-function readPageState(): PageState {
-  const params = new URLSearchParams(window.location.search);
-  const modeParam = params.get("mode");
-  const mode: AppMode =
-    modeParam === "radar" || modeParam === "program" ? modeParam : "program";
-  const storedView = readStoredViewMode();
-  const view =
-    params.get("view") === "week" || params.get("view") === "all"
-      ? (params.get("view") as ViewMode)
-      : storedView;
-  const radarWeek =
-    validISODate(params.get("week")) ?? startOfWeek(getPragueTodayISO());
-  return {
-    mode,
-    view,
-    week: validISODate(params.get("week")),
-    day: validISODate(params.get("day")),
-    query: params.get("q") ?? "",
-    subtitles: params.get("subtitles") === "1",
-    radarWeek,
-    radarDay: mode === "radar" ? validISODate(params.get("day")) : null,
-  };
-}
-
-function writePageState(page: PageState, mode: "push" | "replace") {
-  const params = new URLSearchParams();
-  params.set("mode", page.mode);
-  if (page.mode === "radar") {
-    params.set("period", "week");
-    if (page.radarWeek) params.set("week", page.radarWeek);
-    if (page.radarDay) params.set("day", page.radarDay);
-  } else {
-    params.set("view", page.view);
-    if (page.view === "week" && page.week) params.set("week", page.week);
-    if (page.view === "week" && page.day) params.set("day", page.day);
-    if (page.query) params.set("q", page.query);
-    if (page.subtitles) params.set("subtitles", "1");
-  }
-  const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
-  window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
-}
-
-function readStoredViewMode(): ViewMode {
-  try {
-    localStorage.removeItem("nzfd-view-mode");
-    sessionStorage.removeItem("nzfd-view-mode");
-  } catch {
-    // Ignore unavailable persistent storage while migrating the old preference.
-  }
-
-  try {
-    const stored = sessionStorage.getItem(VIEW_MODE_KEY);
-    return stored === "all" || stored === "week" ? stored : "all";
-  } catch {
-    return "all";
-  }
-}
-
-function validISODate(value: string | null) {
-  return value && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+function LoadNotice({
+  message,
+  warning,
+  onRetry,
+}: {
+  message: string;
+  warning: boolean;
+  onRetry: () => void;
+}) {
+  return (
+    <div className={warning ? "load-notice warning" : "load-notice"} role="alert">
+      <span>{warning ? `Zobrazuji poslední data. ${message}` : message}</span>
+      <button type="button" onClick={onRetry}>
+        Zkusit znovu
+      </button>
+    </div>
+  );
 }
 
 function getPosterSources(url: string) {
@@ -1951,6 +1766,13 @@ function getPosterSources(url: string) {
     small: replaceWidth(180),
     medium: replaceWidth(360),
     original: replaceWidth(1080),
+  };
+}
+
+function getRadarPosterSources(url: string) {
+  return {
+    small: url.replace(/\/w\d+\//, "/w185/"),
+    large: url.replace(/\/w\d+\//, "/w342/"),
   };
 }
 
@@ -1969,25 +1791,8 @@ function getRatingClass(rating: number) {
       : "rating-bad";
 }
 
-function getPragueTodayISO() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
 function getWeekDays(weekStart: string) {
   return Array.from({ length: 7 }, (_, index) => addDays(weekStart, index));
-}
-function startOfWeek(value: string) {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  const day = date.getUTCDay();
-  date.setUTCDate(date.getUTCDate() + (day === 0 ? -6 : 1 - day));
-  return date.toISOString().slice(0, 10);
 }
 function addDays(value: string, days: number) {
   const date = new Date(`${value}T00:00:00.000Z`);
@@ -2055,6 +1860,6 @@ createRoot(document.getElementById("root")!).render(
 
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   window.addEventListener("load", () => {
-    void navigator.serviceWorker.register("/sw.js");
+    void navigator.serviceWorker.register(`/sw.js?v=${encodeURIComponent(__BUILD_ID__)}`);
   });
 }

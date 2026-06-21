@@ -1,4 +1,5 @@
-const APP_CACHE = "nzfd-app-v2";
+const BUILD_ID = new URL(self.location.href).searchParams.get("v") || "dev";
+const APP_CACHE = `nzfd-app-${BUILD_ID}`;
 const DATA_CACHE = "nzfd-data-v1";
 const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.png", "/pwa-icon-192.png"];
 
