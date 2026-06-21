@@ -224,5 +224,5 @@ function validWeek(value: string) {
 
 function isHiddenProvider(name: string) {
   const normalized = name.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  return /\blepsi\s*\.?\s*tv\b/.test(normalized);
+  return /\blepsi\s*\.?\s*tv\b/.test(normalized) || /^canal\s*(?:\+|plus)$/.test(normalized.trim());
 }

@@ -330,13 +330,6 @@ a {
   scroll-snap-align: start;
 }
 
-.weekly-table tbody td.weekly-today {
-  background: #fff0f1;
-  box-shadow:
-    inset 2px 0 0 #ed9ca3,
-    inset -2px 0 0 #ed9ca3;
-}
-
 .weekly-film-cell {
   position: sticky;
   left: 0;
@@ -498,8 +491,37 @@ a.weekly-rating:hover {
   cursor: default;
 }
 
+.radar-release-cell:not(.radar-release-link) {
+  pointer-events: none;
+  transition: none;
+}
+
+.radar-release-cell:not(.radar-release-link):hover {
+  border-color: #c9c9c9;
+  background: var(--soft);
+  transform: none;
+}
+
 .radar-release-link {
   cursor: pointer;
+}
+
+.radar-release-link,
+.radar-release-link * {
+  cursor: pointer;
+}
+
+.radar-release-link.streaming:hover {
+  border-color: var(--accent);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.radar-release-link.streaming:focus-visible {
+  border-color: var(--accent);
+  background: #ffffff;
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .radar-program-release {
@@ -519,11 +541,11 @@ a.weekly-rating:hover {
   box-shadow: inset 7px 0 0 var(--series), 5px 0 10px rgb(0 0 0 / 0.06);
 }
 
-.radar-week-row.radar-movie > td:not(.weekly-today) {
+.radar-week-row.radar-movie > td {
   background: #fff8f8;
 }
 
-.radar-week-row.radar-series > td:not(.weekly-today) {
+.radar-week-row.radar-series > td {
   background: #f3f9fc;
 }
 
@@ -964,9 +986,13 @@ a.weekly-rating:hover {
     border-radius: 0;
   }
 
+  .brand-block {
+    flex: 0 0 88px;
+  }
+
   .app-wordmark {
-    width: min(100%, 145px);
-    height: 42px;
+    width: 88px;
+    height: 36px;
   }
 
   .view-switch {
@@ -974,10 +1000,10 @@ a.weekly-rating:hover {
   }
 
   .view-switch-button {
-    min-width: 52px;
+    min-width: 38px;
     min-height: 34px;
-    padding: 0 8px;
-    font-size: 13px;
+    padding: 0 4px;
+    font-size: 11px;
   }
 
   .week-toolbar {
@@ -1774,30 +1800,35 @@ a.weekly-rating:hover {
 
 @media (max-width: 520px) {
   .topbar {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
 
   .topbar-actions {
-    width: 100%;
-    padding-top: 7px;
+    width: auto;
+    padding-top: 0;
     display: grid;
-    grid-template-areas: "view mode install";
-    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "install view mode";
+    grid-template-columns: auto auto auto;
     gap: 6px;
-    border-top: 1px solid rgb(255 255 255 / 0.28);
+    border-top: 0;
   }
 
   .mode-switch {
     grid-area: mode;
     min-width: 0;
+    padding: 2px;
   }
 
   .mode-button {
-    min-width: 0;
+    width: 34px;
+    min-width: 34px;
     min-height: 34px;
-    flex: 1 1 0;
-    padding-inline: 4px;
-    font-size: 11px;
+    flex: 0 0 34px;
+    padding: 0;
+  }
+
+  .mode-button span {
+    display: none;
   }
 
   .header-icon-button {
@@ -1845,6 +1876,19 @@ a.weekly-rating:hover {
   .radar-csfd-block .rating-copy {
     width: auto;
     flex: 1 1 auto;
+  }
+
+  .radar-meta-row {
+    margin-top: 12px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .radar-meta-row .radar-csfd-block,
+  .radar-meta-row .provider-list {
+    margin-top: 0;
   }
 
   .provider-list > a,

@@ -288,12 +288,12 @@ function App() {
 
   function changeView(view: ViewMode) {
     if (view === page.view) return;
-    changePage({ view, week: null, day: null });
+    changePage({ view, week: null, day: null, query: "", subtitles: false });
   }
 
   function changeMode(mode: AppMode) {
     if (mode === page.mode) return;
-    changePage({ mode });
+    changePage({ mode, query: "", subtitles: false });
   }
 
   function showFilmInAll(id: string) {
@@ -313,6 +313,11 @@ function App() {
       <header className="topbar topbar-standalone">
         <div className="brand-block"><img className="app-wordmark" src="/nzfd-wordmark.png" alt="NZFD" width="430" height="48" fetchPriority="high" /></div>
         <div className="topbar-actions">
+          {installPrompt ? (
+            <button className="header-icon-button" type="button" onClick={() => void installApp()} title="Nainstalovat aplikaci" aria-label="Nainstalovat aplikaci">
+              <Download size={19} />
+            </button>
+          ) : null}
           {page.mode === "program" ? (
             <div className="view-switch" role="group" aria-label="Zobrazení programu">
               <button className={page.view === "week" ? "view-switch-button active" : "view-switch-button"} type="button" aria-pressed={page.view === "week"} onClick={() => changeView("week")}>Týden</button>
@@ -325,14 +330,9 @@ function App() {
             </div>
           )}
           <div className="mode-switch" role="group" aria-label="Hlavní část aplikace">
-            <button className={page.mode === "program" ? "mode-button active" : "mode-button"} type="button" aria-pressed={page.mode === "program"} onClick={() => changeMode("program")}><Clapperboard size={18} aria-hidden="true" /><span>Program</span></button>
-            <button className={page.mode === "radar" ? "mode-button active" : "mode-button"} type="button" aria-pressed={page.mode === "radar"} onClick={() => changeMode("radar")}><Radar size={18} aria-hidden="true" /><span>Radar</span></button>
+            <button className={page.mode === "program" ? "mode-button active" : "mode-button"} type="button" aria-pressed={page.mode === "program"} onClick={() => changeMode("program")} aria-label="Program" title="Program"><Clapperboard size={18} aria-hidden="true" /><span>Program</span></button>
+            <button className={page.mode === "radar" ? "mode-button active" : "mode-button"} type="button" aria-pressed={page.mode === "radar"} onClick={() => changeMode("radar")} aria-label="Radar" title="Radar"><Radar size={18} aria-hidden="true" /><span>Radar</span></button>
           </div>
-          {installPrompt ? (
-            <button className="header-icon-button" type="button" onClick={() => void installApp()} title="Nainstalovat aplikaci" aria-label="Nainstalovat aplikaci">
-              <Download size={19} />
-            </button>
-          ) : null}
         </div>
       </header>
 
@@ -403,7 +403,7 @@ function RadarWeeklyTable({ items, days, today, onSelectProgramFilm }: { items: 
     <div className="weekly-table-scroll" role="region" aria-label="Týdenní radar premiér" tabIndex={0}>
       <table className="weekly-table radar-weekly-table">
         <thead><tr><th className="weekly-film-heading" scope="col">Film / seriál</th>{days.map((day) => <th className={day === today ? "weekly-today" : undefined} scope="col" key={day} aria-current={day === today ? "date" : undefined}><span>{formatWeekday(day)}</span><strong>{formatShortDate(day)}</strong></th>)}</tr></thead>
-        <tbody>{items.map((item) => <tr className={`radar-week-row radar-${item.mediaType}`} key={item.id}><th className="weekly-film-cell" scope="row"><RadarMini item={item} /></th>{days.map((day) => <td className={day === today ? "weekly-today" : undefined} key={day} aria-label={item.releaseDate === day ? `${item.title}: premiéra` : `${item.title}: bez premiéry`}><div className="weekly-times">{item.releaseDate === day ? <RadarReleaseCell item={item} onSelectProgramFilm={onSelectProgramFilm} /> : null}</div></td>)}</tr>)}</tbody>
+        <tbody>{items.map((item) => <tr className={`radar-week-row radar-${item.mediaType}`} key={item.id}><th className="weekly-film-cell" scope="row"><RadarMini item={item} /></th>{days.map((day) => <td key={day} aria-label={item.releaseDate === day ? `${item.title}: premiéra` : `${item.title}: bez premiéry`}><div className="weekly-times">{item.releaseDate === day ? <RadarReleaseCell item={item} onSelectProgramFilm={onSelectProgramFilm} /> : null}</div></td>)}</tr>)}</tbody>
       </table>
     </div>
   );
@@ -451,9 +451,11 @@ function RadarCard({ item, priority, onSelectProgramFilm }: { item: RadarItem; p
       <div className="radar-copy">
         <div className="radar-card-head"><div><h2>{item.program ? <button className="radar-program-title" type="button" onClick={() => onSelectProgramFilm(item.program!.filmId)}>{formatRadarTitle(item.title)}</button> : item.csfd?.url ? <a className="radar-program-title" href={item.csfd.url} target="_blank" rel="noopener noreferrer">{formatRadarTitle(item.title)}</a> : formatRadarTitle(item.title)}</h2>{item.originalTitle ? <p className="radar-original-title">{item.originalTitle}</p> : null}</div><div className="radar-badges"><span className={`media-badge ${item.mediaType}`}>{item.mediaType === "movie" ? "Film" : "Seriál"}</span><span className={`channel-badge ${item.channel}`}>{item.channel === "cinema" ? "Kino" : "Streaming"}</span>{item.program ? <span className="program-badge">V programu</span> : null}</div></div>
         <time dateTime={item.releaseDate}>{formatRadarDate(item.releaseDate)}</time>
-        <RadarRating title={item.title} csfd={item.csfd} />
+        <div className="radar-meta-row">
+          <RadarRating title={item.title} csfd={item.csfd} />
+          {item.channel === "streaming" ? <div className="provider-list" aria-label="Dostupné služby">{item.providers.map((provider) => provider.url ? <a href={provider.url} target="_blank" rel="noopener noreferrer" title={`Otevřít ${provider.name}`} aria-label={`Otevřít ${provider.name}`} key={provider.id}><img src={provider.logoUrl} alt="" width="32" height="32" loading="lazy" /><span>{provider.name}</span></a> : <span title={`${provider.name} nemá dostupný přímý odkaz`} key={provider.id}><img src={provider.logoUrl} alt="" width="32" height="32" loading="lazy" /><span>{provider.name}</span></span>)}</div> : null}
+        </div>
         {item.program ? <button className="radar-program-button" type="button" onClick={() => onSelectProgramFilm(item.program!.filmId)}><Clapperboard size={17} aria-hidden="true" /><span>V programu</span><small>{formatScreeningCount(item.program.screeningCount)}</small></button> : null}
-        {item.channel === "streaming" ? <div className="provider-list" aria-label="Dostupné služby">{item.providers.map((provider) => provider.url ? <a href={provider.url} target="_blank" rel="noopener noreferrer" title={`Otevřít ${provider.name}`} aria-label={`Otevřít ${provider.name}`} key={provider.id}><img src={provider.logoUrl} alt="" width="32" height="32" loading="lazy" /><span>{provider.name}</span></a> : <span title={`${provider.name} nemá dostupný přímý odkaz`} key={provider.id}><img src={provider.logoUrl} alt="" width="32" height="32" loading="lazy" /><span>{provider.name}</span></span>)}</div> : null}
       </div>
     </article>
   );
@@ -565,7 +567,7 @@ function WeeklyTable({ films, days, today, onSelectFilm }: { films: FilmGroup[];
             <th className="weekly-film-cell" scope="row"><FilmMini film={film} onSelectFilm={onSelectFilm} /></th>
             {days.map((day) => {
               const screenings = film.screenings.filter((screening) => screening.dateISO === day);
-              return <td className={day === today ? "weekly-today" : undefined} key={day} aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}><div className="weekly-times">{screenings.map((screening) => <CompactScreening film={film} screening={screening} key={screening.id} />)}</div></td>;
+              return <td key={day} aria-label={screenings.length === 0 ? `${film.title}: bez projekce` : undefined}><div className="weekly-times">{screenings.map((screening) => <CompactScreening film={film} screening={screening} key={screening.id} />)}</div></td>;
             })}
           </tr>
         ))}</tbody>
