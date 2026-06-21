@@ -1838,6 +1838,11 @@ a.weekly-rating:hover {
     border-top: 0;
   }
 
+  .topbar-actions:not(:has(.header-icon-button)) {
+    grid-template-areas: "view mode";
+    grid-template-columns: auto auto;
+  }
+
   .mode-switch {
     grid-area: mode;
     min-width: 0;
