@@ -1606,6 +1606,8 @@ a.weekly-rating:hover {
   color: #202020;
   text-align: center;
   text-decoration: none;
+  cursor: pointer;
+  transition: border-color 160ms ease, background 160ms ease, box-shadow 160ms ease;
 }
 
 .weekly-table tbody td {
@@ -1616,7 +1618,13 @@ a.weekly-rating:hover {
 .weekly-screening:hover,
 .weekly-screening:focus-visible {
   border-color: var(--accent);
-  background: #fff4f5;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.weekly-screening:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .weekly-screening.has-subtitles {
@@ -1626,8 +1634,9 @@ a.weekly-rating:hover {
 
 .weekly-screening.has-subtitles:hover,
 .weekly-screening.has-subtitles:focus-visible {
-  border-color: var(--subtitle-dark);
-  background: #e1f2f0;
+  border-color: var(--accent);
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .weekly-screening.has-subtitles > strong {

@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useState } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Clapperboard,
@@ -119,11 +119,11 @@ type InstallPromptEvent = Event & {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 };
 
-const APP_MODE_KEY = "nzfd-app-mode-v2";
 const VIEW_MODE_KEY = "nzfd-view-mode-v2";
 
 function App() {
   const [page, setPage] = useState<PageState>(readPageState);
+  const pageRef = useRef(page);
   const [load, setLoad] = useState<LoadState>({ status: "loading", data: null, error: null });
   const [radarLoad, setRadarLoad] = useState<RadarLoadState>({ status: "loading", data: null, error: null });
   const [offline, setOffline] = useState(!navigator.onLine);
@@ -131,7 +131,12 @@ function App() {
   const [pendingFilmScroll, setPendingFilmScroll] = useState<string | null>(null);
 
   useEffect(() => {
-    const onPopState = () => setPage(readPageState());
+    const onPopState = () => {
+      const next = readPageState();
+      beginPageLoad(pageRef.current, next);
+      pageRef.current = next;
+      setPage(next);
+    };
     const onOnline = () => setOffline(false);
     const onOffline = () => setOffline(true);
     const onInstallPrompt = (event: Event) => {
@@ -240,11 +245,10 @@ function App() {
   useEffect(() => {
     try {
       sessionStorage.setItem(VIEW_MODE_KEY, page.view);
-      sessionStorage.setItem(APP_MODE_KEY, page.mode);
     } catch {
       // View preference remains optional when browser storage is unavailable.
     }
-  }, [page.mode, page.view]);
+  }, [page.view]);
 
   useEffect(() => {
     if (!pendingFilmScroll || page.mode !== "program" || page.view !== "all" || load.status !== "ready" || load.data.period.mode !== "all") return;
@@ -279,11 +283,24 @@ function App() {
   const filtersActive = Boolean(page.query || page.subtitles);
 
   function changePage(patch: Partial<PageState>, mode: "push" | "replace" = "push") {
-    setPage((current) => {
-      const next = { ...current, ...patch };
-      writePageState(next, mode);
-      return next;
-    });
+    const current = pageRef.current;
+    const next = { ...current, ...patch };
+    beginPageLoad(current, next);
+    pageRef.current = next;
+    writePageState(next, mode);
+    setPage(next);
+  }
+
+  function beginPageLoad(current: PageState, next: PageState) {
+    const scheduleRequestChanged = next.mode === "program" && (
+      current.mode !== "program" || current.view !== next.view || current.week !== next.week
+    );
+    const radarRequestChanged = next.mode === "radar" && (
+      current.mode !== "radar" || current.radarWeek !== next.radarWeek
+    );
+
+    if (scheduleRequestChanged) setLoad({ status: "loading", data: null, error: null });
+    if (radarRequestChanged) setRadarLoad({ status: "loading", data: null, error: null });
   }
 
   function changeView(view: ViewMode) {
@@ -293,7 +310,15 @@ function App() {
 
   function changeMode(mode: AppMode) {
     if (mode === page.mode) return;
-    changePage({ mode, query: "", subtitles: false });
+    changePage({
+      mode,
+      week: null,
+      day: null,
+      radarWeek: null,
+      radarDay: null,
+      query: "",
+      subtitles: false
+    });
   }
 
   function showFilmInAll(id: string) {
@@ -673,7 +698,7 @@ function LoadingRows() {
 function readPageState(): PageState {
   const params = new URLSearchParams(window.location.search);
   const modeParam = params.get("mode");
-  const mode: AppMode = modeParam === "radar" || modeParam === "program" ? modeParam : params.has("view") ? "program" : readStoredAppMode();
+  const mode: AppMode = modeParam === "radar" || modeParam === "program" ? modeParam : "program";
   const storedView = readStoredViewMode();
   const view = params.get("view") === "week" || params.get("view") === "all" ? params.get("view") as ViewMode : storedView;
   const radarWeek = validISODate(params.get("week")) ?? startOfWeek(getPragueTodayISO());
@@ -705,15 +730,6 @@ function writePageState(page: PageState, mode: "push" | "replace") {
   }
   const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
   window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
-}
-
-function readStoredAppMode(): AppMode {
-  try {
-    const stored = sessionStorage.getItem(APP_MODE_KEY);
-    return stored === "program" || stored === "radar" ? stored : "program";
-  } catch {
-    return "program";
-  }
 }
 
 function readStoredViewMode(): ViewMode {
