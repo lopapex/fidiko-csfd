@@ -83,6 +83,7 @@ a {
 .brand-block {
   display: flex;
   align-items: center;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -987,7 +988,8 @@ a.weekly-rating:hover {
   }
 
   .brand-block {
-    flex: 0 0 88px;
+    flex: 0 0 auto;
+    gap: 6px;
   }
 
   .app-wordmark {
@@ -1816,8 +1818,8 @@ a.weekly-rating:hover {
     width: auto;
     padding-top: 0;
     display: grid;
-    grid-template-areas: "install view mode";
-    grid-template-columns: auto auto auto;
+    grid-template-areas: "view mode";
+    grid-template-columns: auto auto;
     gap: 6px;
     border-top: 0;
   }
@@ -1841,7 +1843,6 @@ a.weekly-rating:hover {
   }
 
   .header-icon-button {
-    grid-area: install;
     width: 34px;
     height: 34px;
   }

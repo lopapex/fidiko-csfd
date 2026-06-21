@@ -336,13 +336,15 @@ function App() {
   return (
     <main className="app-shell">
       <header className="topbar topbar-standalone">
-        <div className="brand-block"><img className="app-wordmark" src="/nzfd-wordmark.png" alt="NZFD" width="430" height="48" fetchPriority="high" /></div>
-        <div className="topbar-actions">
+        <div className="brand-block">
+          <img className="app-wordmark" src="/nzfd-wordmark.png" alt="NZFD" width="430" height="48" fetchPriority="high" />
           {installPrompt ? (
             <button className="header-icon-button" type="button" onClick={() => void installApp()} title="Nainstalovat aplikaci" aria-label="Nainstalovat aplikaci">
               <Download size={19} />
             </button>
           ) : null}
+        </div>
+        <div className="topbar-actions">
           {page.mode === "program" ? (
             <div className="view-switch" role="group" aria-label="Zobrazení programu">
               <button className={page.view === "week" ? "view-switch-button active" : "view-switch-button"} type="button" aria-pressed={page.view === "week"} onClick={() => changeView("week")}>Týden</button>
