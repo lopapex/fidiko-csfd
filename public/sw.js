@@ -26,8 +26,8 @@ self.addEventListener("fetch", (event) => {
 
   if (request.method !== "GET" || url.origin !== self.location.origin) return;
 
-  if (url.pathname === "/api/schedule") {
-    event.respondWith(fetchSchedule(request));
+  if (url.pathname === "/api/schedule" || url.pathname === "/api/radar") {
+    event.respondWith(fetchData(request));
     return;
   }
 
@@ -44,7 +44,7 @@ self.addEventListener("fetch", (event) => {
   );
 });
 
-async function fetchSchedule(request) {
+async function fetchData(request) {
   try {
     const response = await fetch(request);
     if (response.ok) {

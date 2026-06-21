@@ -1,0 +1,173 @@
+import { getStore } from "@netlify/blobs";
+import { csfd, type CSFDSearchMovie } from "node-csfd-api";
+import type { RadarItem, RadarMediaType } from "./radar-refresh";
+
+const CACHE_STORE = "radar-csfd-cache";
+const CACHE_VERSION = "v2";
+const LOOKUP_CONCURRENCY = 4;
+const LOOKUP_TIMEOUT_MS = 8000;
+
+export type RadarCsfdMatch = {
+  title: string;
+  rating: number | null;
+  ratingCount: number | null;
+  url: string;
+  releaseDate: string | null;
+};
+
+type CachedMatch = { match: RadarCsfdMatch | null };
+
+export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
+  const unique = new Map<string, RadarItem>();
+  for (const item of items) {
+    unique.set(`${item.mediaType}-${item.tmdbId}`, item);
+  }
+
+  const entries = [...unique.entries()];
+  const matches = await mapConcurrent(entries, LOOKUP_CONCURRENCY, async ([key, item]) => [key, await loadMatch(item)] as const);
+  const byItem = new Map(matches);
+
+  return items.map((item) => {
+    const match = byItem.get(`${item.mediaType}-${item.tmdbId}`) ?? null;
+    const releaseDate = item.mediaType === "series" && item.channel === "streaming"
+      ? match?.releaseDate ?? item.releaseDate
+      : item.releaseDate;
+    return {
+      ...item,
+      id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
+      releaseDate,
+      csfd: match
+    };
+  });
+}
+
+async function loadMatch(item: RadarItem) {
+  const key = cacheKey(item);
+  const store = getStore(CACHE_STORE, { consistency: "strong" });
+
+  try {
+    const cached = await store.get(key, { type: "json" }) as CachedMatch | null;
+    if (cached && Object.prototype.hasOwnProperty.call(cached, "match")) {
+      return cached.match;
+    }
+  } catch (error) {
+    console.warn(`Radar CSFD cache read failed for "${item.title}"`, error);
+  }
+
+  const match = await withTimeout(lookupMatch(item), LOOKUP_TIMEOUT_MS, null);
+  try {
+    await store.setJSON(key, { match } satisfies CachedMatch);
+  } catch (error) {
+    console.warn(`Radar CSFD cache write failed for "${item.title}"`, error);
+  }
+  return match;
+}
+
+async function lookupMatch(item: RadarItem): Promise<RadarCsfdMatch | null> {
+  for (const query of [item.title, item.originalTitle].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)) {
+    try {
+      const result = await csfd.search(query);
+      const candidates = item.mediaType === "series"
+        ? [...result.tvSeries, ...result.movies]
+        : [...result.movies, ...result.tvSeries];
+      const match = selectCandidate(candidates, item, query);
+      if (!match) continue;
+
+      const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
+      const url = details?.url ?? match.url;
+      if (!url) return null;
+
+      return {
+        title: details?.title ?? match.title,
+        rating: numberOrNull(details?.rating),
+        ratingCount: numberOrNull(details?.ratingCount),
+        url,
+        releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item)
+      };
+    } catch (error) {
+      console.warn(`Radar CSFD lookup failed for "${query}"`, error);
+    }
+  }
+  return null;
+}
+
+function selectCzechStreamingDate(
+  premieres: Array<{ format: string; date: string; company: string }>,
+  item: RadarItem
+) {
+  if (item.mediaType !== "series" || item.channel !== "streaming") return null;
+  const providerNames = item.providers.map((provider) => comparableTitle(provider.name));
+  const vodPremieres = premieres.filter((premiere) => comparableTitle(premiere.format).includes("na vod"));
+  const providerPremiere = vodPremieres.find((premiere) => {
+    const company = comparableTitle(premiere.company);
+    return providerNames.some((provider) => company.includes(provider) || provider.includes(company));
+  });
+  return providerPremiere?.date ?? (providerNames.length === 0 ? vodPremieres[0]?.date ?? null : null);
+}
+
+function selectCandidate(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
+  const normalizedQuery = comparableTitle(query);
+  const year = Number(item.releaseDate.slice(0, 4));
+
+  return candidates
+    .map((candidate) => ({ candidate, score: scoreCandidate(candidate, normalizedQuery, year, item.mediaType) }))
+    .filter(({ score }) => score >= 70)
+    .sort((left, right) => right.score - left.score)[0]?.candidate ?? null;
+}
+
+function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number, mediaType: RadarMediaType) {
+  const title = comparableTitle(candidate.title);
+  if (!isPlausibleTitleMatch(title, query)) return -Infinity;
+
+  let score = title === query ? 100 : 65;
+  const yearDifference = Math.abs(candidate.year - year);
+  score += yearDifference === 0 ? 40 : yearDifference === 1 ? 20 : -Math.min(50, yearDifference * 10);
+
+  const isSeries = candidate.type === "series" || candidate.type === "tv-show" || candidate.type === "season";
+  if ((mediaType === "series") === isSeries) score += 20;
+  return score;
+}
+
+function cacheKey(item: RadarItem) {
+  return `${CACHE_VERSION}/${item.mediaType}/${item.releaseDate.slice(0, 4)}/${slugify(item.title)}`;
+}
+
+function comparableTitle(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function isPlausibleTitleMatch(candidate: string, query: string) {
+  if (!candidate || !query) return false;
+  if (candidate === query || candidate.includes(query) || query.includes(candidate)) return true;
+  const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
+  const queryWords = query.split(" ").filter((word) => word.length > 2);
+  return queryWords.length > 0 && queryWords.filter((word) => candidateWords.has(word)).length / queryWords.length >= 0.75;
+}
+
+function slugify(value: string) {
+  return comparableTitle(value).replace(/\s+/g, "-") || "title";
+}
+
+function numberOrNull(value: unknown) {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, fallback: T) {
+  return new Promise<T>((resolve) => {
+    const timeout = setTimeout(() => resolve(fallback), ms);
+    promise.then(resolve).catch(() => resolve(fallback)).finally(() => clearTimeout(timeout));
+  });
+}
+
+async function mapConcurrent<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>) {
+  const results = new Array<R>(items.length);
+  let index = 0;
+  async function worker() {
+    while (index < items.length) {
+      const current = index++;
+      results[current] = await mapper(items[current]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
+  return results;
+}

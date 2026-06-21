@@ -12,6 +12,9 @@
 [functions."refresh-schedule"]
   schedule = "0 22,23 * * *"
 
+[functions."refresh-radar"]
+  schedule = "15 22,23 * * *"
+
 [dev]
   command = "npm run dev:client"
   targetPort = 5173
@@ -21,4 +24,9 @@
 [[redirects]]
   from = "/api/schedule"
   to = "/.netlify/functions/schedule"
+  status = 200
+
+[[redirects]]
+  from = "/api/radar"
+  to = "/.netlify/functions/radar"
   status = 200
