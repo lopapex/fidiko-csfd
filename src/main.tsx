@@ -1659,7 +1659,7 @@ function formatWeekRange(start: string | null, end: string | null) {
 }
 
 function formatScreeningCount(value: number) {
-  return `${value} ${value === 1 ? "projekce" : value >= 2 && value <= 4 ? "projekce" : "projekcí"}`;
+  return `Projekce: ${value}`;
 }
 
 function getUpcomingScreeningCount(program: RadarProgramMatch) {

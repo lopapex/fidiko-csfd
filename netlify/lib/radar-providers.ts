@@ -14,7 +14,10 @@ export function isAllowedProvider(name: string) {
 
 export function getProviderUrl(name: string, title?: string) {
   const normalized = normalizeProviderName(name);
-  const query = title?.trim() ? encodeURIComponent(title.trim()) : null;
+  const searchTitle = title
+    ?.replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "")
+    .trim();
+  const query = searchTitle ? encodeURIComponent(searchTitle) : null;
 
   if (query) {
     if (/^netflix$/.test(normalized)) {
@@ -33,7 +36,7 @@ export function getProviderUrl(name: string, title?: string) {
       return `https://www.iprima.cz/vyhledavani?query=${query}`;
     }
     if (/^(?:hbo )?max$/.test(normalized)) {
-      return `https://www.hbomax.com/search/result?q=${query}`;
+      return `https://play.hbomax.com/search/result?q=${query}`;
     }
     if (/^oneplay$/.test(normalized)) {
       return `https://www.oneplay.cz/vyhledat?query=${query}`;
