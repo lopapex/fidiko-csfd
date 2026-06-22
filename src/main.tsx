@@ -2,16 +2,18 @@ import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { Clapperboard, Search, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
-import { fetchJson, getCachedApi } from "./api";
+import { ProgramView } from "./ProgramView";
+import { RadarView } from "./RadarView";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "./page-state";
+import { useApiResource } from "./use-api-resource";
 import type {
   AppMode,
   CsfdMatch,
   FilmGroup,
   InstallPromptEvent,
-  LoadState,
   PageState,
   RadarItem,
+  RadarProgramMatch,
   RadarResponse,
   ScheduleResponse,
   Screening,
@@ -25,40 +27,32 @@ function getScheduleUrl(page: PageState) {
 }
 
 function getRadarUrl(page: PageState) {
-  return `/api/radar?period=week&type=all${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
+  return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
 }
 
 function App() {
   const [page, setPage] = useState<PageState>(readPageState);
   const pageRef = useRef(page);
-  const [load, setLoad] = useState<LoadState<ScheduleResponse>>({
-    status: "loading",
-    data: null,
-    error: null,
-    refreshing: false,
-  });
-  const [radarLoad, setRadarLoad] = useState<LoadState<RadarResponse>>({
-    status: "loading",
-    data: null,
-    error: null,
-    refreshing: false,
-  });
-  const scheduleRequestId = useRef(0);
-  const radarRequestId = useRef(0);
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
   );
-  const [pendingFilmScroll, setPendingFilmScroll] = useState<string | null>(
-    null,
+  const load = useApiResource<ScheduleResponse>(
+    page.mode === "program" ? getScheduleUrl(page) : null,
+    scheduleRetry,
+    setOffline,
+  );
+  const radarLoad = useApiResource<RadarResponse>(
+    page.mode === "radar" ? getRadarUrl(page) : null,
+    radarRetry,
+    setOffline,
   );
 
   useEffect(() => {
     const onPopState = () => {
       const next = readPageState();
-      beginPageLoad(pageRef.current, next);
       pageRef.current = next;
       setPage(next);
     };
@@ -84,97 +78,6 @@ function App() {
       window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
-
-  useEffect(() => {
-    if (page.mode !== "program") return;
-    const controller = new AbortController();
-    const requestId = ++scheduleRequestId.current;
-    const url = getScheduleUrl(page);
-    const cached = getCachedApi<ScheduleResponse>(url);
-
-    async function loadSchedule() {
-      if (cached) {
-        setLoad({
-          status: "ready",
-          data: cached.data,
-          error: null,
-          refreshing: !cached.fresh,
-        });
-        setOffline(cached.offline || !navigator.onLine);
-        if (cached.fresh) return;
-      } else {
-        setLoad({ status: "loading", data: null, error: null, refreshing: false });
-      }
-
-      try {
-        const result = await fetchJson<ScheduleResponse>(url, controller.signal);
-        if (requestId !== scheduleRequestId.current) return;
-        setOffline(result.offline || !navigator.onLine);
-        setLoad({ status: "ready", data: result.data, error: null, refreshing: false });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        if (requestId !== scheduleRequestId.current) return;
-        setLoad({
-          status: "error",
-          data: cached?.data ?? null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Program se nepodařilo načíst.",
-          refreshing: false,
-        });
-      }
-    }
-
-    void loadSchedule();
-    return () => controller.abort();
-  }, [page.mode, page.view, page.week, scheduleRetry]);
-
-  useEffect(() => {
-    if (page.mode !== "radar") return;
-    const controller = new AbortController();
-    const requestId = ++radarRequestId.current;
-    const url = getRadarUrl(page);
-    const cached = getCachedApi<RadarResponse>(url);
-
-    async function loadRadar() {
-      if (cached) {
-        setRadarLoad({
-          status: "ready",
-          data: cached.data,
-          error: null,
-          refreshing: !cached.fresh,
-        });
-        setOffline(cached.offline || !navigator.onLine);
-        if (cached.fresh) return;
-      } else {
-        setRadarLoad({ status: "loading", data: null, error: null, refreshing: false });
-      }
-      try {
-        const result = await fetchJson<RadarResponse>(url, controller.signal);
-        if (requestId !== radarRequestId.current) return;
-        setOffline(result.offline || !navigator.onLine);
-        setRadarLoad({ status: "ready", data: result.data, error: null, refreshing: false });
-      } catch (error) {
-        if (error instanceof DOMException && error.name === "AbortError")
-          return;
-        if (requestId !== radarRequestId.current) return;
-        setRadarLoad({
-          status: "error",
-          data: cached?.data ?? null,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Radar se nepodařilo načíst.",
-          refreshing: false,
-        });
-      }
-    }
-
-    void loadRadar();
-    return () => controller.abort();
-  }, [page.mode, page.radarWeek, radarRetry]);
 
   useEffect(() => {
     if (page.mode !== "radar" || !radarLoad.data?.period.weekStart) return;
@@ -214,8 +117,18 @@ function App() {
   useEffect(() => storeViewMode(page.view), [page.view]);
 
   useEffect(() => {
+    if (page.mode !== "radar" || document.getElementById("tmdb-image-preconnect")) return;
+    const link = document.createElement("link");
+    link.id = "tmdb-image-preconnect";
+    link.rel = "preconnect";
+    link.href = "https://image.tmdb.org";
+    link.crossOrigin = "anonymous";
+    document.head.append(link);
+  }, [page.mode]);
+
+  useEffect(() => {
     if (
-      !pendingFilmScroll ||
+      !page.filmId ||
       page.mode !== "program" ||
       page.view !== "all" ||
       load.status !== "ready" ||
@@ -224,7 +137,7 @@ function App() {
     )
       return;
     const animationFrame = window.requestAnimationFrame(() => {
-      const target = document.getElementById(pendingFilmScroll);
+      const target = document.getElementById(page.filmId!);
       target?.scrollIntoView({
         behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
           ? "auto"
@@ -232,10 +145,9 @@ function App() {
         block: "start",
       });
       target?.focus({ preventScroll: true });
-      setPendingFilmScroll(null);
     });
     return () => window.cancelAnimationFrame(animationFrame);
-  }, [load, page.mode, page.view, pendingFilmScroll]);
+  }, [load, page.filmId, page.mode, page.view]);
 
   const filteredFilms = useMemo(() => {
     if (!load.data) return [];
@@ -264,54 +176,23 @@ function App() {
     mode: "push" | "replace" = "push",
   ) {
     const current = pageRef.current;
-    const next = { ...current, ...patch };
-    beginPageLoad(current, next);
+    const clearsFilm =
+      patch.filmId === undefined &&
+      (patch.mode !== undefined ||
+        patch.view !== undefined ||
+        patch.week !== undefined ||
+        patch.day !== undefined ||
+        patch.query !== undefined ||
+        patch.subtitles !== undefined);
+    const next = { ...current, ...patch, ...(clearsFilm ? { filmId: null } : {}) };
     pageRef.current = next;
     writePageState(next, mode);
     setPage(next);
   }
 
-  function beginPageLoad(current: PageState, next: PageState) {
-    const scheduleRequestChanged =
-      next.mode === "program" &&
-      (current.mode !== "program" ||
-        current.view !== next.view ||
-        current.week !== next.week);
-    const radarRequestChanged =
-      next.mode === "radar" &&
-      (current.mode !== "radar" || current.radarWeek !== next.radarWeek);
-
-    if (scheduleRequestChanged) {
-      const cached = getCachedApi<ScheduleResponse>(getScheduleUrl(next));
-      setLoad(
-        cached
-          ? {
-              status: "ready",
-              data: cached.data,
-              error: null,
-              refreshing: !cached.fresh,
-            }
-          : { status: "loading", data: null, error: null, refreshing: false },
-      );
-    }
-    if (radarRequestChanged) {
-      const cached = getCachedApi<RadarResponse>(getRadarUrl(next));
-      setRadarLoad(
-        cached
-          ? {
-              status: "ready",
-              data: cached.data,
-              error: null,
-              refreshing: !cached.fresh,
-            }
-          : { status: "loading", data: null, error: null, refreshing: false },
-      );
-    }
-  }
-
   function changeView(view: ViewMode) {
     if (view === page.view) return;
-    changePage({ view, week: null, day: null, query: "", subtitles: false });
+    changePage({ view, week: null, day: null, query: "", subtitles: false, filmId: null });
   }
 
   function changeMode(mode: AppMode) {
@@ -324,11 +205,11 @@ function App() {
       radarDay: null,
       query: "",
       subtitles: false,
+      filmId: null,
     });
   }
 
   function showFilmInAll(id: string) {
-    setPendingFilmScroll(id);
     changePage({
       mode: "program",
       view: "all",
@@ -336,6 +217,7 @@ function App() {
       day: null,
       query: "",
       subtitles: false,
+      filmId: id,
     });
   }
 
@@ -360,108 +242,44 @@ function App() {
       {page.mode === "radar" ? (
         <RadarView
           load={radarLoad}
-          page={page}
           offline={offline}
-          onChange={changePage}
           onRetry={() => setRadarRetry(value => value + 1)}
-          onSelectProgramFilm={showFilmInAll}
+          renderLoading={() => <RadarWeeklyLoading weekStart={page.radarWeek} />}
+          renderSchedule={data => (
+            <RadarWeeklySchedule
+              data={data}
+              items={data.items}
+              selectedDay={page.radarDay}
+              onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
+              onDayChange={day => changePage({ radarDay: day })}
+              onSelectProgramFilm={showFilmInAll}
+            />
+          )}
         />
       ) : (
-        <>
-          {page.view === "all" ? (
-            <FilterToolbar page={page} onChange={changePage} />
-          ) : null}
-          {offline && load.data ? (
-            <div className="offline-banner" role="status">
-              Offline program, poslední data z{" "}
-              {formatFetchedAt(load.data.fetchedAt)}.
-            </div>
-          ) : null}
-          {load.status === "error" ? (
-            <LoadNotice
-              message={load.error ?? "Program se nepodařilo načíst."}
-              warning={Boolean(load.data)}
-              onRetry={() => setScheduleRetry(value => value + 1)}
-            />
-          ) : null}
-          {load.status === "loading" && !load.data ? (
-            page.view === "week" ? (
-              <WeeklyLoading weekStart={page.week} />
-            ) : (
-              <LoadingRows />
-            )
-          ) : load.data && page.view === "week" ? (
+        <ProgramView
+          view={page.view}
+          load={load}
+          films={filteredFilms}
+          filtersActive={filtersActive}
+          offline={offline}
+          toolbar={<FilterToolbar page={page} onChange={changePage} />}
+          onRetry={() => setScheduleRetry(value => value + 1)}
+          renderLoading={view => view === "week" ? <WeeklyLoading weekStart={page.week} /> : <LoadingRows />}
+          renderWeekly={(data, films) => (
             <WeeklySchedule
-              data={load.data}
-              films={filteredFilms}
+              data={data}
+              films={films}
               selectedDay={page.day}
               onNavigate={week => changePage({ week, day: null })}
               onDayChange={day => changePage({ day })}
               onSelectFilm={showFilmInAll}
             />
-          ) : load.data && filteredFilms.length > 0 ? (
-            <section className="program-list" aria-label="Program filmů">
-              {filteredFilms.map((film, index) => (
-                <FilmRow film={film} priority={index === 0} key={film.id} />
-              ))}
-            </section>
-          ) : load.data ? (
-            <div className="empty-box">
-              {filtersActive
-                ? "Žádná projekce neodpovídá vybraným filtrům."
-                : "Momentálně tu není žádný program kina."}
-            </div>
-          ) : null}
-        </>
+          )}
+          renderFilm={(film, index) => <FilmRow film={film} priority={index === 0} key={film.id} />}
+        />
       )}
     </main>
-  );
-}
-
-function RadarView({
-  load,
-  page,
-  offline,
-  onChange,
-  onRetry,
-  onSelectProgramFilm,
-}: {
-  load: LoadState<RadarResponse>;
-  page: PageState;
-  offline: boolean;
-  onChange: (patch: Partial<PageState>, mode?: "push" | "replace") => void;
-  onRetry: () => void;
-  onSelectProgramFilm: (id: string) => void;
-}) {
-  const items = load.data?.items ?? [];
-
-  return (
-    <section className="radar-view" aria-label="Radar premiér">
-      {offline && load.data ? (
-        <div className="offline-banner" role="status">
-          Offline radar, poslední data z {formatFetchedAt(load.data.fetchedAt)}.
-        </div>
-      ) : null}
-      {load.status === "error" ? (
-        <LoadNotice
-          message={load.error ?? "Radar se nepodařilo načíst."}
-          warning={Boolean(load.data)}
-          onRetry={onRetry}
-        />
-      ) : null}
-      {load.status === "loading" && !load.data ? (
-        <RadarWeeklyLoading weekStart={page.radarWeek} />
-      ) : load.data ? (
-        <RadarWeeklySchedule
-          data={load.data}
-          items={items}
-          selectedDay={page.radarDay}
-          onNavigate={week => onChange({ radarWeek: week, radarDay: null })}
-          onDayChange={day => onChange({ radarDay: day })}
-          onSelectProgramFilm={onSelectProgramFilm}
-        />
-      ) : null}
-    </section>
   );
 }
 
@@ -595,7 +413,10 @@ function RadarWeeklyTable({
               key={item.id}
             >
               <th className="weekly-film-cell" scope="row">
-                <RadarMini item={item} />
+                <RadarMini
+                  item={item}
+                  onSelectProgramFilm={onSelectProgramFilm}
+                />
               </th>
               {days.map(day => (
                 <td
@@ -690,7 +511,13 @@ function RadarMobileWeek({
   );
 }
 
-function RadarMini({ item }: { item: RadarItem }) {
+function RadarMini({
+  item,
+  onSelectProgramFilm,
+}: {
+  item: RadarItem;
+  onSelectProgramFilm: (id: string) => void;
+}) {
   return (
     <div className="weekly-film-summary">
       <div className="weekly-poster">
@@ -709,7 +536,26 @@ function RadarMini({ item }: { item: RadarItem }) {
         )}
       </div>
       <div className="weekly-film-copy">
-        <strong>{formatRadarTitle(item.title)}</strong>
+        {item.program ? (
+          <button
+            className="weekly-film-title-button"
+            type="button"
+            onClick={() => onSelectProgramFilm(item.program!.filmId)}
+          >
+            {formatRadarTitle(item.title)}
+          </button>
+        ) : item.csfd?.url ? (
+          <a
+            className="weekly-film-title-button"
+            href={item.csfd.url}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {formatRadarTitle(item.title)}
+          </a>
+        ) : (
+          <strong>{formatRadarTitle(item.title)}</strong>
+        )}
         <div className="weekly-film-meta">
           <RadarMiniRating title={item.title} csfd={item.csfd} />
           <span className={`weekly-media-mark ${item.mediaType}`}>
@@ -754,52 +600,53 @@ function RadarReleaseCell({
   item: RadarItem;
   onSelectProgramFilm: (id: string) => void;
 }) {
-  const providerNames = item.providers
-    .map(provider => provider.name)
-    .slice(0, 2)
-    .join(", ");
-  const content = (
-    <>
-      <strong>{item.channel === "cinema" ? "Kino" : "Streaming"}</strong>
-      <span>{providerNames || "Premiéra"}</span>
-    </>
-  );
-
   if (item.program) {
-    const countLabel = formatScreeningCount(item.program.screeningCount);
+    const countLabel = formatScreeningCount(getUpcomingScreeningCount(item.program));
     return (
-      <button
-        className="weekly-time-link radar-release-cell radar-release-link radar-program-release"
-        type="button"
-        onClick={() => onSelectProgramFilm(item.program!.filmId)}
-        aria-label={`${item.title}, otevřít v programu kina`}
-        title="Otevřít v programu kina"
-      >
-        <strong>V programu</strong>
+      <div className="weekly-time-link radar-release-cell cinema">
+        <strong>{formatNextScreening(item.program.nextScreening)}</strong>
         <span>{countLabel}</span>
-      </button>
+        <button
+          className="radar-cell-program-button"
+          type="button"
+          onClick={() => onSelectProgramFilm(item.program!.filmId)}
+          aria-label={`${item.title}, otevřít v programu kina`}
+          title="Otevřít v programu kina"
+        >
+          <Clapperboard size={14} aria-hidden="true" />
+          V programu
+        </button>
+      </div>
     );
   }
 
-  if (!item.csfd?.url)
-    return (
-      <div className={`weekly-time-link radar-release-cell ${item.channel}`}>
-        {content}
-      </div>
-    );
-
-  const targetLabel = `Otevřít ${item.title} na ČSFD`;
   return (
-    <a
-      className={`weekly-time-link radar-release-cell radar-release-link ${item.channel}`}
-      href={item.csfd.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={targetLabel}
-      title={targetLabel}
-    >
-      {content}
-    </a>
+    <div className={`weekly-time-link radar-release-cell ${item.channel}`}>
+      <strong>{item.channel === "cinema" ? "Kino" : "Streaming"}</strong>
+      <span>{item.channel === "cinema" ? "Premiéra" : "Dostupné na"}</span>
+      {item.channel === "streaming" ? (
+        <div className="radar-cell-providers" aria-label="Dostupné služby">
+          {item.providers.map(provider =>
+            provider.url ? (
+              <a
+                href={provider.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                title={`Otevřít ${provider.name}`}
+                aria-label={`Otevřít ${provider.name}`}
+                key={provider.id}
+              >
+                <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+              </a>
+            ) : (
+              <span title={provider.name} key={provider.id}>
+                <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+              </span>
+            ),
+          )}
+        </div>
+      ) : null}
+    </div>
   );
 }
 
@@ -921,10 +768,11 @@ function RadarCard({
             className="radar-program-button"
             type="button"
             onClick={() => onSelectProgramFilm(item.program!.filmId)}
+            aria-label={`${item.title}, otevřít v programu kina, nejbližší projekce ${formatNextScreening(item.program.nextScreening)}`}
           >
             <Clapperboard size={17} aria-hidden="true" />
-            <span>V programu</span>
-            <small>{formatScreeningCount(item.program.screeningCount)}</small>
+            <span>{formatNextScreening(item.program.nextScreening)}</span>
+            <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
           </button>
         ) : null}
       </div>
@@ -1740,25 +1588,6 @@ function LoadingRows() {
   );
 }
 
-function LoadNotice({
-  message,
-  warning,
-  onRetry,
-}: {
-  message: string;
-  warning: boolean;
-  onRetry: () => void;
-}) {
-  return (
-    <div className={warning ? "load-notice warning" : "load-notice"} role="alert">
-      <span>{warning ? `Zobrazuji poslední data. ${message}` : message}</span>
-      <button type="button" onClick={onRetry}>
-        Zkusit znovu
-      </button>
-    </div>
-  );
-}
-
 function getPosterSources(url: string) {
   const replaceWidth = (width: number) =>
     url.replace(/\/cache\/resized\/w\d+\//, `/cache/resized/w${width}/`);
@@ -1829,15 +1658,23 @@ function formatWeekRange(start: string | null, end: string | null) {
   return `${formatter.format(new Date(`${start}T00:00:00.000Z`))} - ${endFormatter.format(new Date(`${end}T00:00:00.000Z`))}`;
 }
 
-function formatFetchedAt(value: string) {
-  return new Intl.DateTimeFormat("cs-CZ", {
-    dateStyle: "short",
-    timeStyle: "short",
-    timeZone: "Europe/Prague",
-  }).format(new Date(value));
-}
 function formatScreeningCount(value: number) {
   return `${value} ${value === 1 ? "projekce" : value >= 2 && value <= 4 ? "projekce" : "projekcí"}`;
+}
+
+function getUpcomingScreeningCount(program: RadarProgramMatch) {
+  return program.upcomingScreeningCount ?? program.screeningCount;
+}
+
+function formatNextScreening(screening: RadarProgramMatch["nextScreening"]) {
+  if (!screening) return "V programu";
+  const today = getPragueTodayISO();
+  const day = screening.dateISO === today
+    ? "dnes"
+    : screening.dateISO === addDays(today, 1)
+      ? "zítra"
+      : `${formatWeekday(screening.dateISO)} ${formatShortDate(screening.dateISO)}`;
+  return screening.time ? `${day} ${screening.time}` : day;
 }
 function formatRadarTitle(value: string) {
   return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");

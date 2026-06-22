@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearApiCache, fetchJson, getCachedApi } from "./api";
+import { clearApiCache, fetchJson, getApiCacheSize, getCachedApi } from "./api";
 
 afterEach(() => {
   clearApiCache();
@@ -26,5 +26,18 @@ describe("fetchJson", () => {
     })));
 
     await expect(fetchJson("/api/schedule")).rejects.toThrow("Netlify Dev");
+  });
+
+  it("keeps only the 24 most recently used URLs", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(new Response(
+      JSON.stringify({ url }),
+      { headers: { "content-type": "application/json" } },
+    ))));
+    for (let index = 0; index < 25; index += 1) {
+      await fetchJson(`/api/radar?week=${index}`);
+    }
+    expect(getApiCacheSize()).toBe(24);
+    expect(getCachedApi("/api/radar?week=0")).toBeNull();
   });
 });

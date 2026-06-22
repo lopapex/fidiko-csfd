@@ -8,6 +8,7 @@ export function readPageState(location = window.location): PageState {
   const mode = modeParam === "radar" || modeParam === "program" ? modeParam : "program";
   const viewParam = params.get("view");
   const view: ViewMode = viewParam === "week" || viewParam === "all" ? viewParam : readStoredViewMode();
+  const filmId = validFilmId(params.get("film"));
   return {
     mode,
     view,
@@ -16,7 +17,8 @@ export function readPageState(location = window.location): PageState {
     query: params.get("q") ?? "",
     subtitles: params.get("subtitles") === "1",
     radarWeek: validISODate(params.get("week")) ?? startOfWeek(getPragueTodayISO()),
-    radarDay: mode === "radar" ? validISODate(params.get("day")) : null
+    radarDay: mode === "radar" ? validISODate(params.get("day")) : null,
+    filmId: mode === "program" && view === "all" ? filmId : null,
   };
 }
 
@@ -33,6 +35,7 @@ export function writePageState(page: PageState, mode: "push" | "replace") {
     if (page.view === "week" && page.day) params.set("day", page.day);
     if (page.query) params.set("q", page.query);
     if (page.subtitles) params.set("subtitles", "1");
+    if (page.view === "all" && page.filmId) params.set("film", page.filmId);
   }
   const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
   window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
@@ -50,6 +53,10 @@ export function validISODate(value: string | null) {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value;
+}
+
+export function validFilmId(value: string | null) {
+  return value && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? value : null;
 }
 
 export function getPragueTodayISO() {

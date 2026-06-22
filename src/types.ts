@@ -49,7 +49,13 @@ export type ScheduleResponse = {
 };
 
 export type RadarProvider = { id: number; name: string; logoUrl: string; url: string | null };
-export type RadarProgramMatch = { filmId: string; firstScreeningDate: string; screeningCount: number };
+export type RadarProgramMatch = {
+  filmId: string;
+  firstScreeningDate: string;
+  screeningCount: number;
+  upcomingScreeningCount: number;
+  nextScreening: { dateISO: string; time: string | null } | null;
+};
 export type RadarItem = {
   id: string;
   tmdbId: number;
@@ -89,6 +95,7 @@ export type PageState = {
   subtitles: boolean;
   radarWeek: string | null;
   radarDay: string | null;
+  filmId: string | null;
 };
 
 export type LoadState<T> = {

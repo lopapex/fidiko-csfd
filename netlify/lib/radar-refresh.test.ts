@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { isHiddenProvider, linkProgramMatches, type RadarItem } from "./radar-refresh";
+import { isHiddenProvider, linkProgramMatches, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
+import { getProviderUrl, isAllowedProvider } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const baseItem: RadarItem = {
@@ -40,12 +41,92 @@ const schedule: ScheduleResponse = {
 };
 
 describe("Radar integration", () => {
-  it("links only an exact CSFD or normalized-title match", () => {
-    expect(linkProgramMatches([baseItem], schedule)[0].program?.filmId).toBe("po-vecerce");
-    expect(linkProgramMatches([{ ...baseItem, title: "Po večerce 2", csfd: null }], schedule)[0].program).toBeNull();
+  const now = { dateISO: "2026-06-21", time: "19:00" };
+
+  it("links an exact CSFD URL and calculates future screenings", () => {
+    const program = linkProgramMatches([baseItem], schedule, now)[0].program;
+    expect(program).toMatchObject({
+      filmId: "po-vecerce",
+      upcomingScreeningCount: 1,
+      nextScreening: { dateISO: "2026-06-21", time: "20:00" },
+    });
+  });
+
+  it("does not fall back to a title when both CSFD URLs disagree", () => {
+    const item = { ...baseItem, csfd: { ...baseItem.csfd!, url: "https://www.csfd.cz/film/999-jiny-film/" } };
+    expect(linkProgramMatches([item], schedule, now)[0].program).toBeNull();
+  });
+
+  it("uses a title only for one unambiguous candidate with a missing CSFD URL", () => {
+    const withoutCsfd = { ...schedule.films[0], csfd: null };
+    const titleItem = { ...baseItem, csfd: null };
+    expect(linkProgramMatches([titleItem], { ...schedule, films: [withoutCsfd] }, now)[0].program?.filmId).toBe("po-vecerce");
+    expect(linkProgramMatches([titleItem], { ...schedule, films: [withoutCsfd, { ...withoutCsfd, id: "duplicate" }] }, now)[0].program).toBeNull();
+  });
+
+  it("does not expose a program link after the final screening", () => {
+    expect(linkProgramMatches([baseItem], schedule, { dateISO: "2026-06-21", time: "21:00" })[0].program).toBeNull();
   });
 
   it.each(["Lepší.TV", "CANAL+", "Canal Plus"])("hides provider %s", provider => {
     expect(isHiddenProvider(provider)).toBe(true);
+  });
+
+  it.each([
+    "Oneplay",
+    "Prima Plus",
+    "Disney Plus",
+    "SkyShowtime",
+    "Apple TV Plus",
+    "Amazon Prime Video",
+    "HBO Max",
+    "Netflix",
+  ])("allows provider %s", provider => {
+    expect(isAllowedProvider(provider)).toBe(true);
+  });
+
+  it.each(["MUBI", "Crunchyroll", "Rakuten TV", "Voyo"])("rejects provider %s", provider => {
+    expect(isAllowedProvider(provider)).toBe(false);
+  });
+
+  it.each([
+    ["Netflix", "Duna: Část druhá", "https://www.netflix.com/search?q=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
+    ["Disney Plus", "Duna", "https://www.disneyplus.com/search?q=Duna"],
+    ["Amazon Prime Video", "Duna", "https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Duna"],
+    ["Apple TV Plus", "Duna", "https://tv.apple.com/cz/search?term=Duna"],
+    ["Prima Plus", "Duna", "https://www.iprima.cz/vyhledavani?query=Duna"],
+    ["HBO Max", "Duna: Část druhá", "https://www.hbomax.com/search/result?q=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
+    ["Oneplay", "Duna: Část druhá", "https://www.oneplay.cz/vyhledat?query=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
+  ])("builds a title search URL for %s", (provider, title, expected) => {
+    expect(getProviderUrl(provider, title)).toBe(expected);
+  });
+
+  it.each([
+    ["SkyShowtime", "https://www.skyshowtime.com/cz"],
+  ])("keeps a stable homepage for %s when no public search route exists", (provider, expected) => {
+    expect(getProviderUrl(provider, "Duna")).toBe(expected);
+  });
+
+  it("carries the failed source from the previous compatible snapshot", () => {
+    const previous: RadarSnapshot = {
+      fetchedAt: "2026-06-20T00:00:00Z",
+      range: { start: "2026-06-15", end: "2026-06-28" },
+      sources: {
+        cinemaMovies: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+        streamingMovies: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+        streamingSeries: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+      },
+      items: [baseItem],
+    };
+    const resolved = resolveSource(
+      "cinemaMovies",
+      { items: [], succeeded: false },
+      previous,
+      "2026-06-15",
+      "2026-06-21",
+      "2026-06-21T00:00:00Z",
+    );
+    expect(resolved.items).toHaveLength(1);
+    expect(resolved.state).toEqual({ status: "carried", fetchedAt: "2026-06-20T00:00:00Z" });
   });
 });

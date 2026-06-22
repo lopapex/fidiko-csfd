@@ -3,9 +3,11 @@ import { csfd, type CSFDSearchMovie } from "node-csfd-api";
 import type { RadarItem, RadarMediaType } from "./radar-refresh";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v2";
+const CACHE_VERSION = "v3";
 const LOOKUP_CONCURRENCY = 4;
 const LOOKUP_TIMEOUT_MS = 8000;
+const MATCHED_TTL_MS = 7 * 86_400_000;
+const NOT_FOUND_TTL_MS = 86_400_000;
 
 export type RadarCsfdMatch = {
   title: string;
@@ -15,7 +17,14 @@ export type RadarCsfdMatch = {
   releaseDate: string | null;
 };
 
-type CachedMatch = { match: RadarCsfdMatch | null };
+export type CachedRadarCsfd =
+  | { status: "matched"; checkedAt: string; match: RadarCsfdMatch }
+  | { status: "not_found"; checkedAt: string; match: null };
+
+export type RadarCsfdLookupResult =
+  | { status: "matched"; match: RadarCsfdMatch }
+  | { status: "not_found" }
+  | { status: "error" };
 
 export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
   const unique = new Map<string, RadarItem>();
@@ -46,24 +55,28 @@ async function loadMatch(item: RadarItem) {
   const store = getStore(CACHE_STORE, { consistency: "strong" });
 
   try {
-    const cached = await store.get(key, { type: "json" }) as CachedMatch | null;
-    if (cached && Object.prototype.hasOwnProperty.call(cached, "match")) {
+    const cached = await store.get(key, { type: "json" }) as CachedRadarCsfd | null;
+    if (cached && isCachedRadarCsfdFresh(cached)) {
       return cached.match;
     }
   } catch (error) {
     console.warn(`Radar CSFD cache read failed for "${item.title}"`, error);
   }
 
-  const match = await withTimeout(lookupMatch(item), LOOKUP_TIMEOUT_MS, null);
-  try {
-    await store.setJSON(key, { match } satisfies CachedMatch);
-  } catch (error) {
-    console.warn(`Radar CSFD cache write failed for "${item.title}"`, error);
+  const result = await withTimeout(lookupMatch(item), LOOKUP_TIMEOUT_MS, { status: "error" } satisfies RadarCsfdLookupResult);
+  const cached = createCachedRadarCsfd(result);
+  if (cached) {
+    try {
+      await store.setJSON(key, cached);
+    } catch (error) {
+      console.warn(`Radar CSFD cache write failed for "${item.title}"`, error);
+    }
   }
-  return match;
+  return result.status === "matched" ? result.match : null;
 }
 
-async function lookupMatch(item: RadarItem): Promise<RadarCsfdMatch | null> {
+async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
+  let failed = false;
   for (const query of [item.title, item.originalTitle].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)) {
     try {
       const result = await csfd.search(query);
@@ -75,20 +88,41 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdMatch | null> {
 
       const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
       const url = details?.url ?? match.url;
-      if (!url) return null;
+      if (!url) continue;
 
       return {
-        title: details?.title ?? match.title,
-        rating: numberOrNull(details?.rating),
-        ratingCount: numberOrNull(details?.ratingCount),
-        url,
-        releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item)
+        status: "matched",
+        match: {
+          title: details?.title ?? match.title,
+          rating: numberOrNull(details?.rating),
+          ratingCount: numberOrNull(details?.ratingCount),
+          url,
+          releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item)
+        }
       };
     } catch (error) {
+      failed = true;
       console.warn(`Radar CSFD lookup failed for "${query}"`, error);
     }
   }
-  return null;
+  return failed ? { status: "error" } : { status: "not_found" };
+}
+
+export function isCachedRadarCsfdFresh(entry: CachedRadarCsfd, now = Date.now()) {
+  const checkedAt = Date.parse(entry.checkedAt);
+  if (!Number.isFinite(checkedAt)) return false;
+  const ttl = entry.status === "matched" ? MATCHED_TTL_MS : NOT_FOUND_TTL_MS;
+  return now - checkedAt <= ttl;
+}
+
+export function createCachedRadarCsfd(
+  result: RadarCsfdLookupResult,
+  checkedAt = new Date().toISOString(),
+): CachedRadarCsfd | null {
+  if (result.status === "error") return null;
+  return result.status === "matched"
+    ? { status: "matched", checkedAt, match: result.match }
+    : { status: "not_found", checkedAt, match: null };
 }
 
 function selectCzechStreamingDate(

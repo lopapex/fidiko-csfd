@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
-import handler, { filterRadarItems } from "./radar";
-import type { RadarSnapshot } from "../lib/radar-refresh";
+import handler, { filterRadarItems } from "../functions/radar";
+import type { RadarSnapshot } from "./radar-refresh";
 
 const snapshot: RadarSnapshot = {
   fetchedAt: "2026-06-21T00:00:00Z",
   range: { start: "2026-06-15", end: "2026-06-28" },
+  sources: {
+    cinemaMovies: { status: "fresh", fetchedAt: "2026-06-21T00:00:00Z" },
+    streamingMovies: { status: "fresh", fetchedAt: "2026-06-21T00:00:00Z" },
+    streamingSeries: { status: "fresh", fetchedAt: "2026-06-21T00:00:00Z" },
+  },
   items: [
     {
       id: "movie", tmdbId: 1, mediaType: "movie", channel: "cinema", title: "Film",
@@ -14,7 +19,10 @@ const snapshot: RadarSnapshot = {
     {
       id: "series", tmdbId: 2, mediaType: "series", channel: "streaming", title: "Seriál",
       originalTitle: null, overview: "", posterUrl: null, releaseDate: "2026-06-22",
-      providers: [{ id: 1, name: "CANAL+", logoUrl: "", url: null }], watchUrl: null,
+      providers: [
+        { id: 1, name: "CANAL+", logoUrl: "", url: null },
+        { id: 2, name: "Netflix", logoUrl: "", url: "https://www.netflix.com/cz/" },
+      ], watchUrl: null,
       csfd: null, program: null
     }
   ]
@@ -23,7 +31,17 @@ const snapshot: RadarSnapshot = {
 describe("Radar reader", () => {
   it("filters one inclusive week and media type", () => {
     expect(filterRadarItems(snapshot, "2026-06-15", "2026-06-21", "all").map(item => item.id)).toEqual(["movie"]);
-    expect(filterRadarItems(snapshot, "2026-06-15", "2026-06-28", "series")[0].providers).toEqual([]);
+    const providers = filterRadarItems(snapshot, "2026-06-15", "2026-06-28", "series")[0].providers;
+    expect(providers.map(provider => provider.name)).toEqual(["Netflix"]);
+    expect(providers[0].url).toBe("https://www.netflix.com/search?q=Seri%C3%A1l");
+  });
+
+  it("removes a streaming item when no whitelisted provider remains", () => {
+    const hiddenOnly = {
+      ...snapshot,
+      items: [{ ...snapshot.items[1], providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }] }],
+    };
+    expect(filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all")).toEqual([]);
   });
 
   it.each([

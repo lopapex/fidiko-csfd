@@ -45,6 +45,11 @@ a {
   padding: 18px 0 44px;
 }
 
+.app-shell > .program-list > .film-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
+}
+
 .topbar {
   min-height: 74px;
   background: var(--accent);
@@ -429,6 +434,7 @@ a {
   font-size: 14px;
   line-height: 1.2;
   font-weight: 800;
+  text-decoration: none;
 }
 
 .weekly-film-title-button:hover,
@@ -529,46 +535,72 @@ a.weekly-rating:hover {
 
 .radar-release-cell {
   cursor: default;
-}
-
-.radar-release-cell:not(.radar-release-link) {
-  pointer-events: none;
   transition: none;
 }
 
-.radar-release-cell:not(.radar-release-link):hover {
+.radar-release-cell:hover {
   border-color: #c9c9c9;
   background: var(--soft);
   transform: none;
 }
 
-.radar-release-link {
+.radar-cell-program-button {
+  min-height: 28px;
+  margin-top: 2px;
+  padding: 4px 7px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--subtitle-dark);
+  border-radius: 3px;
+  background: var(--subtitle-dark);
+  color: #ffffff;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 900;
   cursor: pointer;
 }
 
-.radar-release-link,
-.radar-release-link * {
-  cursor: pointer;
+.radar-cell-program-button:hover,
+.radar-cell-program-button:focus-visible {
+  border-color: var(--subtitle);
+  background: var(--subtitle);
 }
 
-.radar-release-link.streaming:hover {
-  border-color: var(--accent);
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px var(--accent);
-}
-
-.radar-release-link.streaming:focus-visible {
-  border-color: var(--accent);
-  background: #ffffff;
+.radar-cell-program-button:focus-visible,
+.radar-cell-providers a:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
 
-.radar-program-release {
-  width: 100%;
-  font: inherit;
-  align-items: flex-start;
-  text-align: left;
+.radar-cell-providers {
+  margin-top: 2px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.radar-cell-providers > a,
+.radar-cell-providers > span {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #cccccc;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.radar-cell-providers > a:hover {
+  border-color: var(--subtitle-dark);
+  background: var(--subtitle-soft);
+}
+
+.radar-cell-providers img {
+  display: block;
+  border-radius: 3px;
 }
 
 .radar-week-row.radar-movie .weekly-film-cell {
@@ -1867,16 +1899,13 @@ a.weekly-rating:hover {
   .topbar-actions {
     width: auto;
     padding-top: 0;
-    display: grid;
-    grid-template-areas: "view mode";
-    grid-template-columns: auto auto;
+    display: flex;
     gap: 6px;
     align-items: center;
     border-top: 0;
   }
 
   .mode-switch {
-    grid-area: mode;
     min-width: 0;
     padding: 2px;
   }
@@ -1896,10 +1925,6 @@ a.weekly-rating:hover {
   .header-icon-button {
     width: 34px;
     height: 34px;
-  }
-
-  .topbar-actions > .view-switch {
-    grid-area: view;
   }
 
   .radar-view {

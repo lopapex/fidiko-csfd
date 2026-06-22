@@ -1,5 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
+import { getProviderUrl, isAllowedProvider } from "../lib/radar-providers";
 
 const RADAR_CACHE_STORE = "radar-cache";
 const RADAR_CACHE_KEY = "current-v7";
@@ -212,16 +213,17 @@ function isStaleFutureSnapshot(snapshot: RadarSnapshot, weekStart: string) {
   return !Number.isFinite(fetchedAt) || Date.now() - fetchedAt > FUTURE_SNAPSHOT_MAX_AGE_MS;
 }
 
-export function isHiddenProvider(name: string) {
-  const normalized = name.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  return /\blepsi\s*\.?\s*tv\b/.test(normalized) || /^canal\s*(?:\+|plus)$/.test(normalized.trim());
-}
-
 export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: string, type: RadarType) {
   return snapshot.items
     .filter((item) => item.releaseDate >= start && item.releaseDate <= end && (type === "all" || item.mediaType === type))
     .map((item) => ({
       ...item,
-      providers: item.providers.filter((provider) => !isHiddenProvider(provider.name))
-    }));
+      providers: item.providers
+        .filter((provider) => isAllowedProvider(provider.name))
+        .map((provider) => ({
+          ...provider,
+          url: getProviderUrl(provider.name, item.title),
+        }))
+    }))
+    .filter((item) => item.channel !== "streaming" || item.providers.length > 0);
 }

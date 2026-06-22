@@ -27,17 +27,6 @@ export function AppHeader({
           height="48"
           fetchPriority="high"
         />
-        {canInstall ? (
-          <button
-            className="header-icon-button"
-            type="button"
-            onClick={onInstall}
-            title="Nainstalovat aplikaci"
-            aria-label="Nainstalovat aplikaci"
-          >
-            <Download size={19} aria-hidden="true" />
-          </button>
-        ) : null}
       </div>
       <div className="topbar-actions">
         {mode === "program" ? (
@@ -60,6 +49,9 @@ export function AppHeader({
             <span className="view-switch-button">Vše</span>
           </div>
         )}
+        {mode === "program" && canInstall ? (
+          <InstallButton onInstall={onInstall} />
+        ) : null}
         <div className="mode-switch" role="group" aria-label="Hlavní část aplikace">
           <button
             className={mode === "program" ? "mode-button active" : "mode-button"}
@@ -84,7 +76,24 @@ export function AppHeader({
             <span>Radar</span>
           </button>
         </div>
+        {mode === "radar" && canInstall ? (
+          <InstallButton onInstall={onInstall} />
+        ) : null}
       </div>
     </header>
+  );
+}
+
+function InstallButton({ onInstall }: { onInstall: () => void }) {
+  return (
+    <button
+      className="header-icon-button"
+      type="button"
+      onClick={onInstall}
+      title="Nainstalovat aplikaci"
+      aria-label="Nainstalovat aplikaci"
+    >
+      <Download size={19} aria-hidden="true" />
+    </button>
   );
 }

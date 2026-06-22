@@ -1,6 +1,7 @@
 const BUILD_ID = new URL(self.location.href).searchParams.get("v") || "dev";
 const APP_CACHE = `nzfd-app-${BUILD_ID}`;
 const DATA_CACHE = "nzfd-data-v1";
+const DATA_CACHE_LIMIT = 32;
 const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.png", "/pwa-icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -50,7 +51,9 @@ async function fetchData(request) {
     const response = await fetch(request);
     if (response.ok) {
       const cache = await caches.open(DATA_CACHE);
+      await cache.delete(request);
       await cache.put(request, response.clone());
+      await trimDataCache(cache);
     }
     return response;
   } catch {
@@ -60,5 +63,13 @@ async function fetchData(request) {
     const headers = new Headers(cached.headers);
     headers.set("x-nzfd-offline", "1");
     return new Response(await cached.blob(), { status: cached.status, statusText: cached.statusText, headers });
+  }
+}
+
+async function trimDataCache(cache) {
+  const requests = await cache.keys();
+  const overflow = requests.length - DATA_CACHE_LIMIT;
+  if (overflow > 0) {
+    await Promise.all(requests.slice(0, overflow).map((request) => cache.delete(request)));
   }
 }
