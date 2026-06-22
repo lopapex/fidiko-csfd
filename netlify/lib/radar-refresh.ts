@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import { enrichRadarItemsWithCsfd, type RadarCsfdMatch } from "./radar-csfd";
-import { getProviderUrl, isAllowedProvider } from "./radar-providers";
+import { getProviderLink, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
@@ -23,6 +23,7 @@ export type RadarProvider = {
   name: string;
   logoUrl: string;
   url: string | null;
+  linkType?: ProviderLinkType;
 };
 
 export type RadarProgramMatch = {
@@ -542,7 +543,7 @@ function deduplicateProviders(providers: TmdbProvider[], title?: string) {
       id: provider.provider_id,
       name: provider.provider_name,
       logoUrl: `${TMDB_IMAGE_BASE}/w45${provider.logo_path}`,
-      url: getProviderUrl(provider.provider_name, title)
+      ...getProviderLink(provider.provider_name, title),
     }));
 }
 

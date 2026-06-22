@@ -1,6 +1,6 @@
 import { getStore } from "@netlify/blobs";
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
-import { getProviderUrl, isAllowedProvider } from "../lib/radar-providers";
+import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 
 const RADAR_CACHE_STORE = "radar-cache";
 const RADAR_CACHE_KEY = "current-v7";
@@ -222,7 +222,7 @@ export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: st
         .filter((provider) => isAllowedProvider(provider.name))
         .map((provider) => ({
           ...provider,
-          url: getProviderUrl(provider.name, item.title),
+          ...getProviderLink(provider.name, item.title),
         }))
     }))
     .filter((item) => item.channel !== "streaming" || item.providers.length > 0);

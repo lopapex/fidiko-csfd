@@ -48,7 +48,13 @@ export type ScheduleResponse = {
   films: FilmGroup[];
 };
 
-export type RadarProvider = { id: number; name: string; logoUrl: string; url: string | null };
+export type RadarProvider = {
+  id: number;
+  name: string;
+  logoUrl: string;
+  url: string | null;
+  linkType: "search" | "homepage";
+};
 export type RadarProgramMatch = {
   filmId: string;
   firstScreeningDate: string;

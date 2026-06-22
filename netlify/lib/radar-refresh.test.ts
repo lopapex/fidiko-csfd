@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { isHiddenProvider, linkProgramMatches, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
-import { getProviderUrl, isAllowedProvider } from "./radar-providers";
+import { getProviderLink, isAllowedProvider } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const baseItem: RadarItem = {
@@ -99,13 +99,37 @@ describe("Radar integration", () => {
     ["Oneplay", "Duna: Část druhá", "https://www.oneplay.cz/vyhledat?query=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
     ["Netflix", "Avatar: Legenda o Aangovi - Série 2", "https://www.netflix.com/search?q=Avatar%3A%20Legenda%20o%20Aangovi"],
   ])("builds a title search URL for %s", (provider, title, expected) => {
-    expect(getProviderUrl(provider, title)).toBe(expected);
+    expect(getProviderLink(provider, title)).toEqual({
+      url: expected,
+      linkType: "search",
+    });
   });
 
   it.each([
     ["SkyShowtime", "https://www.skyshowtime.com/cz"],
   ])("keeps a stable homepage for %s when no public search route exists", (provider, expected) => {
-    expect(getProviderUrl(provider, "Duna")).toBe(expected);
+    expect(getProviderLink(provider, "Duna")).toEqual({
+      url: expected,
+      linkType: "homepage",
+    });
+  });
+
+  it.each([
+    "Avatar - Série 2",
+    "Avatar - Serie 2",
+    "Avatar - Season 2",
+  ])("removes a season suffix from provider search: %s", title => {
+    expect(getProviderLink("Netflix", title)).toEqual({
+      url: "https://www.netflix.com/search?q=Avatar",
+      linkType: "search",
+    });
+  });
+
+  it("falls back to the provider homepage when the title is empty", () => {
+    expect(getProviderLink("Netflix", "  ")).toEqual({
+      url: "https://www.netflix.com/cz/",
+      linkType: "homepage",
+    });
   });
 
   it("carries the failed source from the previous compatible snapshot", () => {

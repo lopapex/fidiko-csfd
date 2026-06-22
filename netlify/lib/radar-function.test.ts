@@ -34,6 +34,7 @@ describe("Radar reader", () => {
     const providers = filterRadarItems(snapshot, "2026-06-15", "2026-06-28", "series")[0].providers;
     expect(providers.map(provider => provider.name)).toEqual(["Netflix"]);
     expect(providers[0].url).toBe("https://www.netflix.com/search?q=Seri%C3%A1l");
+    expect(providers[0].linkType).toBe("search");
   });
 
   it("removes a streaming item when no whitelisted provider remains", () => {

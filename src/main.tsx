@@ -13,6 +13,7 @@ import type {
   InstallPromptEvent,
   PageState,
   RadarItem,
+  RadarProvider,
   RadarProgramMatch,
   RadarResponse,
   ScheduleResponse,
@@ -626,14 +627,15 @@ function RadarReleaseCell({
       <span>{item.channel === "cinema" ? "Premiéra" : "Dostupné na"}</span>
       {item.channel === "streaming" ? (
         <div className="radar-cell-providers" aria-label="Dostupné služby">
-          {item.providers.map(provider =>
-            provider.url ? (
+          {item.providers.map(provider => {
+            const label = getProviderLinkLabel(provider, item.title);
+            return provider.url ? (
               <a
                 href={provider.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                title={`Otevřít ${provider.name}`}
-                aria-label={`Otevřít ${provider.name}`}
+                title={label}
+                aria-label={label}
                 key={provider.id}
               >
                 <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
@@ -642,8 +644,8 @@ function RadarReleaseCell({
               <span title={provider.name} key={provider.id}>
                 <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
               </span>
-            ),
-          )}
+            );
+          })}
         </div>
       ) : null}
     </div>
@@ -725,14 +727,15 @@ function RadarCard({
           <RadarRating title={item.title} csfd={item.csfd} />
           {item.channel === "streaming" ? (
             <div className="provider-list" aria-label="Dostupné služby">
-              {item.providers.map(provider =>
-                provider.url ? (
+              {item.providers.map(provider => {
+                const label = getProviderLinkLabel(provider, item.title);
+                return provider.url ? (
                   <a
                     href={provider.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    title={`Otevřít ${provider.name}`}
-                    aria-label={`Otevřít ${provider.name}`}
+                    title={label}
+                    aria-label={label}
                     key={provider.id}
                   >
                     <img
@@ -758,8 +761,8 @@ function RadarCard({
                     />
                     <span>{provider.name}</span>
                   </span>
-                ),
-              )}
+                );
+              })}
             </div>
           ) : null}
         </div>
@@ -1678,6 +1681,17 @@ function formatNextScreening(screening: RadarProgramMatch["nextScreening"]) {
 }
 function formatRadarTitle(value: string) {
   return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");
+}
+
+function getProviderLinkLabel(provider: RadarProvider, title: string) {
+  const isSearch = provider.linkType === "search" || Boolean(
+    provider.url?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i),
+  );
+  if (!isSearch) return `Otevřít ${provider.name}`;
+  const searchTitle = title
+    .replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "")
+    .trim();
+  return `Vyhledat ${searchTitle} na ${provider.name}`;
 }
 function formatRadarDate(value: string) {
   return new Intl.DateTimeFormat("cs-CZ", {
