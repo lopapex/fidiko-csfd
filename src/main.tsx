@@ -658,20 +658,17 @@ function RadarReleaseCell({
   return (
     <div className={`weekly-time-link radar-release-cell ${item.channel}`}>
       <strong>{item.channel === "cinema" ? "Kino" : "Streaming"}</strong>
-      <span>{item.channel === "cinema" ? "Premiéra" : "Dostupné na"}</span>
+      <span>
+        {item.channel === "cinema"
+          ? "Premiéra"
+          : item.providers.length === 0 && item.csfd?.url
+            ? "Více informací na"
+            : "Dostupné na"}
+      </span>
       {item.channel === "streaming" ? (
         <div className="radar-cell-providers" aria-label="Dostupné služby">
           {item.providers.length === 0 && item.csfd?.url ? (
-            <a
-              className="provider-csfd-link"
-              href={item.csfd.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title={`${item.title} na ČSFD`}
-              aria-label={`${item.title} na ČSFD`}
-            >
-              ČSFD
-            </a>
+            <CsfdProviderLink url={item.csfd.url} title={item.title} />
           ) : null}
           {item.providers.map(provider => {
             const label = getProviderLinkLabel(provider, item.title);
@@ -774,16 +771,7 @@ function RadarCard({
           {item.channel === "streaming" ? (
             <div className="provider-list" aria-label="Dostupné služby">
               {item.providers.length === 0 && item.csfd?.url ? (
-                <a
-                  className="provider-csfd-link"
-                  href={item.csfd.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={`${item.title} na ČSFD`}
-                  aria-label={`${item.title} na ČSFD`}
-                >
-                  ČSFD
-                </a>
+                <CsfdProviderLink url={item.csfd.url} title={item.title} />
               ) : null}
               {item.providers.map(provider => {
                 const label = getProviderLinkLabel(provider, item.title);
@@ -838,6 +826,23 @@ function RadarCard({
         ) : null}
       </div>
     </article>
+  );
+}
+
+function CsfdProviderLink({ url, title }: { url: string; title: string }) {
+  const label = `Více informací na ČSFD: ${title}`;
+  return (
+    <a
+      className="provider-csfd-link"
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      title={label}
+      aria-label={label}
+    >
+      <span className="csfd-logo-mark" aria-hidden="true">ČSFD</span>
+      <span className="sr-only">ČSFD</span>
+    </a>
   );
 }
 
