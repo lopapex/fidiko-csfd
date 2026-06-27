@@ -225,5 +225,5 @@ export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: st
           ...getProviderLink(provider.name, item.title),
         }))
     }))
-    .filter((item) => item.channel !== "streaming" || item.providers.length > 0);
+    .filter((item) => item.channel !== "streaming" || item.mediaType === "series" || item.providers.length > 0);
 }

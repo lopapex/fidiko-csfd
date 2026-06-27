@@ -593,6 +593,16 @@ a.weekly-rating:hover {
   background: #ffffff;
 }
 
+.radar-cell-providers > .provider-csfd-link {
+  width: auto;
+  min-width: 42px;
+  padding: 0 6px;
+  color: #252525;
+  font-size: 11px;
+  font-weight: 900;
+  text-decoration: none;
+}
+
 .radar-cell-providers > a:hover {
   border-color: var(--subtitle-dark);
   background: var(--subtitle-soft);
@@ -1610,6 +1620,10 @@ a.weekly-rating:hover {
 .provider-list > a:hover {
   border-color: var(--subtitle-dark);
   background: var(--subtitle-soft);
+}
+
+.provider-list > .provider-csfd-link {
+  padding: 3px 10px;
 }
 
 .provider-list > a:focus-visible {

@@ -15,7 +15,6 @@ const PROVIDERS: ProviderDefinition[] = [
   {
     aliases: /^disney(?: plus)?$/,
     homepage: "https://www.disneyplus.com/cs-cz",
-    searchUrl: (query) => `https://www.disneyplus.com/search?q=${query}`,
   },
   {
     aliases: /^(?:amazon )?prime video(?: with ads)?$/,

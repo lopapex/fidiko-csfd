@@ -37,10 +37,25 @@ describe("Radar reader", () => {
     expect(providers[0].linkType).toBe("search");
   });
 
-  it("removes a streaming item when no whitelisted provider remains", () => {
+  it("keeps a streaming series even when no whitelisted provider remains", () => {
     const hiddenOnly = {
       ...snapshot,
       items: [{ ...snapshot.items[1], providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }] }],
+    };
+    const items = filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all");
+    expect(items).toHaveLength(1);
+    expect(items[0].providers).toEqual([]);
+  });
+
+  it("removes a streaming movie when no whitelisted provider remains", () => {
+    const hiddenOnly = {
+      ...snapshot,
+      items: [{
+        ...snapshot.items[1],
+        id: "streaming-movie",
+        mediaType: "movie" as const,
+        providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }]
+      }],
     };
     expect(filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all")).toEqual([]);
   });

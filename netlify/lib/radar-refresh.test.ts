@@ -91,7 +91,6 @@ describe("Radar integration", () => {
 
   it.each([
     ["Netflix", "Duna: Část druhá", "https://www.netflix.com/search?q=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
-    ["Disney Plus", "Duna", "https://www.disneyplus.com/search?q=Duna"],
     ["Amazon Prime Video", "Duna", "https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Duna"],
     ["Apple TV Plus", "Duna", "https://tv.apple.com/cz/search?term=Duna"],
     ["Prima Plus", "Duna", "https://www.iprima.cz/vyhledavani?query=Duna"],
@@ -106,6 +105,7 @@ describe("Radar integration", () => {
   });
 
   it.each([
+    ["Disney Plus", "https://www.disneyplus.com/cs-cz"],
     ["SkyShowtime", "https://www.skyshowtime.com/cz"],
   ])("keeps a stable homepage for %s when no public search route exists", (provider, expected) => {
     expect(getProviderLink(provider, "Duna")).toEqual({

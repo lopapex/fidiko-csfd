@@ -605,7 +605,7 @@ function RadarReleaseCell({
     const countLabel = formatScreeningCount(getUpcomingScreeningCount(item.program));
     return (
       <div className="weekly-time-link radar-release-cell cinema">
-        <strong>{formatNextScreening(item.program.nextScreening)}</strong>
+        <strong>Kino</strong>
         <span>{countLabel}</span>
         <button
           className="radar-cell-program-button"
@@ -627,6 +627,18 @@ function RadarReleaseCell({
       <span>{item.channel === "cinema" ? "Premiéra" : "Dostupné na"}</span>
       {item.channel === "streaming" ? (
         <div className="radar-cell-providers" aria-label="Dostupné služby">
+          {item.providers.length === 0 && item.csfd?.url ? (
+            <a
+              className="provider-csfd-link"
+              href={item.csfd.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`${item.title} na ČSFD`}
+              aria-label={`${item.title} na ČSFD`}
+            >
+              ČSFD
+            </a>
+          ) : null}
           {item.providers.map(provider => {
             const label = getProviderLinkLabel(provider, item.title);
             return provider.url ? (
@@ -727,6 +739,18 @@ function RadarCard({
           <RadarRating title={item.title} csfd={item.csfd} />
           {item.channel === "streaming" ? (
             <div className="provider-list" aria-label="Dostupné služby">
+              {item.providers.length === 0 && item.csfd?.url ? (
+                <a
+                  className="provider-csfd-link"
+                  href={item.csfd.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  title={`${item.title} na ČSFD`}
+                  aria-label={`${item.title} na ČSFD`}
+                >
+                  ČSFD
+                </a>
+              ) : null}
               {item.providers.map(provider => {
                 const label = getProviderLinkLabel(provider, item.title);
                 return provider.url ? (
@@ -771,10 +795,10 @@ function RadarCard({
             className="radar-program-button"
             type="button"
             onClick={() => onSelectProgramFilm(item.program!.filmId)}
-            aria-label={`${item.title}, otevřít v programu kina, nejbližší projekce ${formatNextScreening(item.program.nextScreening)}`}
+            aria-label={`${item.title}, otevřít v programu kina`}
           >
             <Clapperboard size={17} aria-hidden="true" />
-            <span>{formatNextScreening(item.program.nextScreening)}</span>
+            <span>Kino</span>
             <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
           </button>
         ) : null}
@@ -1669,16 +1693,6 @@ function getUpcomingScreeningCount(program: RadarProgramMatch) {
   return program.upcomingScreeningCount ?? program.screeningCount;
 }
 
-function formatNextScreening(screening: RadarProgramMatch["nextScreening"]) {
-  if (!screening) return "V programu";
-  const today = getPragueTodayISO();
-  const day = screening.dateISO === today
-    ? "dnes"
-    : screening.dateISO === addDays(today, 1)
-      ? "zítra"
-      : `${formatWeekday(screening.dateISO)} ${formatShortDate(screening.dateISO)}`;
-  return screening.time ? `${day} ${screening.time}` : day;
-}
 function formatRadarTitle(value: string) {
   return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");
 }

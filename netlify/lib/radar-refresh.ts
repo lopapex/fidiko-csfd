@@ -11,6 +11,7 @@ const RADAR_WEEK_CACHE_VERSION = "week-v6";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
+const MAX_SERIES_CANDIDATES = 100;
 const PROVIDER_CONCURRENCY = 6;
 const REQUEST_TIMEOUT_MS = 12000;
 const REQUEST_ATTEMPTS = 3;
@@ -168,7 +169,7 @@ async function buildRadarSnapshot(
     ? await enrichStreamingItems(token, streamingMovies.items, "movie")
     : { items: [], succeeded: false };
   const resolvedSeries = streamingSeries.succeeded
-    ? await resolveSeriesPremieres(token, streamingSeries.items.slice(0, 40), rangeStart, rangeEnd)
+    ? await resolveSeriesPremieres(token, streamingSeries.items.slice(0, MAX_SERIES_CANDIDATES), rangeStart, rangeEnd)
     : { items: [], succeeded: false };
   const seriesStreamingSource = resolvedSeries.succeeded
     ? await enrichStreamingItems(token, resolvedSeries.items, "series")
@@ -291,19 +292,23 @@ async function discoverMovies(token: string, start: string, end: string, release
 async function discoverSeries(token: string, start: string, end: string): Promise<DiscoverResult> {
   const baseParams = new URLSearchParams({
     language: "cs-CZ",
-    "air_date.gte": start,
-    "air_date.lte": end,
     include_adult: "false",
     include_null_first_air_dates: "false",
-    watch_region: "CZ",
-    with_watch_monetization_types: "flatrate|free|ads"
   });
 
-  const results = await Promise.allSettled(["popularity.desc", "vote_count.desc"].map(async (sort) => {
+  const dateFilters = [
+    ["air_date.gte", "air_date.lte"],
+    ["first_air_date.gte", "first_air_date.lte"],
+  ] as const;
+  const results = await Promise.allSettled(dateFilters.flatMap(([gteKey, lteKey]) => (
+    ["popularity.desc", "vote_count.desc"].map(async (sort) => {
     const params = new URLSearchParams(baseParams);
+    params.set(gteKey, start);
+    params.set(lteKey, end);
     params.set("sort_by", sort);
-    return fetchDiscoverPages(token, "/discover/tv", params, 1);
-  }));
+    return fetchDiscoverPages(token, "/discover/tv", params);
+    })
+  )));
   const fulfilled = results.filter((result): result is PromiseFulfilledResult<TmdbDiscoverItem[]> => result.status === "fulfilled");
   if (fulfilled.length === 0) {
     console.warn(`TMDb series discovery failed for ${start} to ${end}`, results.map((result) => result.status === "rejected" ? result.reason : null));
@@ -329,6 +334,18 @@ async function resolveSeriesPremieres(
       const seasons = (details.seasons ?? []).filter((season) =>
         season.season_number > 0 && Boolean(season.air_date) && season.air_date! >= start && season.air_date! <= end
       );
+      if (seasons.length === 0 && candidate.first_air_date && candidate.first_air_date >= start && candidate.first_air_date <= end) {
+        return {
+          succeeded: true,
+          items: [{
+            ...candidate,
+            name: details.name ?? candidate.name,
+            original_name: details.original_name ?? candidate.original_name,
+            overview: details.overview ?? candidate.overview,
+            poster_path: details.poster_path ?? candidate.poster_path,
+          }],
+        };
+      }
 
       return {
         succeeded: true,
@@ -394,15 +411,22 @@ async function enrichStreamingItems(
       return { succeeded: false, item: null };
     }
     const region = watch.results?.CZ;
-    if (!region) {
-      return { succeeded: true, item: null };
+    if (!region && mediaType === "series") {
+      return { succeeded: true, item: createRadarItem(item, mediaType, "streaming", { providers: [], watchUrl: null }) };
     }
+    if (!region) return { succeeded: true, item: null };
 
     const title = mediaType === "movie" ? item.title : item.name;
     const providers = deduplicateProviders(
       [...(region.flatrate ?? []), ...(region.free ?? []), ...(region.ads ?? [])],
       title,
     );
+    if (providers.length === 0 && mediaType === "series") {
+      return {
+        succeeded: true,
+        item: createRadarItem(item, mediaType, "streaming", { providers: [], watchUrl: region.link ?? null }),
+      };
+    }
     if (providers.length === 0) {
       return { succeeded: true, item: null };
     }
