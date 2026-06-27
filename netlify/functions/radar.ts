@@ -76,7 +76,7 @@ export default async function handler(request: Request) {
       try {
         snapshot = await initializeSnapshot(cacheKey, requestedWeek);
       } catch (error) {
-        snapshot = staleSnapshot ?? await readLegacySnapshot(requestedWeek, start, end);
+        snapshot = staleSnapshot ?? await readLegacySnapshot(requestedWeek, start, end, { allowStaleFuture: true });
         if (snapshot) {
           cacheStatus = "stale-fallback";
         } else if (error instanceof Error && error.message.includes("TMDB_API_TOKEN")) {
@@ -90,7 +90,7 @@ export default async function handler(request: Request) {
     }
 
     if (!snapshot) {
-      snapshot = staleSnapshot ?? await readLegacySnapshot(requestedWeek, start, end);
+      snapshot = await readLegacySnapshot(requestedWeek, start, end);
       if (snapshot) {
         cacheStatus = "stale-fallback";
       }
@@ -161,17 +161,27 @@ function createBody({
   };
 }
 
-async function readLegacySnapshot(week: string, start: string, end: string) {
+async function readLegacySnapshot(
+  week: string,
+  start: string,
+  end: string,
+  { allowStaleFuture = false }: { allowStaleFuture?: boolean } = {},
+) {
   for (const version of LEGACY_WEEK_CACHE_VERSIONS) {
     const periodSnapshot = await readRadarCache(`${version}/${week}`);
-    if (periodSnapshot) return periodSnapshot;
+    if (periodSnapshot && isUsableFallbackSnapshot(periodSnapshot, start, end, allowStaleFuture)) return periodSnapshot;
   }
 
   for (const key of LEGACY_RADAR_CACHE_KEYS) {
     const currentSnapshot = await readRadarCache(key);
-    if (currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end) return currentSnapshot;
+    if (currentSnapshot && isUsableFallbackSnapshot(currentSnapshot, start, end, allowStaleFuture)) return currentSnapshot;
   }
   return null;
+}
+
+function isUsableFallbackSnapshot(snapshot: RadarSnapshot, start: string, end: string, allowStaleFuture: boolean) {
+  if (start < snapshot.range.start || end > snapshot.range.end) return false;
+  return allowStaleFuture || !isStaleFutureSnapshot(snapshot, start);
 }
 
 async function initializeSnapshot(cacheKey: string, week: string) {

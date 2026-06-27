@@ -532,6 +532,7 @@ function RadarMobileWeek({
                 item={item}
                 priority={index === 0}
                 onSelectProgramFilm={onSelectProgramFilm}
+                showDate={false}
                 key={item.id}
               />
             ))}
@@ -699,10 +700,12 @@ function RadarCard({
   item,
   priority,
   onSelectProgramFilm,
+  showDate = true,
 }: {
   item: RadarItem;
   priority: boolean;
   onSelectProgramFilm: (id: string) => void;
+  showDate?: boolean;
 }) {
   return (
     <article className={`radar-card radar-${item.mediaType}`}>
@@ -763,9 +766,11 @@ function RadarCard({
             ) : null}
           </div>
         </div>
-        <time dateTime={item.releaseDate}>
-          {formatRadarDate(item.releaseDate)}
-        </time>
+        {showDate ? (
+          <time dateTime={item.releaseDate}>
+            {formatRadarDate(item.releaseDate)}
+          </time>
+        ) : null}
         <div className="radar-meta-row">
           <RadarRating title={item.title} csfd={item.csfd} />
           {item.channel === "streaming" ? (
