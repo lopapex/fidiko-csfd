@@ -58,4 +58,15 @@ describe("fetchJson", () => {
     expect(getApiCacheSize()).toBe(24);
     expect(getCachedApi("/api/radar?week=0")).toBeNull();
   });
+
+  it("does not keep no-store API responses in memory", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response('{"status":"missing"}', {
+      headers: { "content-type": "application/json", "cache-control": "no-store" }
+    })));
+
+    await fetchJson("/api/radar?period=week&week=2027-01-04");
+
+    expect(getCachedApi("/api/radar?period=week&week=2027-01-04")).toBeNull();
+  });
 });

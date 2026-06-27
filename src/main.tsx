@@ -4,6 +4,7 @@ import { Clapperboard, Search, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
 import { ProgramView } from "./ProgramView";
 import { RadarView } from "./RadarView";
+import { fetchJson } from "./api";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "./page-state";
 import { useApiResource } from "./use-api-resource";
 import type {
@@ -36,6 +37,7 @@ function App() {
   const pageRef = useRef(page);
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
+  const [radarPreparing, setRadarPreparing] = useState(false);
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
@@ -222,6 +224,21 @@ function App() {
     });
   }
 
+  async function prepareRadarWeek() {
+    const current = pageRef.current;
+    if (current.mode !== "radar" || radarPreparing) return;
+    setRadarPreparing(true);
+    try {
+      await fetchJson<RadarResponse>(`${getRadarUrl(current)}&refresh=1`);
+      setRadarRetry(value => value + 1);
+    } catch (error) {
+      console.error("Radar week preparation failed", error);
+      setRadarRetry(value => value + 1);
+    } finally {
+      setRadarPreparing(false);
+    }
+  }
+
   async function installApp() {
     if (!installPrompt) return;
     await installPrompt.prompt();
@@ -251,8 +268,10 @@ function App() {
               data={data}
               items={data.items}
               selectedDay={page.radarDay}
+              preparing={radarPreparing}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
               onDayChange={day => changePage({ radarDay: day })}
+              onPrepareWeek={() => void prepareRadarWeek()}
               onSelectProgramFilm={showFilmInAll}
             />
           )}
@@ -288,15 +307,19 @@ function RadarWeeklySchedule({
   data,
   items,
   selectedDay,
+  preparing,
   onNavigate,
   onDayChange,
+  onPrepareWeek,
   onSelectProgramFilm,
 }: {
   data: RadarResponse;
   items: RadarItem[];
   selectedDay: string | null;
+  preparing: boolean;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
+  onPrepareWeek: () => void;
   onSelectProgramFilm: (id: string) => void;
 }) {
   const start = data.period.weekStart ?? data.period.start;
@@ -340,7 +363,18 @@ function RadarWeeklySchedule({
           <span aria-hidden="true">›</span>
         </button>
       </div>
-      {items.length ? (
+      {data.status === "missing" ? (
+        <div className="empty-box weekly-empty">
+          <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p>
+          {preparing ? (
+            <RadarLoading />
+          ) : (
+            <button className="inline-action-button" type="button" onClick={onPrepareWeek}>
+              Načíst tento týden
+            </button>
+          )}
+        </div>
+      ) : items.length ? (
         <>
           <div className="weekly-desktop">
             <RadarWeeklyTable

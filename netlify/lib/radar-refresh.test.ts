@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isHiddenProvider, linkProgramMatches, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
+import { getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
 import { getProviderLink, isAllowedProvider } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
@@ -153,5 +153,21 @@ describe("Radar integration", () => {
     );
     expect(resolved.items).toHaveLength(1);
     expect(resolved.state).toEqual({ status: "carried", fetchedAt: "2026-06-20T00:00:00Z" });
+  });
+
+  it("selects only stale weekly radar cache entries for cleanup", () => {
+    const stale = getStaleRadarWeekKeys([
+      "current-v11",
+      "week-v10/2026-06-15",
+      "week-v10/2026-06-22",
+      "week-v9/2026-06-22",
+      "week-v10/not-a-date",
+      "other/2026-06-22",
+    ], new Set(["2026-06-22"]));
+
+    expect(stale).toEqual([
+      "week-v10/2026-06-15",
+      "week-v9/2026-06-22",
+    ]);
   });
 });

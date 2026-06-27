@@ -229,6 +229,22 @@ a {
   background: rgb(255 255 255 / 0.72);
 }
 
+.inline-action-button {
+  min-height: 34px;
+  margin-top: 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.inline-action-button:hover,
+.inline-action-button:focus-visible {
+  background: rgb(255 255 255 / 0.72);
+}
+
 .weekly-program {
   margin-top: 18px;
 }

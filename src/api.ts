@@ -36,7 +36,9 @@ export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<A
     storedAt: Date.now(),
     offline: response.headers.get("x-nzfd-offline") === "1" || !navigator.onLine
   };
-  setCachedApi(url, entry);
+  if (!response.headers.get("cache-control")?.toLowerCase().includes("no-store")) {
+    setCachedApi(url, entry);
+  }
   return { ...entry, fresh: true };
 }
 

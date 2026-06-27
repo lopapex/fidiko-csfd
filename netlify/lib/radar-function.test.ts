@@ -37,14 +37,26 @@ describe("Radar reader", () => {
     expect(providers[0].linkType).toBe("search");
   });
 
-  it("keeps a streaming series even when no whitelisted provider remains", () => {
+  it("keeps a streaming series without whitelisted providers when CSFD fallback exists", () => {
     const hiddenOnly = {
       ...snapshot,
-      items: [{ ...snapshot.items[1], providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }] }],
+      items: [{
+        ...snapshot.items[1],
+        providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }],
+        csfd: { title: "Seriál", rating: null, ratingCount: null, url: "https://www.csfd.cz/film/1/prehled/", releaseDate: null }
+      }],
     };
     const items = filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all");
     expect(items).toHaveLength(1);
     expect(items[0].providers).toEqual([]);
+  });
+
+  it("removes a streaming series without providers or CSFD fallback", () => {
+    const hiddenOnly = {
+      ...snapshot,
+      items: [{ ...snapshot.items[1], providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }] }],
+    };
+    expect(filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all")).toEqual([]);
   });
 
   it("removes a streaming movie when no whitelisted provider remains", () => {

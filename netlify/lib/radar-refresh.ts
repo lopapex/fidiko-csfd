@@ -6,12 +6,15 @@ import type { ScheduleResponse } from "./schedule-scraper";
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v10";
-const RADAR_WEEK_CACHE_VERSION = "week-v9";
+const RADAR_CACHE_KEY = "current-v11";
+const RADAR_WEEK_CACHE_VERSION = "week-v10";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
 const MAX_SERIES_CANDIDATES = 100;
+const PRECOMPUTE_PAST_WEEKS = 5;
+const PRECOMPUTE_FUTURE_WEEKS = 12;
+const WEEK_REFRESH_CONCURRENCY = 2;
 const PROVIDER_CONCURRENCY = 6;
 const REQUEST_TIMEOUT_MS = 12000;
 const REQUEST_ATTEMPTS = 3;
@@ -122,13 +125,23 @@ export async function hasRadarCache() {
 
 export async function refreshRadarCache(): Promise<RadarSnapshot> {
   const today = getPragueTodayISO();
-  const rangeStart = startOfISOWeek(today);
-  const rangeEnd = addDaysISO(today, 60);
+  const currentWeek = startOfISOWeek(today);
+  const weekStarts = Array.from(
+    { length: PRECOMPUTE_PAST_WEEKS + PRECOMPUTE_FUTURE_WEEKS + 1 },
+    (_, index) => addDaysISO(currentWeek, (index - PRECOMPUTE_PAST_WEEKS) * 7),
+  );
   const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
-  const previous = await readSnapshot(store, RADAR_CACHE_KEY);
-  const snapshot = await buildRadarSnapshot(rangeStart, rangeEnd, previous);
-  await store.setJSON(RADAR_CACHE_KEY, snapshot);
-  return snapshot;
+  const snapshots = await mapConcurrent(weekStarts, WEEK_REFRESH_CONCURRENCY, async (weekStart) => {
+    const key = `${RADAR_WEEK_CACHE_VERSION}/${weekStart}`;
+    const previous = await readSnapshot(store, key);
+    const snapshot = await buildRadarSnapshot(weekStart, addDaysISO(weekStart, 6), previous);
+    await store.setJSON(key, snapshot);
+    return snapshot;
+  });
+  const aggregate = aggregateWeekSnapshots(snapshots);
+  await store.setJSON(RADAR_CACHE_KEY, aggregate);
+  await cleanupRadarWeekCache(store, new Set(weekStarts));
+  return aggregate;
 }
 
 export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot> {
@@ -192,11 +205,11 @@ async function buildRadarSnapshot(
 
   const csfdStarted = performance.now();
   const enrichedItems = await enrichRadarItemsWithCsfd(
-    deduplicateItems([...cinema.items, ...movies.items, ...series.items])
+    prefilterRadarItemsForCsfd(deduplicateItems([...cinema.items, ...movies.items, ...series.items]))
   );
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
-  const items = linkProgramMatches(enrichedItems, schedule).sort(compareItems);
+  const items = linkProgramMatches(pruneRadarItems(enrichedItems), schedule).sort(compareItems);
   const linkingMs = performance.now() - linkingStarted;
   const csfdMatches = items.filter((item) => item.csfd?.url).length;
   const programMatches = items.filter((item) => item.program).length;
@@ -234,6 +247,27 @@ async function readSnapshot(store: ReturnType<typeof getStore>, key: string) {
   }
 }
 
+async function cleanupRadarWeekCache(store: ReturnType<typeof getStore>, retainedWeeks: Set<string>) {
+  try {
+    const { blobs } = await store.list();
+    const staleKeys = getStaleRadarWeekKeys(blobs.map((blob) => blob.key), retainedWeeks);
+    await Promise.all(staleKeys.map((key) => store.delete(key)));
+    if (staleKeys.length > 0) {
+      console.log(`Radar cache cleanup removed ${staleKeys.length} stale weekly snapshots`);
+    }
+  } catch (error) {
+    console.warn("Radar weekly cache cleanup failed", error);
+  }
+}
+
+export function getStaleRadarWeekKeys(keys: string[], retainedWeeks: Set<string>) {
+  return keys.filter((key) => {
+    const match = key.match(/^week-v\d+\/(\d{4}-\d{2}-\d{2})$/);
+    if (!match) return false;
+    return key.split("/")[0] !== RADAR_WEEK_CACHE_VERSION || !retainedWeeks.has(match[1]);
+  });
+}
+
 export function resolveSource(
   source: RadarSource,
   fresh: ItemSourceResult,
@@ -267,6 +301,48 @@ function belongsToSource(item: RadarItem, source: RadarSource) {
   if (source === "cinemaMovies") return item.mediaType === "movie" && item.channel === "cinema";
   if (source === "streamingMovies") return item.mediaType === "movie" && item.channel === "streaming";
   return item.mediaType === "series" && item.channel === "streaming";
+}
+
+function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
+  const ordered = [...snapshots].sort((left, right) => left.range.start.localeCompare(right.range.start));
+  const rangeStart = ordered[0]?.range.start ?? startOfISOWeek(getPragueTodayISO());
+  const rangeEnd = ordered[ordered.length - 1]?.range.end ?? addDaysISO(rangeStart, 6);
+  const sources = Object.fromEntries((["cinemaMovies", "streamingMovies", "streamingSeries"] as RadarSource[]).map((source) => {
+    const failed = ordered.filter((snapshot) => snapshot.sources[source].status === "failed");
+    const latest = [...ordered].reverse().find((snapshot) => snapshot.sources[source].fetchedAt)?.sources[source];
+    return [source, {
+      status: failed.length === ordered.length ? "failed" : "fresh",
+      fetchedAt: latest?.fetchedAt ?? null,
+    } satisfies RadarSourceState];
+  })) as Record<RadarSource, RadarSourceState>;
+
+  return {
+    fetchedAt: new Date().toISOString(),
+    range: { start: rangeStart, end: rangeEnd },
+    sources,
+    items: deduplicateItems(ordered.flatMap((snapshot) => snapshot.items)),
+  };
+}
+
+function pruneRadarItems(items: RadarItem[]) {
+  return items.filter((item) => (
+    item.channel !== "streaming"
+    || item.providers.length > 0
+    || (item.mediaType === "series" && Boolean(item.csfd?.url))
+  ));
+}
+
+function prefilterRadarItemsForCsfd(items: RadarItem[]) {
+  return items.filter((item) => (
+    item.channel !== "streaming"
+    || item.providers.length > 0
+    || item.mediaType !== "series"
+    || !hasSeasonSuffix(item.title)
+  ));
+}
+
+function hasSeasonSuffix(value: string) {
+  return /\s-\s(?:Série|Serie|Season)\s+\d+$/iu.test(value);
 }
 
 async function discoverMovies(token: string, start: string, end: string, releaseType: string): Promise<DiscoverResult> {
@@ -334,7 +410,7 @@ async function resolveSeriesPremieres(
       const seasons = (details.seasons ?? []).filter((season) =>
         season.season_number > 0 && Boolean(season.air_date) && season.air_date! >= start && season.air_date! <= end
       );
-      if (seasons.length === 0 && candidate.first_air_date && candidate.first_air_date >= start && candidate.first_air_date <= end) {
+      if (candidate.first_air_date && candidate.first_air_date >= start && candidate.first_air_date <= end) {
         return {
           succeeded: true,
           items: [{

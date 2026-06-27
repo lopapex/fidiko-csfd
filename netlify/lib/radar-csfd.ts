@@ -4,8 +4,8 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 
 const CACHE_STORE = "radar-csfd-cache";
 const CACHE_VERSION = "v4";
-const LOOKUP_CONCURRENCY = 4;
-const LOOKUP_TIMEOUT_MS = 8000;
+const LOOKUP_CONCURRENCY = 8;
+const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
 const NOT_FOUND_TTL_MS = 86_400_000;
 

@@ -80,6 +80,8 @@ export type RadarItem = {
 
 export type RadarResponse = {
   fetchedAt: string;
+  status?: "ready" | "missing";
+  detail?: string;
   period: {
     mode: "week";
     start: string;
