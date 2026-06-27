@@ -533,6 +533,7 @@ function RadarMobileWeek({
                 priority={index === 0}
                 onSelectProgramFilm={onSelectProgramFilm}
                 showDate={false}
+                compactProviders
                 key={item.id}
               />
             ))}
@@ -701,12 +702,15 @@ function RadarCard({
   priority,
   onSelectProgramFilm,
   showDate = true,
+  compactProviders = false,
 }: {
   item: RadarItem;
   priority: boolean;
   onSelectProgramFilm: (id: string) => void;
   showDate?: boolean;
+  compactProviders?: boolean;
 }) {
+  const visibleProviders = compactProviders ? item.providers.slice(0, 1) : item.providers;
   return (
     <article className={`radar-card radar-${item.mediaType}`}>
       <div className="radar-poster">
@@ -778,7 +782,7 @@ function RadarCard({
               {item.providers.length === 0 && item.csfd?.url ? (
                 <CsfdProviderLink url={item.csfd.url} title={item.title} />
               ) : null}
-              {item.providers.map(provider => {
+              {visibleProviders.map(provider => {
                 const label = getProviderLinkLabel(provider, item.title);
                 return provider.url ? (
                   <a

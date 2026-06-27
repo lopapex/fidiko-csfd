@@ -2017,13 +2017,24 @@ a.weekly-rating:hover {
     margin-top: 12px;
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
+    justify-content: space-between;
+    flex-wrap: nowrap;
     gap: 8px;
   }
 
   .radar-meta-row .radar-csfd-block,
   .radar-meta-row .provider-list {
     margin-top: 0;
+  }
+
+  .radar-meta-row .radar-csfd-block {
+    min-width: 0;
+  }
+
+  .radar-meta-row .provider-list {
+    margin-left: auto;
+    justify-content: flex-end;
+    flex: 0 0 auto;
   }
 
   .provider-list > a,
