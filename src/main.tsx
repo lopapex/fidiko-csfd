@@ -840,7 +840,7 @@ function CsfdProviderLink({ url, title }: { url: string; title: string }) {
       title={label}
       aria-label={label}
     >
-      <span className="csfd-logo-mark" aria-hidden="true">ČSFD</span>
+      <img className="csfd-logo-mark" src="/csfd-logo.png" alt="" width="28" height="28" loading="lazy" />
       <span className="sr-only">ČSFD</span>
     </a>
   );

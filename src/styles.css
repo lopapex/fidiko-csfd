@@ -381,6 +381,7 @@ a {
 
 .weekly-table tbody td {
   width: 134px;
+  height: 134px;
   min-height: 100px;
   padding: 9px;
   scroll-snap-align: start;
@@ -391,23 +392,26 @@ a {
   left: 0;
   z-index: 2;
   width: 260px;
+  height: 134px;
   padding: 10px;
+  box-sizing: border-box;
   background: #f7f7f7 !important;
   text-align: left;
   box-shadow: 5px 0 10px rgb(0 0 0 / 0.06);
 }
 
 .weekly-film-summary {
+  height: 100%;
   display: grid;
-  grid-template-columns: 78px minmax(0, 1fr);
+  grid-template-columns: 75px minmax(0, 1fr);
   gap: 11px;
   align-items: start;
 }
 
 .weekly-poster {
-  width: 78px;
-  height: 117px;
-  max-height: 117px;
+  width: 75px;
+  height: 112px;
+  max-height: 112px;
   overflow: hidden;
   display: grid;
   place-items: center;
@@ -430,6 +434,10 @@ a {
   overflow-wrap: anywhere;
   font-size: 14px;
   line-height: 1.2;
+}
+
+.weekly-film-copy {
+  min-width: 0;
 }
 
 .weekly-film-title-button,
@@ -621,15 +629,9 @@ a.weekly-rating:hover {
 .csfd-logo-mark {
   width: 28px;
   height: 28px;
-  display: inline-grid;
-  place-items: center;
+  display: block;
   border-radius: 3px;
-  background: #d71920;
-  color: #ffffff;
-  font-size: 8px;
-  font-weight: 950;
-  line-height: 1;
-  letter-spacing: 0;
+  object-fit: contain;
 }
 
 .radar-cell-providers > a:hover {
@@ -1704,10 +1706,6 @@ a.weekly-rating:hover {
   border-radius: 4px;
 }
 
-.weekly-film-summary {
-  grid-template-columns: 48px minmax(0, 1fr);
-}
-
 .screening-button {
   min-height: 112px;
   cursor: pointer;
@@ -1742,7 +1740,7 @@ a.weekly-rating:hover {
 }
 
 .weekly-table tbody td {
-  height: 112px;
+  height: 134px;
   padding: 0;
 }
 
@@ -2039,7 +2037,7 @@ a.weekly-rating:hover {
   }
 
   .provider-list > a .csfd-logo-mark {
-    display: inline-grid;
+    display: block;
   }
 
   .filter-toolbar {
