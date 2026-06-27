@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCachedRadarCsfd, isCachedRadarCsfdFresh, type RadarCsfdMatch } from "./radar-csfd";
+import { createCachedRadarCsfd, isCachedRadarCsfdFresh, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
 
 const match: RadarCsfdMatch = {
   title: "Film",
@@ -7,6 +7,7 @@ const match: RadarCsfdMatch = {
   ratingCount: 100,
   url: "https://www.csfd.cz/film/1-film/",
   releaseDate: null,
+  vodPremieres: [],
 };
 
 describe("Radar CSFD cache", () => {
@@ -24,5 +25,15 @@ describe("Radar CSFD cache", () => {
 
   it("never creates a cache entry for a timeout or lookup error", () => {
     expect(createCachedRadarCsfd({ status: "error" }, checkedAt)).toBeNull();
+  });
+
+  it("extracts only whitelisted VOD premieres and normalizes dates", () => {
+    expect(selectCzechVodPremieres([
+      { format: "Na VOD", date: "01.07.2026", company: "Prime Video" },
+      { format: "Na VOD", date: "2026-07-02", company: "MUBI" },
+      { format: "V kinech", date: "2026-07-03", company: "Netflix" },
+    ], { channel: "streaming" })).toEqual([
+      { date: "2026-07-01", provider: "Prime Video" },
+    ]);
   });
 });

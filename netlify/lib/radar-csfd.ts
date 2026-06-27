@@ -1,9 +1,10 @@
 import { getStore } from "@netlify/blobs";
 import { csfd, type CSFDSearchMovie } from "node-csfd-api";
 import type { RadarItem, RadarMediaType } from "./radar-refresh";
+import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v5";
+const CACHE_VERSION = "v6";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -15,6 +16,12 @@ export type RadarCsfdMatch = {
   ratingCount: number | null;
   url: string;
   releaseDate: string | null;
+  vodPremieres: RadarCsfdVodPremiere[];
+};
+
+export type RadarCsfdVodPremiere = {
+  date: string;
+  provider: string;
 };
 
 export type CachedRadarCsfd =
@@ -38,7 +45,7 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
 
   return items.map((item) => {
     const match = byItem.get(`${item.mediaType}-${item.tmdbId}`) ?? null;
-    const releaseDate = item.mediaType === "series" && item.channel === "streaming"
+    const releaseDate = item.channel === "streaming"
       ? match?.releaseDate ?? item.releaseDate
       : item.releaseDate;
     return {
@@ -100,7 +107,8 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
           rating: numberOrNull(details?.rating),
           ratingCount: numberOrNull(details?.ratingCount),
           url,
-          releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item)
+          releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
+          vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
         }
       };
     } catch (error) {
@@ -132,14 +140,29 @@ function selectCzechStreamingDate(
   premieres: Array<{ format: string; date: string; company: string }>,
   item: RadarItem
 ) {
-  if (item.mediaType !== "series" || item.channel !== "streaming") return null;
-  const providerNames = item.providers.map((provider) => comparableTitle(provider.name));
-  const vodPremieres = premieres.filter((premiere) => comparableTitle(premiere.format).includes("na vod"));
-  const providerPremiere = vodPremieres.find((premiere) => {
-    const company = comparableTitle(premiere.company);
-    return providerNames.some((provider) => company.includes(provider) || provider.includes(company));
-  });
-  return providerPremiere?.date ?? (providerNames.length === 0 ? vodPremieres[0]?.date ?? null : null);
+  if (item.channel !== "streaming") return null;
+  return selectCzechVodPremieres(premieres, item)[0]?.date ?? null;
+}
+
+export function selectCzechVodPremieres(
+  premieres: Array<{ format: string; date: string; company: string }>,
+  item: Pick<RadarItem, "channel">
+): RadarCsfdVodPremiere[] {
+  if (item.channel !== "streaming") return [];
+
+  const unique = new Map<string, RadarCsfdVodPremiere>();
+  for (const premiere of premieres) {
+    if (!comparableTitle(premiere.format).includes("na vod")) continue;
+    const provider = getProviderMetadata(premiere.company);
+    if (!provider) continue;
+    const date = normalizePremiereDate(premiere.date);
+    if (!date) continue;
+    unique.set(`${date}-${provider.id}`, { date, provider: provider.name });
+  }
+
+  return [...unique.values()].sort((left, right) => (
+    left.date.localeCompare(right.date) || left.provider.localeCompare(right.provider, "cs-CZ")
+  ));
 }
 
 function selectCandidate(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
@@ -187,6 +210,14 @@ function isPlausibleTitleMatch(candidate: string, query: string) {
 
 function slugify(value: string) {
   return comparableTitle(value).replace(/\s+/g, "-") || "title";
+}
+
+function normalizePremiereDate(value: string) {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const match = value.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+  if (!match) return null;
+  const [, day, month, year] = match;
+  return `${year}-${month.padStart(2, "0")}-${day.padStart(2, "0")}`;
 }
 
 function numberOrNull(value: unknown) {

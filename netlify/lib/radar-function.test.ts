@@ -23,7 +23,15 @@ const snapshot: RadarSnapshot = {
         { id: 1, name: "CANAL+", logoUrl: "", url: null },
         { id: 2, name: "Netflix", logoUrl: "", url: "https://www.netflix.com/cz/" },
       ], watchUrl: null,
-      csfd: null, program: null
+      csfd: {
+        title: "Seriál",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1/prehled/",
+        releaseDate: "2026-06-22",
+        vodPremieres: [{ date: "2026-06-22", provider: "Netflix" }],
+      },
+      program: null
     }
   ]
 };
@@ -37,18 +45,17 @@ describe("Radar reader", () => {
     expect(providers[0].linkType).toBe("search");
   });
 
-  it("keeps a streaming series without whitelisted providers when CSFD fallback exists", () => {
+  it("removes a streaming series without whitelisted providers even when CSFD fallback exists", () => {
     const hiddenOnly = {
       ...snapshot,
       items: [{
         ...snapshot.items[1],
         providers: [{ id: 1, name: "MUBI", logoUrl: "", url: null }],
-        csfd: { title: "Seriál", rating: null, ratingCount: null, url: "https://www.csfd.cz/film/1/prehled/", releaseDate: null }
+        csfd: { title: "Seriál", rating: null, ratingCount: null, url: "https://www.csfd.cz/film/1/prehled/", releaseDate: "2026-06-22", vodPremieres: [{ date: "2026-06-22", provider: "Netflix" }] }
       }],
     };
     const items = filterRadarItems(hiddenOnly, "2026-06-15", "2026-06-28", "all");
-    expect(items).toHaveLength(1);
-    expect(items[0].providers).toEqual([]);
+    expect(items).toEqual([]);
   });
 
   it("removes a streaming series without providers or CSFD fallback", () => {

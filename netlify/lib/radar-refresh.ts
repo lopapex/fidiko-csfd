@@ -1,13 +1,13 @@
 import { getStore } from "@netlify/blobs";
 import { enrichRadarItemsWithCsfd, type RadarCsfdMatch } from "./radar-csfd";
-import { getProviderLink, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
+import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v12";
-const RADAR_WEEK_CACHE_VERSION = "week-v11";
+const RADAR_CACHE_KEY = "current-v13";
+const RADAR_WEEK_CACHE_VERSION = "week-v12";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -18,6 +18,7 @@ const WEEK_REFRESH_CONCURRENCY = 2;
 const PROVIDER_CONCURRENCY = 6;
 const REQUEST_TIMEOUT_MS = 12000;
 const REQUEST_ATTEMPTS = 3;
+const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
 
 export type RadarMediaType = "movie" | "series";
 export type RadarChannel = "cinema" | "streaming";
@@ -165,10 +166,12 @@ async function buildRadarSnapshot(
   }
 
   const discoveryStarted = performance.now();
+  const streamingRangeStart = addDaysISO(rangeStart, -STREAMING_DISCOVERY_MARGIN_DAYS);
+  const streamingRangeEnd = addDaysISO(rangeEnd, STREAMING_DISCOVERY_MARGIN_DAYS);
   const [cinemaMovies, streamingMovies, streamingSeries, schedule] = await Promise.all([
     discoverMovies(token, rangeStart, rangeEnd, "2|3"),
-    discoverMovies(token, rangeStart, rangeEnd, "4"),
-    discoverSeries(token, rangeStart, rangeEnd),
+    discoverMovies(token, streamingRangeStart, streamingRangeEnd, "4"),
+    discoverSeries(token, streamingRangeStart, streamingRangeEnd),
     readScheduleCache()
   ]);
   const discoveryMs = performance.now() - discoveryStarted;
@@ -182,7 +185,7 @@ async function buildRadarSnapshot(
     ? await enrichStreamingItems(token, streamingMovies.items, "movie")
     : { items: [], succeeded: false };
   const resolvedSeries = streamingSeries.succeeded
-    ? await resolveSeriesPremieres(token, streamingSeries.items.slice(0, MAX_SERIES_CANDIDATES), rangeStart, rangeEnd)
+    ? await resolveSeriesPremieres(token, streamingSeries.items.slice(0, MAX_SERIES_CANDIDATES), streamingRangeStart, streamingRangeEnd)
     : { items: [], succeeded: false };
   const seriesStreamingSource = resolvedSeries.succeeded
     ? await enrichStreamingItems(token, resolvedSeries.items, "series")
@@ -209,7 +212,7 @@ async function buildRadarSnapshot(
   );
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
-  const items = linkProgramMatches(pruneRadarItems(enrichedItems), schedule).sort(compareItems);
+  const items = linkProgramMatches(prepareRadarItemsForSnapshot(enrichedItems, rangeStart, rangeEnd), schedule).sort(compareItems);
   const linkingMs = performance.now() - linkingStarted;
   const csfdMatches = items.filter((item) => item.csfd?.url).length;
   const programMatches = items.filter((item) => item.program).length;
@@ -324,25 +327,48 @@ function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
   };
 }
 
-function pruneRadarItems(items: RadarItem[]) {
-  return items.filter((item) => (
-    item.channel !== "streaming"
-    || item.providers.length > 0
-    || (item.mediaType === "series" && Boolean(item.csfd?.url))
-  ));
+export function prepareRadarItemsForSnapshot(items: RadarItem[], rangeStart: string, rangeEnd: string) {
+  return applyCsfdStreamingProviders(items)
+    .filter((item) => item.releaseDate >= rangeStart && item.releaseDate <= rangeEnd)
+    .filter((item) => item.channel !== "streaming" || item.providers.length > 0);
+}
+
+function applyCsfdStreamingProviders(items: RadarItem[]) {
+  return items.map((item) => {
+    if (item.channel !== "streaming") return item;
+    const vodPremieres = item.csfd?.vodPremieres ?? [];
+    if (vodPremieres.length === 0) {
+      return { ...item, providers: [] };
+    }
+
+    const releaseDate = vodPremieres[0].date;
+    const providers = createProvidersFromCsfdPremieres(vodPremieres, item.title);
+    return {
+      ...item,
+      id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
+      releaseDate,
+      providers,
+    };
+  });
+}
+
+function createProvidersFromCsfdPremieres(premieres: NonNullable<RadarCsfdMatch["vodPremieres"]>, title: string) {
+  const unique = new Map<number, RadarProvider>();
+  for (const premiere of premieres) {
+    const metadata = getProviderMetadata(premiere.provider);
+    if (!metadata) continue;
+    unique.set(metadata.id, {
+      id: metadata.id,
+      name: metadata.name,
+      logoUrl: `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}`,
+      ...getProviderLink(metadata.name, title),
+    });
+  }
+  return [...unique.values()];
 }
 
 function prefilterRadarItemsForCsfd(items: RadarItem[]) {
-  return items.filter((item) => (
-    item.channel !== "streaming"
-    || item.providers.length > 0
-    || item.mediaType !== "series"
-    || !hasSeasonSuffix(item.title)
-  ));
-}
-
-function hasSeasonSuffix(value: string) {
-  return /\s-\s(?:Série|Serie|Season)\s+\d+$/iu.test(value);
+  return items;
 }
 
 async function discoverMovies(token: string, start: string, end: string, releaseType: string): Promise<DiscoverResult> {
@@ -487,24 +513,20 @@ async function enrichStreamingItems(
       return { succeeded: false, item: null };
     }
     const region = watch.results?.CZ;
-    if (!region && mediaType === "series") {
+    if (!region) {
       return { succeeded: true, item: createRadarItem(item, mediaType, "streaming", { providers: [], watchUrl: null }) };
     }
-    if (!region) return { succeeded: true, item: null };
 
     const title = mediaType === "movie" ? item.title : item.name;
     const providers = deduplicateProviders(
       [...(region.flatrate ?? []), ...(region.free ?? []), ...(region.ads ?? [])],
       title,
     );
-    if (providers.length === 0 && mediaType === "series") {
+    if (providers.length === 0) {
       return {
         succeeded: true,
         item: createRadarItem(item, mediaType, "streaming", { providers: [], watchUrl: region.link ?? null }),
       };
-    }
-    if (providers.length === 0) {
-      return { succeeded: true, item: null };
     }
 
     return {

@@ -1,49 +1,76 @@
 export type ProviderLinkType = "search" | "homepage";
 
 type ProviderDefinition = {
+  id: number;
+  name: string;
   aliases: RegExp;
   homepage: string;
+  logoPath: string;
   searchUrl?: (query: string) => string;
 };
 
 const PROVIDERS: ProviderDefinition[] = [
   {
+    id: 8,
+    name: "Netflix",
     aliases: /^netflix$/,
     homepage: "https://www.netflix.com/cz/",
+    logoPath: "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
     searchUrl: (query) => `https://www.netflix.com/search?q=${query}`,
   },
   {
+    id: 337,
+    name: "Disney Plus",
     aliases: /^disney(?: plus)?$/,
     homepage: "https://www.disneyplus.com/cs-cz",
+    logoPath: "/97yvRBw1GzX7fXprcF80er19ot.jpg",
   },
   {
+    id: 119,
+    name: "Prime Video",
     aliases: /^(?:amazon )?prime video(?: with ads)?$/,
     homepage: "https://www.primevideo.com/",
+    logoPath: "/pvske1MyAoymrs5bguRfVqYiM9a.jpg",
     searchUrl: (query) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${query}`,
   },
   {
+    id: 350,
+    name: "Apple TV Plus",
     aliases: /^apple tv(?: plus)?$/,
     homepage: "https://tv.apple.com/cz",
+    logoPath: "/mcbz1LgtErU9p4UdbZ0rG6RTWHX.jpg",
     searchUrl: (query) => `https://tv.apple.com/cz/search?term=${query}`,
   },
   {
+    id: 1928,
+    name: "Prima Plus",
     aliases: /^(?:i?prima)(?: plus)?$/,
     homepage: "https://www.iprima.cz/",
+    logoPath: "/vrefjVylvD4RkEjQguuXebCp9UQ.jpg",
     searchUrl: (query) => `https://www.iprima.cz/vyhledavani?query=${query}`,
   },
   {
+    id: 1899,
+    name: "HBO Max",
     aliases: /^(?:hbo )?max$/,
     homepage: "https://play.hbomax.com/",
+    logoPath: "/jbe4gVSfRlbPTdESXhEKpornsfu.jpg",
     searchUrl: (query) => `https://play.hbomax.com/search/result?q=${query}`,
   },
   {
+    id: 2536,
+    name: "Oneplay",
     aliases: /^oneplay$/,
     homepage: "https://www.oneplay.cz/",
+    logoPath: "/rqjfOJNuH6W5wwSvaBaMOZdDX5w.jpg",
     searchUrl: (query) => `https://www.oneplay.cz/vyhledat?query=${query}`,
   },
   {
+    id: 1773,
+    name: "SkyShowtime",
     aliases: /^skyshowtime$/,
     homepage: "https://www.skyshowtime.com/cz",
+    logoPath: "/h0ZYcYHicKQ4Ixm5nOjqvwni5NG.jpg",
   },
 ];
 
@@ -64,6 +91,16 @@ export function getProviderLink(name: string, title?: string) {
   }
 
   return { url: provider.homepage, linkType: "homepage" } as const;
+}
+
+export function getProviderMetadata(name: string) {
+  const provider = findProvider(name);
+  if (!provider) return null;
+  return {
+    id: provider.id,
+    name: provider.name,
+    logoPath: provider.logoPath,
+  };
 }
 
 function findProvider(name: string) {
