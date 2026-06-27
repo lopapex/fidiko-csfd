@@ -3,10 +3,10 @@ import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v7";
-const RADAR_WEEK_CACHE_VERSION = "week-v6";
-const LEGACY_RADAR_CACHE_KEYS = ["current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
-const LEGACY_WEEK_CACHE_VERSIONS = ["week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
+const RADAR_CACHE_KEY = "current-v10";
+const RADAR_WEEK_CACHE_VERSION = "week-v9";
+const LEGACY_RADAR_CACHE_KEYS = ["current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
+const LEGACY_WEEK_CACHE_VERSIONS = ["week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
 const FUTURE_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 

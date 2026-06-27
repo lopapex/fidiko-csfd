@@ -6,8 +6,8 @@ import type { ScheduleResponse } from "./schedule-scraper";
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v7";
-const RADAR_WEEK_CACHE_VERSION = "week-v6";
+const RADAR_CACHE_KEY = "current-v10";
+const RADAR_WEEK_CACHE_VERSION = "week-v9";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -297,8 +297,8 @@ async function discoverSeries(token: string, start: string, end: string): Promis
   });
 
   const dateFilters = [
-    ["air_date.gte", "air_date.lte"],
     ["first_air_date.gte", "first_air_date.lte"],
+    ["air_date.gte", "air_date.lte"],
   ] as const;
   const results = await Promise.allSettled(dateFilters.flatMap(([gteKey, lteKey]) => (
     ["popularity.desc", "vote_count.desc"].map(async (sort) => {

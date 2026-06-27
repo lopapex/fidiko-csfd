@@ -3,7 +3,7 @@ import { csfd, type CSFDSearchMovie } from "node-csfd-api";
 import type { RadarItem, RadarMediaType } from "./radar-refresh";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v3";
+const CACHE_VERSION = "v4";
 const LOOKUP_CONCURRENCY = 4;
 const LOOKUP_TIMEOUT_MS = 8000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -77,7 +77,10 @@ async function loadMatch(item: RadarItem) {
 
 async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
   let failed = false;
-  for (const query of [item.title, item.originalTitle].filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)) {
+  const queries = item.mediaType === "series"
+    ? [stripSeasonSuffix(item.title), stripSeasonSuffix(item.originalTitle), item.title, item.originalTitle]
+    : [item.title, item.originalTitle];
+  for (const query of queries.filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)) {
     try {
       const result = await csfd.search(query);
       const candidates = item.mediaType === "series"
@@ -168,6 +171,10 @@ function cacheKey(item: RadarItem) {
 
 function comparableTitle(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function stripSeasonSuffix(value: string | null) {
+  return value?.replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "").trim() || null;
 }
 
 function isPlausibleTitleMatch(candidate: string, query: string) {
