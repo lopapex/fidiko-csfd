@@ -20,10 +20,10 @@ export function getCachedApi<T>(url: string): ApiResult<T> | null {
 }
 
 export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<ApiResult<T>> {
-  const response = await fetch(url, { signal });
+  const response = await fetchWithDevFallback(url, signal);
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
-    throw new Error("API není dostupné. Spusťte aplikaci přes Netlify Dev, ne pouze přes Vite.");
+    throw new Error(createNonJsonApiError(response, url));
   }
 
   const body = await response.json() as T & { error?: string; detail?: string };
@@ -38,6 +38,43 @@ export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<A
   };
   setCachedApi(url, entry);
   return { ...entry, fresh: true };
+}
+
+async function fetchWithDevFallback(url: string, signal?: AbortSignal) {
+  const response = await fetch(url, { signal });
+  if (response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+    return response;
+  }
+
+  const fallbackUrl = getLocalNetlifyApiUrl(url);
+  if (!fallbackUrl) return response;
+
+  try {
+    const fallbackResponse = await fetch(fallbackUrl, { signal });
+    if (fallbackResponse.headers.get("content-type")?.toLowerCase().includes("application/json")) {
+      return fallbackResponse;
+    }
+  } catch {
+    // Keep the original response so the user sees the existing Netlify Dev guidance.
+  }
+
+  return response;
+}
+
+function getLocalNetlifyApiUrl(url: string) {
+  if (!import.meta.env.DEV || !url.startsWith("/api/")) return null;
+  const location = globalThis.location;
+  if (!location || !["localhost", "127.0.0.1"].includes(location.hostname) || location.port === "8888") {
+    return null;
+  }
+  return `http://localhost:8888${url}`;
+}
+
+function createNonJsonApiError(response: Response, url: string) {
+  if (import.meta.env.DEV && url.startsWith("/api/")) {
+    return "API není dostupné. Spusťte aplikaci přes Netlify Dev, ne pouze přes Vite.";
+  }
+  return `API vrátilo neplatnou odpověď (${response.status}). Zkuste stránku obnovit; pokud problém trvá, zkontrolujte nasazení Netlify Functions.`;
 }
 
 function setCachedApi<T>(url: string, entry: CacheEntry<T>) {

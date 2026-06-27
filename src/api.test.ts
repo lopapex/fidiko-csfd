@@ -28,6 +28,24 @@ describe("fetchJson", () => {
     await expect(fetchJson("/api/schedule")).rejects.toThrow("Netlify Dev");
   });
 
+  it("retries local API requests through Netlify Dev when Vite returns HTML", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("location", { hostname: "localhost", port: "5173" });
+    const fetch = vi.fn()
+      .mockResolvedValueOnce(new Response("<!doctype html>", {
+        headers: { "content-type": "text/html" }
+      }))
+      .mockResolvedValueOnce(new Response('{"value":2}', {
+        headers: { "content-type": "application/json" }
+      }));
+    vi.stubGlobal("fetch", fetch);
+
+    const result = await fetchJson<{ value: number }>("/api/schedule");
+
+    expect(result.data.value).toBe(2);
+    expect(fetch).toHaveBeenLastCalledWith("http://localhost:8888/api/schedule", { signal: undefined });
+  });
+
   it("keeps only the 24 most recently used URLs", async () => {
     vi.stubGlobal("navigator", { onLine: true });
     vi.stubGlobal("fetch", vi.fn().mockImplementation((url: string) => Promise.resolve(new Response(

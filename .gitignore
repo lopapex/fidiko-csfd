@@ -8,3 +8,5 @@ ui-check*.png
 
 # Local Netlify folder
 .netlify
+netlify/functions/manifest.json
+netlify/functions/*.zip
