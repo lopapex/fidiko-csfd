@@ -132,33 +132,53 @@ describe("Radar integration", () => {
     });
   });
 
-  it("keeps Elle in the target week from a CSFD Prime Video VOD premiere", () => {
-    const elle: RadarItem = {
+  it("keeps a streaming item in the target week from a CSFD VOD premiere", () => {
+    const itemWithCsfdVod: RadarItem = {
       ...baseItem,
-      id: "series-1684377-streaming-2026-06-30",
-      tmdbId: 1684377,
+      id: "series-10-streaming-2026-06-30",
+      tmdbId: 10,
       mediaType: "series",
       channel: "streaming",
-      title: "Elle",
+      title: "Testovací seriál",
       releaseDate: "2026-06-30",
       providers: [],
       csfd: {
-        title: "Elle",
+        title: "Testovací seriál",
         rating: null,
         ratingCount: null,
-        url: "https://www.csfd.cz/film/1684377/prehled/",
+        url: "https://www.csfd.cz/film/10/prehled/",
         releaseDate: "2026-07-01",
         vodPremieres: [{ date: "2026-07-01", provider: "Prime Video" }],
       },
     };
 
-    const [item] = prepareRadarItemsForSnapshot([elle], "2026-06-29", "2026-07-05");
+    const [item] = prepareRadarItemsForSnapshot([itemWithCsfdVod], "2026-06-29", "2026-07-05");
     expect(item.releaseDate).toBe("2026-07-01");
     expect(item.providers.map((provider) => provider.name)).toEqual(["Prime Video"]);
-    expect(item.providers[0].url).toBe("https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Elle");
+    expect(item.providers[0].url).toBe("https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Testovac%C3%AD%20seri%C3%A1l");
   });
 
-  it("removes streaming items without a CSFD VOD provider", () => {
+  it("prefers CSFD VOD providers over TMDb providers", () => {
+    const item: RadarItem = {
+      ...baseItem,
+      mediaType: "series",
+      channel: "streaming",
+      releaseDate: "2026-07-01",
+      providers: [{ id: 8, name: "Netflix", logoUrl: "", url: "https://www.netflix.com/search?q=Testovac%C3%AD%20seri%C3%A1l", linkType: "search" }],
+      csfd: {
+        title: "Testovací seriál",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/10/prehled/",
+        releaseDate: "2026-07-01",
+        vodPremieres: [{ date: "2026-07-01", provider: "Prime Video" }],
+      },
+    };
+
+    expect(prepareRadarItemsForSnapshot([item], "2026-06-29", "2026-07-05")[0].providers.map((provider) => provider.name)).toEqual(["Prime Video"]);
+  });
+
+  it("falls back to TMDb providers when CSFD has no VOD provider", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,
       mediaType: "series",
@@ -179,7 +199,21 @@ describe("Radar integration", () => {
       },
     };
 
-    expect(prepareRadarItemsForSnapshot([withoutCsfd, withoutVodProvider], "2026-06-29", "2026-07-05")).toEqual([]);
+    expect(prepareRadarItemsForSnapshot([withoutCsfd], "2026-06-29", "2026-07-05")).toEqual([withoutCsfd]);
+    expect(prepareRadarItemsForSnapshot([withoutVodProvider], "2026-06-29", "2026-07-05")[0].providers.map((provider) => provider.name)).toEqual(["Netflix"]);
+  });
+
+  it("removes streaming items without CSFD VOD or TMDb providers", () => {
+    const item: RadarItem = {
+      ...baseItem,
+      mediaType: "series",
+      channel: "streaming",
+      releaseDate: "2026-07-01",
+      providers: [],
+      csfd: null,
+    };
+
+    expect(prepareRadarItemsForSnapshot([item], "2026-06-29", "2026-07-05")).toEqual([]);
   });
 
   it("moves a streaming item into the week using the CSFD Czech VOD date", () => {
@@ -228,18 +262,22 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v13",
-      "week-v12/2026-06-15",
+      "current-v15",
+      "week-v14/2026-06-15",
+      "week-v14/2026-06-22",
+      "week-v13/2026-06-22",
       "week-v12/2026-06-22",
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v12/not-a-date",
+      "week-v14/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v12/2026-06-15",
+      "week-v14/2026-06-15",
+      "week-v13/2026-06-22",
+      "week-v12/2026-06-22",
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",

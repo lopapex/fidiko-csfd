@@ -1,13 +1,13 @@
 import { getStore } from "@netlify/blobs";
-import { enrichRadarItemsWithCsfd, type RadarCsfdMatch } from "./radar-csfd";
+import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
 import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v13";
-const RADAR_WEEK_CACHE_VERSION = "week-v12";
+const RADAR_CACHE_KEY = "current-v15";
+const RADAR_WEEK_CACHE_VERSION = "week-v14";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -19,6 +19,10 @@ const PROVIDER_CONCURRENCY = 6;
 const REQUEST_TIMEOUT_MS = 12000;
 const REQUEST_ATTEMPTS = 3;
 const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
+const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
+  { csfdId: 1684377, mediaType: "series" },
+  { csfdId: 1654643, mediaType: "series" },
+];
 
 export type RadarMediaType = "movie" | "series";
 export type RadarChannel = "cinema" | "streaming";
@@ -168,10 +172,11 @@ async function buildRadarSnapshot(
   const discoveryStarted = performance.now();
   const streamingRangeStart = addDaysISO(rangeStart, -STREAMING_DISCOVERY_MARGIN_DAYS);
   const streamingRangeEnd = addDaysISO(rangeEnd, STREAMING_DISCOVERY_MARGIN_DAYS);
-  const [cinemaMovies, streamingMovies, streamingSeries, schedule] = await Promise.all([
+  const [cinemaMovies, streamingMovies, streamingSeries, csfdStreaming, schedule] = await Promise.all([
     discoverMovies(token, rangeStart, rangeEnd, "2|3"),
     discoverMovies(token, streamingRangeStart, streamingRangeEnd, "4"),
     discoverSeries(token, streamingRangeStart, streamingRangeEnd),
+    fetchCsfdPrimaryStreamingItems(CSFD_PRIMARY_STREAMING_SEEDS),
     readScheduleCache()
   ]);
   const discoveryMs = performance.now() - discoveryStarted;
@@ -208,7 +213,7 @@ async function buildRadarSnapshot(
 
   const csfdStarted = performance.now();
   const enrichedItems = await enrichRadarItemsWithCsfd(
-    prefilterRadarItemsForCsfd(deduplicateItems([...cinema.items, ...movies.items, ...series.items]))
+    deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming])
   );
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
@@ -328,9 +333,9 @@ function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
 }
 
 export function prepareRadarItemsForSnapshot(items: RadarItem[], rangeStart: string, rangeEnd: string) {
-  return applyCsfdStreamingProviders(items)
+  return deduplicatePreparedRadarItems(applyCsfdStreamingProviders(items)
     .filter((item) => item.releaseDate >= rangeStart && item.releaseDate <= rangeEnd)
-    .filter((item) => item.channel !== "streaming" || item.providers.length > 0);
+    .filter((item) => item.channel !== "streaming" || item.providers.length > 0));
 }
 
 function applyCsfdStreamingProviders(items: RadarItem[]) {
@@ -338,7 +343,7 @@ function applyCsfdStreamingProviders(items: RadarItem[]) {
     if (item.channel !== "streaming") return item;
     const vodPremieres = item.csfd?.vodPremieres ?? [];
     if (vodPremieres.length === 0) {
-      return { ...item, providers: [] };
+      return item;
     }
 
     const releaseDate = vodPremieres[0].date;
@@ -367,8 +372,22 @@ function createProvidersFromCsfdPremieres(premieres: NonNullable<RadarCsfdMatch[
   return [...unique.values()];
 }
 
-function prefilterRadarItemsForCsfd(items: RadarItem[]) {
-  return items;
+function deduplicatePreparedRadarItems(items: RadarItem[]) {
+  const byKey = new Map<string, RadarItem>();
+  for (const item of items) {
+    const key = item.csfd?.url ? `csfd:${normalizeCsfdUrl(item.csfd.url)}` : `item:${item.id}`;
+    const existing = byKey.get(key);
+    if (!existing || shouldReplacePreparedItem(existing, item)) {
+      byKey.set(key, item);
+    }
+  }
+  return [...byKey.values()];
+}
+
+function shouldReplacePreparedItem(existing: RadarItem, candidate: RadarItem) {
+  if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
+  if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
+  return false;
 }
 
 async function discoverMovies(token: string, start: string, end: string, releaseType: string): Promise<DiscoverResult> {

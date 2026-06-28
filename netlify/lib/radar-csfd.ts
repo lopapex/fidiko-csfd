@@ -24,6 +24,11 @@ export type RadarCsfdVodPremiere = {
   provider: string;
 };
 
+export type CsfdPrimaryStreamingSeed = {
+  csfdId: number;
+  mediaType: RadarMediaType;
+};
+
 export type CachedRadarCsfd =
   | { status: "matched"; checkedAt: string; match: RadarCsfdMatch }
   | { status: "not_found"; checkedAt: string; match: null };
@@ -55,6 +60,43 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
       csfd: match
     };
   });
+}
+
+export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreamingSeed[]) {
+  const items = await mapConcurrent<CsfdPrimaryStreamingSeed, RadarItem | null>(seeds, LOOKUP_CONCURRENCY, async (seed) => {
+    const details = await withTimeout(csfd.movie(seed.csfdId), LOOKUP_TIMEOUT_MS, null);
+    if (!details?.url || !details?.title) return null;
+
+    const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" });
+    const csfdMatch: RadarCsfdMatch = {
+      title: details.title,
+      rating: numberOrNull(details.rating),
+      ratingCount: numberOrNull(details.ratingCount),
+      url: details.url,
+      releaseDate: vodPremieres[0]?.date ?? null,
+      vodPremieres,
+    };
+    if (!csfdMatch.releaseDate || csfdMatch.vodPremieres.length === 0) return null;
+
+    const item: RadarItem = {
+      id: `${seed.mediaType}-csfd-${seed.csfdId}-streaming-${csfdMatch.releaseDate}`,
+      tmdbId: -seed.csfdId,
+      mediaType: seed.mediaType,
+      channel: "streaming",
+      title: details.title,
+      originalTitle: null,
+      overview: details.descriptions?.[0] ?? "",
+      posterUrl: details.poster ?? null,
+      releaseDate: csfdMatch.releaseDate,
+      providers: [],
+      watchUrl: null,
+      csfd: csfdMatch,
+      program: null,
+    };
+    return item;
+  });
+
+  return items.filter((item): item is RadarItem => item !== null);
 }
 
 async function loadMatch(item: RadarItem) {
