@@ -1366,11 +1366,6 @@ function MobileProgramAgendaItem({
           >
             {film.title}
           </button>
-          {film.screenings.some(screening => screening.hasSubtitles) ? (
-            <span className="weekly-subtitle-mark mobile-program-subtitle">
-              Titulky
-            </span>
-          ) : null}
           <div className="weekly-film-meta">
             {film.csfd?.rating != null ? (
               film.csfd.url ? (
