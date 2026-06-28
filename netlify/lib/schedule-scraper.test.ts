@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { inferScreeningDateISO, normalizeFilmTitle } from "./schedule-scraper";
+import { extractFormats, inferScreeningDateISO, normalizeFilmTitle } from "./schedule-scraper";
 
 afterEach(() => vi.useRealTimers());
 
@@ -18,5 +18,14 @@ describe("schedule normalization", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-12-20T12:00:00Z"));
     expect(inferScreeningDateISO("5.1.")).toBe("2027-01-05");
+  });
+
+  it.each([
+    ["Film (OV)", "", ["Originál"]],
+    ["Film (ČT)", "", ["Titulky"]],
+    ["Film (ČV)", "", ["Dabing"]],
+    ["Film (OV)", "2D", ["Originál", "2D"]],
+  ])("normalizes language format %s / %s", (title, description, expected) => {
+    expect(extractFormats(title, description)).toEqual(expected);
   });
 });

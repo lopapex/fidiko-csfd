@@ -548,7 +548,7 @@ export function normalizeFilmTitle(title: string) {
   );
 }
 
-function extractFormats(title: string, description: string) {
+export function extractFormats(title: string, description: string) {
   const formats: string[] = [];
   const combined = `${title} ${description}`.toLowerCase();
 
@@ -557,12 +557,12 @@ function extractFormats(title: string, description: string) {
   } else if (isDubbed(title, description)) {
     formats.push("Dabing");
   } else if (isOriginalVersion(title)) {
-    formats.push("OV");
+    formats.push("Originál");
   }
   if (combined.includes("dabing") || DUBBING_TAG_RE.test(title)) formats.push("Dabing");
   if (combined.includes("2d")) formats.push("2D");
   if (combined.includes("3d")) formats.push("3D");
-  if (/\bov\b/i.test(title) || title.includes("(OV)")) formats.push("OV");
+  if (isOriginalVersion(title)) formats.push("Originál");
   if (title.includes("Kino senior")) formats.push("Kino senior");
   if (title.includes("FilmovÃ½ klub")) formats.push("FilmovÃ½ klub");
   if (title.toLowerCase().includes("premiÃ©ra") || title.toLowerCase().includes("premiera")) formats.push("PremiÃ©ra");
@@ -578,7 +578,7 @@ function isLikelyMovieScreening(title: string, description: string) {
 }
 
 function compactFormats(formats: string[]) {
-  const language = formats.find((format) => ["Titulky", "Dabing", "OV"].includes(format));
+  const language = formats.find((format) => ["Titulky", "Dabing", "Originál"].includes(format));
   const projection = formats.find((format) => ["3D", "2D"].includes(format));
 
   return [language, projection].filter((format): format is string => Boolean(format));
@@ -601,7 +601,7 @@ function firstUsefulDescription(screenings: RawScreening[]) {
 }
 
 function cleanMovieDescription(description: string) {
-  const redundant = new Set(["2D", "3D", "dabing", "titulky", "OV"]);
+  const redundant = new Set(["2D", "3D", "dabing", "titulky", "OV", "Originál"]);
 
   return description
     .split(",")
