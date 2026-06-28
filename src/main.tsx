@@ -527,7 +527,7 @@ function RadarMobileWeek({
                 ))}
               </div>
             ) : (
-              <div className="mobile-agenda-empty">Bez premier.</div>
+              <div className="mobile-agenda-empty">Bez premiér.</div>
             )}
           </section>
         );
@@ -776,9 +776,6 @@ function RadarCard({
             <span className={`channel-badge ${item.channel}`}>
               {item.channel === "cinema" ? "Kino" : "Streaming"}
             </span>
-            {item.program ? (
-              <span className="program-badge">V programu</span>
-            ) : null}
           </div>
         </div>
         {showDate ? (

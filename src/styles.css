@@ -1826,11 +1826,16 @@ a.weekly-rating:hover {
 }
 
 .mobile-agenda-radar-day {
-  border-left-color: var(--accent);
+  border-left: 1px solid var(--line);
+  background: #fafafa;
 }
 
 .mobile-agenda-radar-day:has(.radar-series) {
-  border-left-color: var(--series);
+  border-left-color: var(--line);
+}
+
+.mobile-agenda-radar-day .mobile-agenda-day-header {
+  background: #fbfbfb;
 }
 
 .mobile-agenda-program-day.has-subtitles {
