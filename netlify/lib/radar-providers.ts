@@ -55,7 +55,7 @@ const PROVIDERS: ProviderDefinition[] = [
     aliases: /^(?:hbo )?max$/,
     homepage: "https://play.hbomax.com/",
     logoPath: "/jbe4gVSfRlbPTdESXhEKpornsfu.jpg",
-    searchUrl: (query) => `https://play.hbomax.com/search/result?q=${query}`,
+    searchUrl: (query) => `https://www.hbomax.com/?q=${query}`,
   },
   {
     id: 2536,

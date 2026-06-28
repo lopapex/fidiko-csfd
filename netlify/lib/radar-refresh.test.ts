@@ -103,7 +103,7 @@ describe("Radar integration", () => {
     ["Amazon Prime Video", "Duna", "https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Duna"],
     ["Apple TV Plus", "Duna", "https://tv.apple.com/cz/search?term=Duna"],
     ["Prima Plus", "Duna", "https://www.iprima.cz/vyhledavani?query=Duna"],
-    ["HBO Max", "Duna: Část druhá", "https://play.hbomax.com/search/result?q=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
+    ["HBO Max", "Duna: Část druhá", "https://www.hbomax.com/?q=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
     ["Oneplay", "Duna: Část druhá", "https://www.oneplay.cz/vyhledat?query=Duna%3A%20%C4%8C%C3%A1st%20druh%C3%A1"],
     ["Netflix", "Avatar: Legenda o Aangovi - Série 2", "https://www.netflix.com/search?q=Avatar%3A%20Legenda%20o%20Aangovi"],
   ])("builds a title search URL for %s", (provider, title, expected) => {
