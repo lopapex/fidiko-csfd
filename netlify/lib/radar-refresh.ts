@@ -381,18 +381,12 @@ function createProvidersFromCsfdPremieres(premieres: NonNullable<RadarCsfdMatch[
 }
 
 function deduplicatePreparedRadarItems(items: RadarItem[]) {
-  const byKey = new Map<string, RadarItem>();
-  for (const item of items) {
-    const key = item.csfd?.url ? `csfd:${normalizeCsfdUrl(item.csfd.url)}` : `item:${item.id}`;
-    const existing = byKey.get(key);
-    if (!existing || shouldReplacePreparedItem(existing, item)) {
-      byKey.set(key, item);
-    }
-  }
-  return [...byKey.values()];
+  return deduplicateRadarItems(items);
 }
 
 function shouldReplacePreparedItem(existing: RadarItem, candidate: RadarItem) {
+  if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
+  if (existing.csfd?.url && !candidate.csfd?.url) return false;
   if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
   if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
   return false;
@@ -681,6 +675,10 @@ function normalizeCsfdPath(value: string) {
   return match ? `/film/${match[1]}` : path;
 }
 
+function normalizePosterUrl(value: string) {
+  return value.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/");
+}
+
 function normalizeMatchTitle(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
@@ -707,15 +705,41 @@ export function isHiddenProvider(name: string) {
 }
 
 function deduplicateItems(items: RadarItem[]) {
+  return deduplicateRadarItems(items);
+}
+
+function deduplicateRadarItems(items: RadarItem[]) {
   const byKey = new Map<string, RadarItem>();
+  const selected = new Set<RadarItem>();
   for (const item of items) {
-    const key = item.csfd?.url ? `csfd:${normalizeCsfdUrl(item.csfd.url)}` : `item:${item.id}`;
-    const existing = byKey.get(key);
-    if (!existing || shouldReplacePreparedItem(existing, item)) {
-      byKey.set(key, item);
+    const keys = getRadarDeduplicationKeys(item);
+    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
+    const selectedItem = existing && !shouldReplacePreparedItem(existing, item) ? existing : item;
+
+    if (existing && selectedItem !== existing) {
+      selected.delete(existing);
+    }
+    selected.add(selectedItem);
+    for (const key of keys) {
+      byKey.set(key, selectedItem);
     }
   }
-  return [...byKey.values()];
+  return [...selected.values()];
+}
+
+function getRadarDeduplicationKeys(item: RadarItem) {
+  const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
+  const streamingKey = getStreamingDeduplicationKey(item);
+  if (streamingKey) keys.push(streamingKey);
+  keys.push(`item:${item.id}`);
+  return keys;
+}
+
+function getStreamingDeduplicationKey(item: RadarItem) {
+  if (item.channel !== "streaming" || !item.posterUrl || item.providers.length === 0) return null;
+  const poster = normalizePosterUrl(item.posterUrl);
+  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
+  return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
 }
 
 function compareItems(left: RadarItem, right: RadarItem) {

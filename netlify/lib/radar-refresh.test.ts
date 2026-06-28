@@ -226,6 +226,42 @@ describe("Radar integration", () => {
     expect(prepareRadarItemsForSnapshot([first, duplicate], "2026-06-29", "2026-07-05")).toHaveLength(1);
   });
 
+  it("deduplicates a localized streaming item and its original-title duplicate", () => {
+    const localized: RadarItem = {
+      ...baseItem,
+      id: "series-100-streaming-2026-07-01",
+      tmdbId: 100,
+      mediaType: "series",
+      channel: "streaming",
+      title: "VÃ¡rzea: LÃ­heÅˆ hvÄ›zd",
+      originalTitle: "VÃ¡rzea: Onde Nasce o Futebol",
+      posterUrl: "https://image.pmgstatic.com/cache/resized/w360/files/images/film/posters/1/2/poster.jpg",
+      releaseDate: "2026-07-01",
+      providers: [{ id: 8, name: "Netflix", logoUrl: "", url: "https://www.netflix.com/search?q=Varzea", linkType: "search" }],
+      csfd: {
+        title: "VÃ¡rzea: LÃ­heÅˆ hvÄ›zd",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1857608/prehled/",
+        releaseDate: "2026-07-01",
+        vodPremieres: [{ date: "2026-07-01", provider: "Netflix" }],
+      },
+    };
+    const originalOnly: RadarItem = {
+      ...localized,
+      id: "series-101-streaming-2026-07-01",
+      tmdbId: 101,
+      title: "VÃ¡rzea: Onde Nasce o Futebol",
+      originalTitle: null,
+      posterUrl: "https://image.pmgstatic.com/cache/resized/w180/files/images/film/posters/1/2/poster.jpg",
+      csfd: null,
+    };
+
+    const result = prepareRadarItemsForSnapshot([localized, originalOnly], "2026-06-29", "2026-07-05");
+    expect(result).toHaveLength(1);
+    expect(result[0].csfd?.url).toBe("https://www.csfd.cz/film/1857608/prehled/");
+  });
+
   it("falls back to TMDb providers when CSFD has no VOD provider", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,

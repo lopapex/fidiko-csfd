@@ -291,7 +291,7 @@ function isStaleFutureSnapshot(snapshot: RadarSnapshot, weekStart: string) {
 }
 
 export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: string, type: RadarType) {
-  return snapshot.items
+  return deduplicateRadarItems(snapshot.items
     .filter((item) => item.releaseDate >= start && item.releaseDate <= end && (type === "all" || item.mediaType === type))
     .map((item) => ({
       ...item,
@@ -305,5 +305,56 @@ export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: st
     .filter((item) => (
       item.channel !== "streaming"
       || item.providers.length > 0
-    ));
+    )));
+}
+
+function deduplicateRadarItems(items: RadarSnapshot["items"]) {
+  const byKey = new Map<string, RadarSnapshot["items"][number]>();
+  const selected = new Set<RadarSnapshot["items"][number]>();
+  for (const item of items) {
+    const keys = getRadarDeduplicationKeys(item);
+    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
+    const selectedItem = existing && !shouldReplaceRadarItem(existing, item) ? existing : item;
+    if (existing && selectedItem !== existing) selected.delete(existing);
+    selected.add(selectedItem);
+    for (const key of keys) byKey.set(key, selectedItem);
+  }
+  return [...selected.values()];
+}
+
+function getRadarDeduplicationKeys(item: RadarSnapshot["items"][number]) {
+  const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
+  const streamingKey = getStreamingDeduplicationKey(item);
+  if (streamingKey) keys.push(streamingKey);
+  keys.push(`item:${item.id}`);
+  return keys;
+}
+
+function getStreamingDeduplicationKey(item: RadarSnapshot["items"][number]) {
+  if (item.channel !== "streaming" || !item.posterUrl || item.providers.length === 0) return null;
+  const poster = item.posterUrl.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/");
+  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
+  return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
+}
+
+function shouldReplaceRadarItem(existing: RadarSnapshot["items"][number], candidate: RadarSnapshot["items"][number]) {
+  if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
+  if (existing.csfd?.url && !candidate.csfd?.url) return false;
+  if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
+  if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
+  return false;
+}
+
+function normalizeCsfdUrl(value: string) {
+  try {
+    return normalizeCsfdPath(new URL(value).pathname);
+  } catch {
+    return normalizeCsfdPath(value.replace(/[?#].*$/, ""));
+  }
+}
+
+function normalizeCsfdPath(value: string) {
+  const path = value.replace(/\/$/, "");
+  const match = path.match(/\/film\/(\d+)/);
+  return match ? `/film/${match[1]}` : path;
 }
