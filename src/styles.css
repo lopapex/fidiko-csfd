@@ -1535,10 +1535,7 @@ a.weekly-rating:hover {
 }
 
 .radar-card-head {
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  display: block;
 }
 
 .radar-card h2 {
@@ -1571,23 +1568,8 @@ a.weekly-rating:hover {
   outline-offset: 3px;
 }
 
-.radar-original-title {
-  margin: 4px 0 0;
-  color: var(--text-muted);
-  font-size: 13px;
-  font-style: italic;
-}
-
 .radar-badges {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: 5px;
-  margin-top: 0;
-}
-
-.radar-channel-mark {
-  display: none;
+  margin-top: 8px;
 }
 
 .program-badge {
@@ -1968,11 +1950,17 @@ a.weekly-rating:hover {
 
 .mobile-program-copy {
   min-width: 0;
+  min-height: 129px;
+  display: flex;
+  flex-direction: column;
 }
 
 .mobile-program-title {
   width: 100%;
   text-align: left;
+  font-size: 18px;
+  line-height: 1.14;
+  font-weight: 900;
   text-decoration: underline;
   text-decoration-thickness: 1px;
   text-underline-offset: 3px;
@@ -1991,8 +1979,8 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-copy .weekly-film-meta {
-  margin-top: 8px;
-  align-items: flex-start;
+  margin-top: auto;
+  align-items: center;
   gap: 5px;
 }
 
@@ -2315,10 +2303,6 @@ a.weekly-rating:hover {
   .radar-badges {
     margin-top: 7px;
     justify-content: flex-start;
-  }
-
-  .radar-channel-mark {
-    display: inline-flex;
   }
 
   .radar-card-footer {

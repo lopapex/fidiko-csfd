@@ -758,17 +758,14 @@ function RadarCard({
                 formatRadarTitle(item.title)
               )}
             </h2>
-            {item.originalTitle ? (
-              <p className="radar-original-title">{item.originalTitle}</p>
-            ) : null}
-          </div>
-          <div className="weekly-film-meta radar-badges">
-            <span className={`weekly-media-mark ${item.mediaType}`}>
-              {item.mediaType === "movie" ? "Film" : "Seriál"}
-            </span>
-            <span className={`weekly-media-mark radar-channel-mark ${item.channel}`}>
-              {item.channel === "cinema" ? "Kino" : "Streaming"}
-            </span>
+            <div className="weekly-film-meta radar-badges">
+              <span className={`weekly-media-mark ${item.mediaType}`}>
+                {item.mediaType === "movie" ? "Film" : "Seriál"}
+              </span>
+              <span className={`weekly-media-mark ${item.channel}`}>
+                {item.channel === "cinema" ? "Kino" : "Streaming"}
+              </span>
+            </div>
           </div>
         </div>
         {showDate ? (
