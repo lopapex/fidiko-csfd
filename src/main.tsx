@@ -775,6 +775,7 @@ function RadarCard({
             {formatRadarDate(item.releaseDate)}
           </time>
         ) : null}
+        <div className="radar-card-footer">
         <div className="radar-meta-row">
           <RadarRating title={item.title} csfd={item.csfd} />
           {item.channel === "streaming" ? (
@@ -833,6 +834,7 @@ function RadarCard({
             <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
           </button>
         ) : null}
+        </div>
       </div>
     </article>
   );
