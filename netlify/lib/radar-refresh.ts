@@ -731,6 +731,8 @@ function getRadarDeduplicationKeys(item: RadarItem) {
   const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
   const streamingKey = getStreamingDeduplicationKey(item);
   if (streamingKey) keys.push(streamingKey);
+  const titleKeys = getStreamingTitleDeduplicationKeys(item);
+  keys.push(...titleKeys);
   keys.push(`item:${item.id}`);
   return keys;
 }
@@ -740,6 +742,20 @@ function getStreamingDeduplicationKey(item: RadarItem) {
   const poster = normalizePosterUrl(item.posterUrl);
   const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
   return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
+}
+
+function getStreamingTitleDeduplicationKeys(item: RadarItem) {
+  if (item.channel !== "streaming" || item.providers.length === 0) return [];
+  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
+  return getComparableTitles(item)
+    .map((title) => `streaming-title:${item.mediaType}:${item.releaseDate}:${providers}:${title}`);
+}
+
+function getComparableTitles(item: Pick<RadarItem, "title" | "originalTitle" | "csfd">) {
+  return [...new Set([item.title, item.originalTitle, item.csfd?.title]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeMatchTitle)
+    .filter(Boolean))];
 }
 
 function compareItems(left: RadarItem, right: RadarItem) {

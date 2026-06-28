@@ -253,7 +253,7 @@ describe("Radar integration", () => {
       tmdbId: 101,
       title: "VÃ¡rzea: Onde Nasce o Futebol",
       originalTitle: null,
-      posterUrl: "https://image.pmgstatic.com/cache/resized/w180/files/images/film/posters/1/2/poster.jpg",
+      posterUrl: "https://image.tmdb.org/t/p/w342/poster.jpg",
       csfd: null,
     };
 

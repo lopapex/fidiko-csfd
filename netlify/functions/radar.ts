@@ -326,6 +326,7 @@ function getRadarDeduplicationKeys(item: RadarSnapshot["items"][number]) {
   const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
   const streamingKey = getStreamingDeduplicationKey(item);
   if (streamingKey) keys.push(streamingKey);
+  keys.push(...getStreamingTitleDeduplicationKeys(item));
   keys.push(`item:${item.id}`);
   return keys;
 }
@@ -335,6 +336,20 @@ function getStreamingDeduplicationKey(item: RadarSnapshot["items"][number]) {
   const poster = item.posterUrl.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/");
   const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
   return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
+}
+
+function getStreamingTitleDeduplicationKeys(item: RadarSnapshot["items"][number]) {
+  if (item.channel !== "streaming" || item.providers.length === 0) return [];
+  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
+  return getComparableTitles(item)
+    .map((title) => `streaming-title:${item.mediaType}:${item.releaseDate}:${providers}:${title}`);
+}
+
+function getComparableTitles(item: Pick<RadarSnapshot["items"][number], "title" | "originalTitle" | "csfd">) {
+  return [...new Set([item.title, item.originalTitle, item.csfd?.title]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeTitle)
+    .filter(Boolean))];
 }
 
 function shouldReplaceRadarItem(existing: RadarSnapshot["items"][number], candidate: RadarSnapshot["items"][number]) {
@@ -357,4 +372,8 @@ function normalizeCsfdPath(value: string) {
   const path = value.replace(/\/$/, "");
   const match = path.match(/\/film\/(\d+)/);
   return match ? `/film/${match[1]}` : path;
+}
+
+function normalizeTitle(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
