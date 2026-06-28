@@ -3,10 +3,10 @@ import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v16";
-const RADAR_WEEK_CACHE_VERSION = "week-v15";
-const LEGACY_RADAR_CACHE_KEYS = ["current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
-const LEGACY_WEEK_CACHE_VERSIONS = ["week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
+const RADAR_CACHE_KEY = "current-v17";
+const RADAR_WEEK_CACHE_VERSION = "week-v16";
+const LEGACY_RADAR_CACHE_KEYS = ["current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
+const LEGACY_WEEK_CACHE_VERSIONS = ["week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
 const FUTURE_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 const PRECOMPUTE_PAST_WEEKS = 5;

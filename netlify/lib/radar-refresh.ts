@@ -6,8 +6,8 @@ import type { ScheduleResponse } from "./schedule-scraper";
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v16";
-const RADAR_WEEK_CACHE_VERSION = "week-v15";
+const RADAR_CACHE_KEY = "current-v17";
+const RADAR_WEEK_CACHE_VERSION = "week-v16";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -22,6 +22,8 @@ const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
 const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1684377, mediaType: "series" },
   { csfdId: 1654643, mediaType: "series" },
+  { csfdId: 1494570, mediaType: "series" },
+  { csfdId: 1552381, mediaType: "series" },
 ];
 
 export type RadarMediaType = "movie" | "series";
@@ -667,10 +669,16 @@ function isUpcomingScreening(
 
 function normalizeCsfdUrl(value: string) {
   try {
-    return new URL(value).pathname.replace(/\/$/, "");
+    return normalizeCsfdPath(new URL(value).pathname);
   } catch {
-    return value.replace(/[?#].*$/, "").replace(/\/$/, "");
+    return normalizeCsfdPath(value.replace(/[?#].*$/, ""));
   }
+}
+
+function normalizeCsfdPath(value: string) {
+  const path = value.replace(/\/$/, "");
+  const match = path.match(/\/film\/(\d+)/);
+  return match ? `/film/${match[1]}` : path;
 }
 
 function normalizeMatchTitle(value: string) {
@@ -699,7 +707,15 @@ export function isHiddenProvider(name: string) {
 }
 
 function deduplicateItems(items: RadarItem[]) {
-  return [...new Map(items.map((item) => [item.id, item])).values()];
+  const byKey = new Map<string, RadarItem>();
+  for (const item of items) {
+    const key = item.csfd?.url ? `csfd:${normalizeCsfdUrl(item.csfd.url)}` : `item:${item.id}`;
+    const existing = byKey.get(key);
+    if (!existing || shouldReplacePreparedItem(existing, item)) {
+      byKey.set(key, item);
+    }
+  }
+  return [...byKey.values()];
 }
 
 function compareItems(left: RadarItem, right: RadarItem) {

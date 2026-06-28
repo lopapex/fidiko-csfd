@@ -196,6 +196,36 @@ describe("Radar integration", () => {
     expect(prepareRadarItemsForSnapshot([item], "2026-06-29", "2026-07-05")[0].providers.map((provider) => provider.name)).toEqual(["Prime Video"]);
   });
 
+  it("deduplicates radar items that resolve to the same CSFD URL", () => {
+    const first: RadarItem = {
+      ...baseItem,
+      id: "series-100-streaming-2026-07-01",
+      tmdbId: 100,
+      mediaType: "series",
+      channel: "streaming",
+      title: "VÃ¡rzea: LÃ­heÅˆ hvÄ›zd",
+      originalTitle: "VÃ¡rzea: Onde Nasce o Futebol",
+      releaseDate: "2026-07-01",
+      providers: [{ id: 8, name: "Netflix", logoUrl: "", url: "https://www.netflix.com/search?q=Varzea", linkType: "search" }],
+      csfd: {
+        title: "VÃ¡rzea: LÃ­heÅˆ hvÄ›zd",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1857608/prehled/",
+        releaseDate: "2026-07-01",
+        vodPremieres: [{ date: "2026-07-01", provider: "Netflix" }],
+      },
+    };
+    const duplicate: RadarItem = {
+      ...first,
+      id: "series-101-streaming-2026-07-01",
+      tmdbId: 101,
+      csfd: { ...first.csfd!, url: "https://www.csfd.cz/film/1857608-varzea-lihen-hvezd/prehled/" },
+    };
+
+    expect(prepareRadarItemsForSnapshot([first, duplicate], "2026-06-29", "2026-07-05")).toHaveLength(1);
+  });
+
   it("falls back to TMDb providers when CSFD has no VOD provider", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,
@@ -280,8 +310,9 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v16",
-      "week-v15/2026-06-15",
+      "current-v17",
+      "week-v16/2026-06-15",
+      "week-v16/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -289,12 +320,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v15/not-a-date",
+      "week-v16/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v15/2026-06-15",
+      "week-v16/2026-06-15",
+      "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
       "week-v12/2026-06-22",

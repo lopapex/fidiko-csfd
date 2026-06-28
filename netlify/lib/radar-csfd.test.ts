@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { createCachedRadarCsfd, isCachedRadarCsfdFresh, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
+import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
 
 const match: RadarCsfdMatch = {
   title: "Film",
@@ -34,6 +34,19 @@ describe("Radar CSFD cache", () => {
       { format: "V kinech", date: "2026-07-03", company: "Netflix" },
     ], { channel: "streaming" })).toEqual([
       { date: "2026-07-01", provider: "Prime Video" },
+    ]);
+  });
+
+  it("tries an exact season title before the stripped series title", () => {
+    expect(buildLookupQueries({
+      mediaType: "series",
+      title: "Testovací titul - Série 3",
+      originalTitle: "Test Title - Season 3",
+    })).toEqual([
+      "Testovací titul - Série 3",
+      "Test Title - Season 3",
+      "Testovací titul",
+      "Test Title",
     ]);
   });
 });

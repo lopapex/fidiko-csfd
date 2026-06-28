@@ -4,7 +4,7 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v6";
+const CACHE_VERSION = "v7";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -67,9 +67,10 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
     const details = await withTimeout(csfd.movie(seed.csfdId), LOOKUP_TIMEOUT_MS, null);
     if (!details?.url || !details?.title) return null;
 
+    const title = formatSeasonTitle(details.title, details.seasonName);
     const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" });
     const csfdMatch: RadarCsfdMatch = {
-      title: details.title,
+      title,
       rating: numberOrNull(details.rating),
       ratingCount: numberOrNull(details.ratingCount),
       url: details.url,
@@ -83,7 +84,7 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
       tmdbId: -seed.csfdId,
       mediaType: seed.mediaType,
       channel: "streaming",
-      title: details.title,
+      title,
       originalTitle: null,
       overview: details.descriptions?.[0] ?? "",
       posterUrl: details.poster ?? null,
@@ -126,10 +127,7 @@ async function loadMatch(item: RadarItem) {
 
 async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
   let failed = false;
-  const queries = item.mediaType === "series"
-    ? [stripSeasonSuffix(item.title), stripSeasonSuffix(item.originalTitle), item.title, item.originalTitle]
-    : [item.title, item.originalTitle];
-  for (const query of queries.filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index)) {
+  for (const query of buildLookupQueries(item)) {
     try {
       const result = await csfd.search(query);
       const candidates = item.mediaType === "series"
@@ -159,6 +157,13 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
     }
   }
   return failed ? { status: "error" } : { status: "not_found" };
+}
+
+export function buildLookupQueries(item: Pick<RadarItem, "mediaType" | "title" | "originalTitle">) {
+  const queries = item.mediaType === "series"
+    ? [item.title, item.originalTitle, stripSeasonSuffix(item.title), stripSeasonSuffix(item.originalTitle)]
+    : [item.title, item.originalTitle];
+  return queries.filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
 }
 
 export function isCachedRadarCsfdFresh(entry: CachedRadarCsfd, now = Date.now()) {
@@ -240,6 +245,10 @@ function comparableTitle(value: string) {
 
 function stripSeasonSuffix(value: string | null) {
   return value?.replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "").trim() || null;
+}
+
+function formatSeasonTitle(title: string, seasonName?: string | null) {
+  return seasonName ? `${title} - ${seasonName}` : title;
 }
 
 function isPlausibleTitleMatch(candidate: string, query: string) {
