@@ -391,8 +391,6 @@ function RadarWeeklySchedule({
               items={items}
               days={days}
               today={today}
-              activeDay={activeDay}
-              onDayChange={onDayChange}
               onSelectProgramFilm={onSelectProgramFilm}
             />
           </div>
@@ -486,67 +484,78 @@ function RadarMobileWeek({
   items,
   days,
   today,
-  activeDay,
-  onDayChange,
   onSelectProgramFilm,
 }: {
   items: RadarItem[];
   days: string[];
   today: string;
-  activeDay: string;
-  onDayChange: (day: string) => void;
   onSelectProgramFilm: (id: string) => void;
 }) {
-  const dayItems = items.filter(item => item.releaseDate === activeDay);
   return (
-    <div className="mobile-week">
-      <div className="mobile-day-tabs" role="tablist" aria-label="Dny v týdnu">
-        {days.map(day => {
-          const empty = !items.some(item => item.releaseDate === day);
-          const classes = [
-            day === activeDay ? "active" : "",
-            day === today ? "today" : "",
-            empty ? "empty" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <button
-              className={classes}
-              type="button"
-              role="tab"
-              aria-selected={day === activeDay}
-              aria-label={`${formatWeekday(day)} ${formatShortDate(day)}${empty ? ", bez premiéry" : ""}`}
-              onClick={() => onDayChange(day)}
-              key={day}
-            >
-              <span>{formatWeekday(day)}</span>
-              <strong>{formatShortDate(day)}</strong>
-            </button>
-          );
-        })}
-      </div>
-      <div className="mobile-day-program" role="tabpanel">
-        {dayItems.length ? (
-          <div className="radar-list radar-mobile-day-list">
-            {dayItems.map((item, index) => (
-              <RadarCard
-                item={item}
-                priority={index === 0}
-                onSelectProgramFilm={onSelectProgramFilm}
-                showDate={false}
-                compactProviders
-                key={item.id}
-              />
-            ))}
-          </div>
-        ) : (
-          <div className="empty-box mobile-day-empty">
-            V tento den není žádná premiéra.
-          </div>
-        )}
-      </div>
+    <div className="mobile-week mobile-week-agenda">
+      {days.map(day => {
+        const dayItems = items.filter(item => item.releaseDate === day);
+        return (
+          <section
+            className={[
+              "mobile-agenda-day",
+              "mobile-agenda-radar-day",
+              day === today ? "today" : "",
+              dayItems.length === 0 ? "empty" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-labelledby={`radar-mobile-day-${day}`}
+            key={day}
+          >
+            <MobileAgendaHeader
+              id={`radar-mobile-day-${day}`}
+              day={day}
+              today={today}
+            />
+            {dayItems.length ? (
+              <div className="radar-list radar-mobile-day-list">
+                {dayItems.map((item, index) => (
+                  <RadarCard
+                    item={item}
+                    priority={index === 0}
+                    onSelectProgramFilm={onSelectProgramFilm}
+                    showDate={false}
+                    compactProviders
+                    key={item.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mobile-agenda-empty">Bez premier.</div>
+            )}
+          </section>
+        );
+      })}
     </div>
+  );
+
+}
+
+function MobileAgendaHeader({
+  id,
+  day,
+  today,
+}: {
+  id: string;
+  day: string;
+  today: string;
+}) {
+  return (
+    <header className="mobile-agenda-day-header">
+      <div className="mobile-agenda-date">
+        <span>{formatWeekday(day)}</span>
+        <strong id={id}>{formatShortDate(day)}</strong>
+      </div>
+      <div className="mobile-agenda-summary">
+        {day === today ? <span className="mobile-agenda-today">Dnes</span> : null}
+      </div>
+    </header>
   );
 }
 
@@ -999,8 +1008,10 @@ function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
         </div>
       </div>
       <div className="weekly-mobile">
+        <MobileAgendaSkeleton days={days} />
         <div
           className="mobile-day-tabs"
+          hidden
           role="tablist"
           aria-label="Načítání dnů v týdnu"
         >
@@ -1018,11 +1029,39 @@ function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
             </button>
           ))}
         </div>
-        <div className="mobile-day-program">
+        <div className="mobile-day-program" hidden>
           <RadarLoading />
         </div>
       </div>
     </>
+  );
+}
+
+function MobileAgendaSkeleton({ days }: { days: string[] }) {
+  return (
+    <div className="mobile-week mobile-week-agenda" aria-hidden="true">
+      {days.map((day, index) => (
+        <section className="mobile-agenda-day mobile-agenda-skeleton" key={day}>
+          <header className="mobile-agenda-day-header">
+            <div className="mobile-agenda-date">
+              <span className="skeleton day-name-skeleton" />
+              <strong className="skeleton day-date-skeleton" />
+            </div>
+          </header>
+          {index % 2 === 0 ? (
+            <div className="mobile-program-item mobile-program-skeleton">
+              <span className="weekly-poster skeleton" />
+              <span className="radar-week-skeleton-copy">
+                <span className="skeleton-line wide" />
+                <span className="skeleton-line short" />
+              </span>
+            </div>
+          ) : (
+            <div className="mobile-agenda-empty skeleton" />
+          )}
+        </section>
+      ))}
+    </div>
   );
 }
 
@@ -1140,8 +1179,6 @@ function WeeklySchedule({
               films={films}
               days={days}
               today={today}
-              activeDay={activeDay}
-              onDayChange={onDayChange}
               onSelectFilm={onSelectFilm}
             />
           </div>
@@ -1235,83 +1272,147 @@ function MobileWeek({
   films,
   days,
   today,
-  activeDay,
-  onDayChange,
   onSelectFilm,
 }: {
   films: FilmGroup[];
   days: string[];
   today: string;
-  activeDay: string;
-  onDayChange: (day: string) => void;
   onSelectFilm: (id: string) => void;
 }) {
-  const dayFilms = films
+  return (
+    <div className="mobile-week mobile-week-agenda">
+      {days.map(day => {
+        const dayFilms = getFilmsForDay(films, day);
+        const screeningCount = dayFilms.reduce(
+          (sum, film) => sum + film.screenings.length,
+          0,
+        );
+        const hasSubtitles = dayFilms.some(film =>
+          film.screenings.some(screening => screening.hasSubtitles),
+        );
+        return (
+          <section
+            className={[
+              "mobile-agenda-day",
+              "mobile-agenda-program-day",
+              day === today ? "today" : "",
+              hasSubtitles ? "has-subtitles" : "",
+              screeningCount === 0 ? "empty" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            aria-labelledby={`program-mobile-day-${day}`}
+            key={day}
+          >
+            <MobileAgendaHeader
+              id={`program-mobile-day-${day}`}
+              day={day}
+              today={today}
+            />
+            {dayFilms.length ? (
+              <div className="mobile-agenda-items">
+                {dayFilms.map((film, index) => (
+                  <MobileProgramAgendaItem
+                    film={film}
+                    priority={index === 0}
+                    onSelectFilm={onSelectFilm}
+                    key={film.id}
+                  />
+                ))}
+              </div>
+            ) : (
+              <div className="mobile-agenda-empty">Bez projekce.</div>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+
+}
+
+function getFilmsForDay(films: FilmGroup[], day: string) {
+  return films
     .map(film => ({
       ...film,
-      screenings: film.screenings.filter(
-        screening => screening.dateISO === activeDay,
-      ),
+      screenings: film.screenings.filter(screening => screening.dateISO === day),
     }))
     .filter(film => film.screenings.length > 0);
+}
 
+function MobileProgramAgendaItem({
+  film,
+  priority,
+  onSelectFilm,
+}: {
+  film: FilmGroup;
+  priority: boolean;
+  onSelectFilm: (id: string) => void;
+}) {
   return (
-    <div className="mobile-week">
-      <div className="mobile-day-tabs" role="tablist" aria-label="Dny v týdnu">
-        {days.map(day => {
-          const count = films.reduce(
-            (sum, film) =>
-              sum +
-              film.screenings.filter(screening => screening.dateISO === day)
-                .length,
-            0,
-          );
-          const hasSubtitles = films.some(film =>
-            film.screenings.some(
-              screening => screening.dateISO === day && screening.hasSubtitles,
-            ),
-          );
-          const classes = [
-            day === activeDay ? "active" : "",
-            day === today ? "today" : "",
-            hasSubtitles ? "has-subtitles" : "",
-            count === 0 ? "empty" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <button
-              className={classes}
-              type="button"
-              role="tab"
-              aria-selected={day === activeDay}
-              aria-label={`${formatWeekday(day)} ${formatShortDate(day)}${count === 0 ? ", bez projekce" : hasSubtitles ? ", obsahuje film s titulky" : ""}`}
-              onClick={() => onDayChange(day)}
-              key={day}
-            >
-              <span>{formatWeekday(day)}</span>
-              <strong>{formatShortDate(day)}</strong>
-            </button>
-          );
-        })}
-      </div>
-      <div className="mobile-day-program" role="tabpanel">
-        {dayFilms.length ? (
-          dayFilms.map((film, index) => (
-            <FilmRow
-              film={film}
-              priority={index === 0}
-              onSelectFilm={onSelectFilm}
-              key={film.id}
-            />
-          ))
-        ) : (
-          <div className="empty-box mobile-day-empty">
-            V tento den není žádná projekce.
+    <article
+      className={
+        film.screenings.some(screening => screening.hasSubtitles)
+          ? "mobile-program-item has-subtitles"
+          : "mobile-program-item"
+      }
+      aria-labelledby={`mobile-film-title-${film.id}`}
+    >
+      <div className="mobile-program-main">
+        <Poster film={film} variant="mini" priority={priority} />
+        <div className="mobile-program-copy">
+          <button
+            className="weekly-film-title-button mobile-program-title"
+            type="button"
+            id={`mobile-film-title-${film.id}`}
+            onClick={() => onSelectFilm(film.id)}
+          >
+            {film.title}
+          </button>
+          <div className="weekly-film-meta">
+            {film.csfd?.rating != null ? (
+              film.csfd.url ? (
+                <a
+                  className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
+                  href={film.csfd.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${film.title} na CSFD, hodnoceni ${film.csfd.rating} %`}
+                >
+                  {film.csfd.rating}%
+                </a>
+              ) : (
+                <span
+                  className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
+                >
+                  {film.csfd.rating}%
+                </span>
+              )
+            ) : film.csfd?.url ? (
+              <a
+                className="weekly-rating rating-missing"
+                href={film.csfd.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`${film.title} na CSFD, zatim bez hodnoceni`}
+              >
+                ?
+              </a>
+            ) : (
+              <span className="weekly-rating rating-missing">?</span>
+            )}
+            {film.screenings.some(screening => screening.hasSubtitles) ? (
+              <span className="weekly-subtitle-mark">Titulky</span>
+            ) : null}
           </div>
-        )}
+        </div>
       </div>
-    </div>
+      <div className="mobile-agenda-times">
+        {film.screenings.map(screening => (
+          <CompactScreening film={film} screening={screening} key={screening.id} />
+        ))}
+      </div>
+    </article>
   );
 }
 
@@ -1584,7 +1685,15 @@ function CompactScreening({
       aria-label={`${film.title}, ${screening.time ?? "detail"}${screening.ticketUrl ? ", vstupenky" : ""}`}
     >
       <strong>{screening.time ?? "Detail"}</strong>
-      <span>{screening.formats.join(" / ") || "Info"}</span>
+      <span className="weekly-screening-formats">
+        {screening.formats.length ? (
+          screening.formats.map(format => (
+            <span key={format}>{format}</span>
+          ))
+        ) : (
+          <span>Info</span>
+        )}
+      </span>
     </a>
   );
 }
@@ -1633,8 +1742,10 @@ function WeeklyLoading({
         </div>
       </div>
       <div className="weekly-mobile">
+        <MobileAgendaSkeleton days={days} />
         <div
           className="mobile-day-tabs"
+          hidden
           role="tablist"
           aria-label="Dny v týdnu"
         >
@@ -1652,7 +1763,7 @@ function WeeklyLoading({
             </button>
           ))}
         </div>
-        <div className="mobile-day-program">
+        <div className="mobile-day-program" hidden>
           <LoadingRows />
         </div>
       </div>

@@ -1780,7 +1780,8 @@ a.weekly-rating:hover {
 }
 
 .weekly-screening > strong,
-.weekly-screening > span {
+.weekly-screening > span,
+.weekly-screening-formats > span {
   display: block;
 }
 
@@ -1789,16 +1790,204 @@ a.weekly-rating:hover {
   font-size: 18px;
 }
 
-.weekly-screening > span {
+.weekly-screening-formats {
   margin-top: 2px;
   color: var(--text-muted);
   font-size: 10px;
   font-weight: 800;
+  line-height: 1.2;
+}
+
+.weekly-screening-formats > span + span {
+  margin-top: 1px;
 }
 
 .weekly-mobile {
   display: none;
   border-top: 8px solid #eeeeee;
+}
+
+.mobile-week-agenda {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-agenda-day {
+  border: 1px solid var(--line);
+  border-left: 6px solid var(--accent);
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.mobile-agenda-day.empty {
+  border-left-color: #cfcfcf;
+  background: #f7f7f7;
+}
+
+.mobile-agenda-radar-day {
+  border-left-color: var(--accent);
+}
+
+.mobile-agenda-radar-day:has(.radar-series) {
+  border-left-color: var(--series);
+}
+
+.mobile-agenda-program-day.has-subtitles {
+  border-left-color: var(--subtitle-dark);
+}
+
+.mobile-agenda-day.today .mobile-agenda-day-header {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.mobile-agenda-day-header {
+  min-height: 50px;
+  padding: 9px 11px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-bottom: 1px solid var(--line);
+  background: #ffffff;
+}
+
+.mobile-agenda-date span,
+.mobile-agenda-date strong {
+  display: block;
+}
+
+.mobile-agenda-date span {
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.mobile-agenda-date strong {
+  margin-top: 2px;
+  color: #161616;
+  font-size: 18px;
+}
+
+.mobile-agenda-summary {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.mobile-agenda-today {
+  min-height: 24px;
+  padding: 4px 7px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.mobile-agenda-today {
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.mobile-agenda-items {
+  display: grid;
+  gap: 10px;
+  padding: 10px;
+}
+
+.mobile-agenda-empty {
+  min-height: 42px;
+  padding: 12px;
+  display: grid;
+  place-items: center;
+  color: #777777;
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.mobile-program-item {
+  padding: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: stretch;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.mobile-program-item.has-subtitles {
+  border-color: var(--subtitle-line);
+  background: var(--subtitle-soft);
+}
+
+.mobile-program-main {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.mobile-program-main .weekly-poster {
+  width: 58px;
+  height: 87px;
+  max-height: 87px;
+}
+
+.mobile-program-copy {
+  min-width: 0;
+}
+
+.mobile-program-title {
+  width: 100%;
+  text-align: left;
+}
+
+.mobile-agenda-times {
+  display: grid;
+  grid-template-columns: 68px;
+  grid-auto-rows: 68px;
+  align-content: center;
+  gap: 6px;
+}
+
+.mobile-agenda-times .weekly-screening {
+  width: 68px;
+  min-height: 68px;
+  aspect-ratio: 1;
+  padding: 6px;
+  border-radius: 4px;
+}
+
+.mobile-agenda-times .weekly-screening > strong {
+  font-size: 17px;
+}
+
+.mobile-agenda-times .weekly-screening-formats {
+  font-size: 9px;
+  line-height: 1.15;
+}
+
+.mobile-agenda-day .radar-list {
+  padding: 10px;
+}
+
+.mobile-agenda-day .radar-card {
+  min-height: 151px;
+}
+
+.mobile-agenda-skeleton {
+  border-left-color: #d6d6d6;
+}
+
+.mobile-program-skeleton {
+  margin: 10px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
 }
 
 .mobile-day-tabs {
@@ -1936,6 +2125,30 @@ a.weekly-rating:hover {
 }
 
 @media (max-width: 340px) {
+  .mobile-program-main {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .mobile-program-main .weekly-poster {
+    width: 52px;
+    height: 78px;
+    max-height: 78px;
+  }
+
+  .mobile-agenda-times {
+    grid-template-columns: 62px;
+    grid-auto-rows: 62px;
+  }
+
+  .mobile-agenda-times .weekly-screening {
+    width: 62px;
+    min-height: 62px;
+  }
+
+  .mobile-agenda-times .weekly-screening > strong {
+    font-size: 15px;
+  }
+
   .mobile-day-tabs {
     grid-template-columns: repeat(7, minmax(48px, 1fr));
   }
@@ -2075,12 +2288,17 @@ a.weekly-rating:hover {
   }
 
   .app-shell > .program-list,
-  .mobile-day-program {
+  .mobile-day-program,
+  .mobile-week-agenda {
     padding-inline: 9px;
   }
 
   .mobile-day-program > .program-list {
     padding-inline: 0;
+  }
+
+  .mobile-agenda-day .radar-list {
+    padding: 10px;
   }
 
   .mobile-day-program .film-info {
