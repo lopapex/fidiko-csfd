@@ -560,8 +560,7 @@ function RadarMini({
       <div className="weekly-poster">
         {item.posterUrl ? (
           <img
-            src={getRadarPosterSources(item.posterUrl).small}
-            srcSet={`${getRadarPosterSources(item.posterUrl).small} 185w, ${getRadarPosterSources(item.posterUrl).large} 342w`}
+            {...getRadarPosterProps(item.posterUrl)}
             sizes="48px"
             alt=""
             width="48"
@@ -716,8 +715,7 @@ function RadarCard({
       <div className="radar-poster">
         {item.posterUrl ? (
           <img
-            src={getRadarPosterSources(item.posterUrl).small}
-            srcSet={`${getRadarPosterSources(item.posterUrl).small} 185w, ${getRadarPosterSources(item.posterUrl).large} 342w`}
+            {...getRadarPosterProps(item.posterUrl)}
             sizes="(max-width: 520px) 86px, 114px"
             alt=""
             width="114"
@@ -1684,11 +1682,26 @@ function getPosterSources(url: string) {
   };
 }
 
-function getRadarPosterSources(url: string) {
-  return {
-    small: url.replace(/\/w\d+\//, "/w185/"),
-    large: url.replace(/\/w\d+\//, "/w342/"),
-  };
+function getRadarPosterProps(url: string) {
+  if (url.includes("image.tmdb.org/t/p/")) {
+    const small = url.replace(/\/w\d+\//, "/w185/");
+    const large = url.replace(/\/w\d+\//, "/w342/");
+    return {
+      src: small,
+      srcSet: `${small} 185w, ${large} 342w`,
+    };
+  }
+
+  if (url.includes("image.pmgstatic.com/cache/resized/")) {
+    const small = url.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/w180/");
+    const large = url.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/w360/");
+    return {
+      src: small,
+      srcSet: `${small} 180w, ${large} 360w`,
+    };
+  }
+
+  return { src: url };
 }
 
 function getCsfdStatusText(csfd: CsfdMatch | null) {

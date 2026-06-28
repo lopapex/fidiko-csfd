@@ -87,7 +87,7 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
       title,
       originalTitle: null,
       overview: details.descriptions?.[0] ?? "",
-      posterUrl: details.poster ?? null,
+      posterUrl: optimizeCsfdPoster(details.poster ?? null),
       releaseDate: csfdMatch.releaseDate,
       providers: [],
       watchUrl: null,
@@ -249,6 +249,11 @@ function stripSeasonSuffix(value: string | null) {
 
 function formatSeasonTitle(title: string, seasonName?: string | null) {
   return seasonName ? `${title} - ${seasonName}` : title;
+}
+
+function optimizeCsfdPoster(url: string | null) {
+  if (!url) return null;
+  return url.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/w360/");
 }
 
 function isPlausibleTitleMatch(candidate: string, query: string) {
