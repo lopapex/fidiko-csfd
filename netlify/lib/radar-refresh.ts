@@ -6,8 +6,8 @@ import type { ScheduleResponse } from "./schedule-scraper";
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
 const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v15";
-const RADAR_WEEK_CACHE_VERSION = "week-v14";
+const RADAR_CACHE_KEY = "current-v16";
+const RADAR_WEEK_CACHE_VERSION = "week-v15";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -131,10 +131,7 @@ export async function hasRadarCache() {
 export async function refreshRadarCache(): Promise<RadarSnapshot> {
   const today = getPragueTodayISO();
   const currentWeek = startOfISOWeek(today);
-  const weekStarts = Array.from(
-    { length: PRECOMPUTE_PAST_WEEKS + PRECOMPUTE_FUTURE_WEEKS + 1 },
-    (_, index) => addDaysISO(currentWeek, (index - PRECOMPUTE_PAST_WEEKS) * 7),
-  );
+  const weekStarts = getRadarPrecomputeWeekStarts(currentWeek);
   const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
   const snapshots = await mapConcurrent(weekStarts, WEEK_REFRESH_CONCURRENCY, async (weekStart) => {
     const key = `${RADAR_WEEK_CACHE_VERSION}/${weekStart}`;
@@ -147,6 +144,13 @@ export async function refreshRadarCache(): Promise<RadarSnapshot> {
   await store.setJSON(RADAR_CACHE_KEY, aggregate);
   await cleanupRadarWeekCache(store, new Set(weekStarts));
   return aggregate;
+}
+
+export function getRadarPrecomputeWeekStarts(currentWeek: string) {
+  return Array.from(
+    { length: PRECOMPUTE_PAST_WEEKS + PRECOMPUTE_FUTURE_WEEKS + 1 },
+    (_, index) => addDaysISO(currentWeek, (index - PRECOMPUTE_PAST_WEEKS) * 7),
+  );
 }
 
 export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot> {

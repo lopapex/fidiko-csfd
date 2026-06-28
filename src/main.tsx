@@ -364,10 +364,10 @@ function RadarWeeklySchedule({
         </button>
       </div>
       {data.status === "missing" ? (
-        <div className="empty-box weekly-empty">
-          <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p>
+        <div className={preparing ? "weekly-empty-loading" : "empty-box weekly-empty"}>
+          {!preparing ? <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p> : null}
           {preparing ? (
-            <RadarLoading />
+            <RadarWeeklyLoadingContent days={days} />
           ) : (
             <button className="inline-action-button" type="button" onClick={onPrepareWeek}>
               Načíst tento týden
@@ -941,6 +941,14 @@ function RadarWeeklyLoading({ weekStart }: { weekStart: string | null }) {
           <span aria-hidden="true">›</span>
         </button>
       </div>
+      <RadarWeeklyLoadingContent days={days} />
+    </section>
+  );
+}
+
+function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
+  return (
+    <>
       <div className="weekly-desktop">
         <div className="weekly-table-scroll">
           <table className="weekly-table radar-weekly-table radar-weekly-skeleton-table">
@@ -1009,7 +1017,7 @@ function RadarWeeklyLoading({ weekStart }: { weekStart: string | null }) {
           <RadarLoading />
         </div>
       </div>
-    </section>
+    </>
   );
 }
 

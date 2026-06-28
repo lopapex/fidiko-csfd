@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
+import { getRadarPrecomputeWeekStarts, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
 import { getProviderLink, isAllowedProvider } from "./radar-providers";
 import type { ScheduleResponse } from "./schedule-scraper";
 
@@ -42,6 +42,15 @@ const schedule: ScheduleResponse = {
 
 describe("Radar integration", () => {
   const now = { dateISO: "2026-06-21", time: "19:00" };
+
+  it("precomputes five weeks back and twelve weeks forward", () => {
+    const weeks = getRadarPrecomputeWeekStarts("2026-06-29");
+
+    expect(weeks).toHaveLength(18);
+    expect(weeks[0]).toBe("2026-05-25");
+    expect(weeks[5]).toBe("2026-06-29");
+    expect(weeks[17]).toBe("2026-09-21");
+  });
 
   it("links an exact CSFD URL and calculates future screenings", () => {
     const program = linkProgramMatches([baseItem], schedule, now)[0].program;
@@ -262,20 +271,22 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v15",
-      "week-v14/2026-06-15",
+      "current-v16",
+      "week-v15/2026-06-15",
+      "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
       "week-v12/2026-06-22",
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v14/not-a-date",
+      "week-v15/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v14/2026-06-15",
+      "week-v15/2026-06-15",
+      "week-v14/2026-06-22",
       "week-v13/2026-06-22",
       "week-v12/2026-06-22",
       "week-v11/2026-06-22",
