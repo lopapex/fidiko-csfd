@@ -592,15 +592,6 @@ function RadarMini({
           >
             {formatRadarTitle(item.title)}
           </button>
-        ) : item.csfd?.url ? (
-          <a
-            className="weekly-film-title-button"
-            href={item.csfd.url}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {formatRadarTitle(item.title)}
-          </a>
         ) : (
           <strong>{formatRadarTitle(item.title)}</strong>
         )}
@@ -752,15 +743,6 @@ function RadarCard({
                 >
                   {formatRadarTitle(item.title)}
                 </button>
-              ) : item.csfd?.url ? (
-                <a
-                  className="radar-program-title"
-                  href={item.csfd.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  {formatRadarTitle(item.title)}
-                </a>
               ) : (
                 formatRadarTitle(item.title)
               )}
@@ -784,13 +766,25 @@ function RadarCard({
           </time>
         ) : null}
         <div className="radar-card-footer">
-        <div className="radar-meta-row">
-          <RadarRating title={item.title} csfd={item.csfd} />
-          {item.channel === "streaming" ? (
-            <div className="provider-list" aria-label="Dostupné služby">
-              {item.providers.length === 0 && item.csfd?.url ? (
-                <CsfdProviderLink url={item.csfd.url} title={item.title} />
-              ) : null}
+          {item.program ? (
+            <button
+              className="radar-program-button"
+              type="button"
+              onClick={() => onSelectProgramFilm(item.program!.filmId)}
+              aria-label={`${item.title}, otevřít v programu kina`}
+            >
+              <Clapperboard size={17} aria-hidden="true" />
+              <span>Kino</span>
+              <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
+            </button>
+          ) : null}
+          <div className="radar-meta-row">
+            <RadarRating title={item.title} csfd={item.csfd} />
+            {item.channel === "streaming" ? (
+              <div className="provider-list" aria-label="Dostupné služby">
+                {item.providers.length === 0 && item.csfd?.url ? (
+                  <CsfdProviderLink url={item.csfd.url} title={item.title} />
+                ) : null}
                 {visibleProviders.map(provider => {
                   const href = getProviderHref(provider, compactProviders);
                   const label = getProviderLinkLabel(provider, item.title, compactProviders);
@@ -828,21 +822,9 @@ function RadarCard({
                   </span>
                 );
               })}
-            </div>
-          ) : null}
-        </div>
-        {item.program ? (
-          <button
-            className="radar-program-button"
-            type="button"
-            onClick={() => onSelectProgramFilm(item.program!.filmId)}
-            aria-label={`${item.title}, otevřít v programu kina`}
-          >
-            <Clapperboard size={17} aria-hidden="true" />
-            <span>Kino</span>
-            <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
-          </button>
-        ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
     </article>
@@ -1332,9 +1314,34 @@ function getFilmsForDay(films: FilmGroup[], day: string) {
   return films
     .map(film => ({
       ...film,
-      screenings: film.screenings.filter(screening => screening.dateISO === day),
+      screenings: film.screenings
+        .filter(screening => screening.dateISO === day)
+        .sort(compareScreeningTime),
     }))
-    .filter(film => film.screenings.length > 0);
+    .filter(film => film.screenings.length > 0)
+    .sort((left, right) =>
+      compareScreeningTime(left.screenings[0], right.screenings[0]),
+    );
+}
+
+function compareScreeningTime(left: Screening, right: Screening) {
+  return getScreeningSortMinutes(left) - getScreeningSortMinutes(right);
+}
+
+function getScreeningSortMinutes(screening: Screening) {
+  if (!screening.time) return Number.POSITIVE_INFINITY;
+  const match = screening.time.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return Number.POSITIVE_INFINITY;
+  return Number(match[1]) * 60 + Number(match[2]);
+}
+
+function formatMobileFilmMetadata(description: string) {
+  return description
+    .split(",")
+    .map(part => part.trim())
+    .filter(Boolean)
+    .slice(0, 4)
+    .join(", ");
 }
 
 function MobileProgramAgendaItem({
@@ -1366,6 +1373,9 @@ function MobileProgramAgendaItem({
           >
             {film.title}
           </button>
+          {film.description ? (
+            <p className="mobile-program-meta">{formatMobileFilmMetadata(film.description)}</p>
+          ) : null}
           <div className="weekly-film-meta">
             {film.csfd?.rating != null ? (
               film.csfd.url ? (
@@ -1502,9 +1512,6 @@ function FilmRow({
                 film.title
               )}
             </h2>
-            {film.hasSubtitles ? (
-              <span className="subtitle-mark">Titulky</span>
-            ) : null}
           </div>
           <p>{film.description}</p>
           <div className="csfd-block">

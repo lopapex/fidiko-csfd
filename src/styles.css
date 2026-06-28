@@ -1488,6 +1488,14 @@ a.weekly-rating:hover {
 
 .radar-card-footer {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.radar-card-footer .radar-meta-row {
+  width: 100%;
+  margin-top: auto;
 }
 
 .radar-card-head {
@@ -1598,7 +1606,7 @@ a.weekly-rating:hover {
 
 .radar-program-button {
   min-height: 38px;
-  margin-top: 11px;
+  margin: 0 0 10px;
   padding: 7px 11px;
   display: inline-flex;
   align-items: center;
@@ -1809,24 +1817,29 @@ a.weekly-rating:hover {
 
 .mobile-week-agenda {
   display: grid;
-  gap: 12px;
+  gap: 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .mobile-agenda-day {
-  border: 1px solid var(--line);
-  border-left: 6px solid var(--accent);
-  border-radius: 6px;
+  border: 0;
+  border-right: 1px solid var(--line);
+  border-left: 1px solid var(--line);
+  border-radius: 0;
   background: #ffffff;
   overflow: hidden;
 }
 
+.mobile-agenda-day + .mobile-agenda-day {
+  border-top: 1px solid var(--line);
+}
+
 .mobile-agenda-day.empty {
-  border-left-color: #cfcfcf;
   background: #f7f7f7;
 }
 
 .mobile-agenda-radar-day {
-  border-left: 1px solid var(--line);
   background: #fafafa;
 }
 
@@ -1835,11 +1848,11 @@ a.weekly-rating:hover {
 }
 
 .mobile-agenda-radar-day .mobile-agenda-day-header {
-  background: #fbfbfb;
+  background: #252525;
 }
 
 .mobile-agenda-program-day.has-subtitles {
-  border-left-color: var(--subtitle-dark);
+  border-left-color: var(--line);
 }
 
 .mobile-agenda-day.today .mobile-agenda-day-header {
@@ -1854,7 +1867,8 @@ a.weekly-rating:hover {
   justify-content: space-between;
   gap: 10px;
   border-bottom: 1px solid var(--line);
-  background: #ffffff;
+  background: #252525;
+  color: #ffffff;
 }
 
 .mobile-agenda-date span,
@@ -1863,7 +1877,7 @@ a.weekly-rating:hover {
 }
 
 .mobile-agenda-date span {
-  color: var(--text-muted);
+  color: #d8d8d8;
   font-size: 10px;
   font-weight: 900;
   text-transform: uppercase;
@@ -1871,7 +1885,7 @@ a.weekly-rating:hover {
 
 .mobile-agenda-date strong {
   margin-top: 2px;
-  color: #161616;
+  color: #ffffff;
   font-size: 18px;
 }
 
@@ -1894,14 +1908,14 @@ a.weekly-rating:hover {
 }
 
 .mobile-agenda-today {
-  background: var(--accent);
-  color: #ffffff;
+  background: #ffffff;
+  color: var(--accent-dark);
 }
 
 .mobile-agenda-items {
   display: grid;
-  gap: 10px;
-  padding: 10px;
+  gap: 0;
+  padding: 0;
 }
 
 .mobile-agenda-empty {
@@ -1915,14 +1929,19 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-item {
-  padding: 10px;
+  padding: 11px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 11px;
+  gap: 12px;
   align-items: stretch;
-  border: 1px solid var(--line);
-  border-radius: 6px;
+  border: 0;
+  border-top: 1px solid var(--line);
+  border-radius: 0;
   background: #ffffff;
+}
+
+.mobile-agenda-items .mobile-program-item:first-child {
+  border-top: 0;
 }
 
 .mobile-program-item.has-subtitles {
@@ -1949,9 +1968,24 @@ a.weekly-rating:hover {
 
 .mobile-program-title {
   width: 100%;
-  font-size: 18px;
-  line-height: 1.12;
+  font-size: 14px;
+  line-height: 1.18;
   text-align: left;
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.mobile-program-meta {
+  margin: 6px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.25;
+  font-weight: 800;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .mobile-program-copy .weekly-film-meta {
@@ -1961,48 +1995,54 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-copy .weekly-rating {
-  min-height: 32px;
-  padding: 7px 9px;
-  border-radius: 4px;
-  font-size: 16px;
-}
-
-.mobile-program-copy .weekly-rating {
-  width: 62px;
+  min-height: 26px;
+  width: 48px;
   flex: 0 0 auto;
+  padding: 6px 7px;
+  border-radius: 4px;
+  font-size: 13px;
 }
 
 .mobile-agenda-times {
   display: grid;
-  grid-template-columns: 68px;
-  grid-auto-rows: 68px;
+  grid-template-columns: 76px;
+  grid-auto-rows: 76px;
   align-content: center;
   gap: 6px;
 }
 
 .mobile-agenda-times .weekly-screening {
-  width: 68px;
-  min-height: 68px;
+  width: 76px;
+  min-height: 76px;
   aspect-ratio: 1;
-  padding: 6px;
+  padding: 7px;
   border-radius: 4px;
 }
 
 .mobile-agenda-times .weekly-screening > strong {
-  font-size: 17px;
+  font-size: 18px;
 }
 
 .mobile-agenda-times .weekly-screening-formats {
-  font-size: 9px;
+  font-size: 10px;
   line-height: 1.15;
 }
 
 .mobile-agenda-day .radar-list {
-  padding: 10px;
+  margin: 0;
+  padding: 0;
+  gap: 0;
 }
 
 .mobile-agenda-day .radar-card {
   min-height: 151px;
+  border-right: 0;
+  border-left-width: 8px;
+  border-radius: 0;
+}
+
+.mobile-agenda-day .radar-card + .radar-card {
+  border-top: 0;
 }
 
 .mobile-agenda-skeleton {
@@ -2015,6 +2055,9 @@ a.weekly-rating:hover {
   align-items: center;
 }
 
+/*
+ * Legacy mobile-day tab styles are kept for hidden loading fallback markup.
+ */
 .mobile-day-tabs {
   display: grid;
   grid-template-columns: repeat(7, minmax(62px, 1fr));
@@ -2161,17 +2204,17 @@ a.weekly-rating:hover {
   }
 
   .mobile-program-title {
-    font-size: 16px;
+    font-size: 13px;
   }
 
   .mobile-program-copy .weekly-rating {
-    min-height: 29px;
-    padding: 6px 8px;
-    font-size: 14px;
+    min-height: 24px;
+    padding: 5px 6px;
+    font-size: 12px;
   }
 
   .mobile-program-copy .weekly-rating {
-    width: 56px;
+    width: 44px;
   }
 
   .mobile-agenda-times {
@@ -2327,9 +2370,12 @@ a.weekly-rating:hover {
   }
 
   .app-shell > .program-list,
-  .mobile-day-program,
-  .mobile-week-agenda {
+  .mobile-day-program {
     padding-inline: 9px;
+  }
+
+  .mobile-week-agenda {
+    padding-inline: 0;
   }
 
   .mobile-day-program > .program-list {
@@ -2337,7 +2383,7 @@ a.weekly-rating:hover {
   }
 
   .mobile-agenda-day .radar-list {
-    padding: 10px;
+    padding: 0;
   }
 
   .mobile-day-program .film-info {
