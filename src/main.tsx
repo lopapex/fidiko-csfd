@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useMemo, useRef, useState } from "react";
+import { StrictMode, useEffect, useMemo, useRef, useState, type SyntheticEvent } from "react";
 import { createRoot } from "react-dom/client";
 import { Clapperboard, Search, X } from "lucide-react";
 import { AppHeader } from "./AppHeader";
@@ -22,6 +22,8 @@ import type {
   ViewMode
 } from "./types";
 import "./styles.css";
+
+const POSTER_PLACEHOLDER_SRC = "/poster-placeholder.png";
 
 function getScheduleUrl(page: PageState) {
   if (page.view !== "week") return "/api/schedule";
@@ -566,9 +568,10 @@ function RadarMini({
             width="48"
             height="72"
             loading="lazy"
+            onError={usePosterPlaceholder}
           />
         ) : (
-          <span>Bez plakátu</span>
+          <img src={POSTER_PLACEHOLDER_SRC} alt="" width="48" height="72" loading="lazy" />
         )}
       </div>
       <div className="weekly-film-copy">
@@ -722,9 +725,10 @@ function RadarCard({
             height="171"
             loading={priority ? "eager" : "lazy"}
             fetchPriority={priority ? "high" : "auto"}
+            onError={usePosterPlaceholder}
           />
         ) : (
-          <span>Bez plakátu</span>
+          <img src={POSTER_PLACEHOLDER_SRC} alt="" width="114" height="171" loading={priority ? "eager" : "lazy"} />
         )}
       </div>
       <div className="radar-copy">
@@ -1466,16 +1470,21 @@ function Poster({
   variant?: "full" | "mini";
   priority?: boolean;
 }) {
-  if (!film.posterUrl)
-    return variant === "mini" ? (
-      <div className="weekly-poster">
-        <span>Film</span>
-      </div>
-    ) : (
-      <div className="poster-frame">
-        <div className="poster-fallback">Film</div>
+  if (!film.posterUrl) {
+    const className = variant === "mini" ? "weekly-poster" : "poster-frame";
+    return (
+      <div className={className}>
+        <img
+          src={POSTER_PLACEHOLDER_SRC}
+          alt=""
+          width={variant === "mini" ? 48 : 106}
+          height={variant === "mini" ? 72 : 159}
+          loading={priority ? "eager" : "lazy"}
+          fetchPriority={priority ? "high" : "auto"}
+        />
       </div>
     );
+  }
   const sources = getPosterSources(film.posterUrl);
   const className = variant === "mini" ? "weekly-poster" : "poster-frame";
   return (
@@ -1495,6 +1504,9 @@ function Poster({
             image.dataset.fallback = "1";
             image.srcset = "";
             image.src = sources.original;
+          } else if (image.src !== new URL(POSTER_PLACEHOLDER_SRC, window.location.href).href) {
+            image.srcset = "";
+            image.src = POSTER_PLACEHOLDER_SRC;
           }
         }}
       />
@@ -1680,6 +1692,13 @@ function getPosterSources(url: string) {
     medium: replaceWidth(360),
     original: replaceWidth(1080),
   };
+}
+
+function usePosterPlaceholder(event: SyntheticEvent<HTMLImageElement>) {
+  const image = event.currentTarget;
+  if (image.src === new URL(POSTER_PLACEHOLDER_SRC, window.location.href).href) return;
+  image.srcset = "";
+  image.src = POSTER_PLACEHOLDER_SRC;
 }
 
 function getRadarPosterProps(url: string) {
