@@ -429,11 +429,13 @@ a {
   object-fit: cover;
 }
 
-.weekly-film-copy > strong {
+.weekly-film-copy > strong,
+.mobile-program-title {
   display: block;
   overflow-wrap: anywhere;
   font-size: 14px;
   line-height: 1.2;
+  font-weight: 800;
 }
 
 .weekly-film-copy {
@@ -468,8 +470,8 @@ a {
   overflow: hidden;
   color: var(--text-muted);
   font-size: 11px;
-  line-height: 1.25;
-  font-weight: 800;
+  line-height: 1.35;
+  font-weight: 500;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -517,9 +519,12 @@ a {
 }
 
 .weekly-rating-block {
-  display: grid;
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: nowrap;
   gap: 3px;
-  justify-items: start;
+  max-width: 100%;
+  min-width: max-content;
 }
 
 .weekly-rating-copy {
@@ -527,6 +532,9 @@ a {
   font-size: 9px;
   line-height: 1.15;
   font-weight: 800;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 a.weekly-rating {
@@ -551,6 +559,11 @@ a.weekly-rating:hover {
 
 .weekly-media-mark.series {
   background: var(--series);
+}
+
+.weekly-media-mark.cinema,
+.weekly-media-mark.streaming {
+  background: #252525;
 }
 
 .weekly-times {
@@ -595,11 +608,11 @@ a.weekly-rating:hover {
 }
 
 .radar-cell-program-button {
-  margin-top: 2px;
+  margin: 2px auto 0;
   width: 32px;
   height: 32px;
   padding: 0;
-  display: inline-grid;
+  display: grid;
   place-items: center;
   border: 1px solid #cccccc;
   border-radius: 4px;
@@ -895,7 +908,7 @@ a.weekly-rating:hover {
   display: flex;
   align-items: center;
   gap: 9px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .rating-badge {
@@ -951,6 +964,7 @@ a.weekly-rating:hover {
   font-weight: 700;
   width: 118px;
   flex: 0 0 118px;
+  white-space: nowrap;
 }
 
 .screening-grid {
@@ -1198,6 +1212,8 @@ a.weekly-rating:hover {
 
   .weekly-film-description {
     font-size: 10px;
+    line-height: 1.3;
+    font-weight: 500;
     -webkit-line-clamp: 2;
   }
 
@@ -1567,37 +1583,11 @@ a.weekly-rating:hover {
   flex-wrap: wrap;
   justify-content: flex-end;
   gap: 5px;
+  margin-top: 0;
 }
 
-.media-badge,
-.channel-badge {
-  padding: 6px 7px;
-  border-radius: 4px;
-  color: #ffffff;
-  font-size: 11px;
-  line-height: 1;
-  font-weight: 900;
-  white-space: nowrap;
-}
-
-.media-badge {
-  min-width: 58px;
-  padding: 7px 9px;
-  text-align: center;
-  text-transform: uppercase;
-}
-
-.media-badge.movie {
-  background: var(--accent);
-}
-
-.media-badge.series {
-  background: var(--series);
-}
-
-.channel-badge.cinema,
-.channel-badge.streaming {
-  background: #252525;
+.radar-channel-mark {
+  display: none;
 }
 
 .program-badge {
@@ -1982,8 +1972,6 @@ a.weekly-rating:hover {
 
 .mobile-program-title {
   width: 100%;
-  font-size: 14px;
-  line-height: 1.18;
   text-align: left;
   text-decoration: underline;
   text-decoration-thickness: 1px;
@@ -2009,12 +1997,12 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-copy .weekly-rating {
-  min-height: 26px;
-  width: 48px;
-  flex: 0 0 auto;
-  padding: 6px 7px;
-  border-radius: 4px;
-  font-size: 13px;
+  min-height: 24px;
+  width: 38px;
+  flex: 0 0 38px;
+  padding: 5px 6px;
+  border-radius: 3px;
+  font-size: 11px;
 }
 
 .mobile-agenda-times {
@@ -2232,20 +2220,6 @@ a.weekly-rating:hover {
     max-height: 108px;
   }
 
-  .mobile-program-title {
-    font-size: 13px;
-  }
-
-  .mobile-program-copy .weekly-rating {
-    min-height: 24px;
-    padding: 5px 6px;
-    font-size: 12px;
-  }
-
-  .mobile-program-copy .weekly-rating {
-    width: 44px;
-  }
-
   .mobile-agenda-times {
     grid-template-columns: 62px;
     grid-auto-rows: 62px;
@@ -2343,13 +2317,20 @@ a.weekly-rating:hover {
     justify-content: flex-start;
   }
 
+  .radar-channel-mark {
+    display: inline-flex;
+  }
+
   .radar-card-footer {
     padding-top: 8px;
   }
 
   .radar-csfd-block .rating-copy {
     width: auto;
-    flex: 1 1 auto;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .radar-meta-row {

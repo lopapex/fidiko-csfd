@@ -113,11 +113,18 @@ describe("Radar integration", () => {
     });
   });
 
-  it("uses HBO search on desktop and homepage on mobile", () => {
-    expect(getProviderLink("HBO Max", "Duna")).toEqual({
-      url: "https://play.hbomax.com/search/result?q=Duna",
+  it.each([
+    ["Netflix", "https://www.netflix.com/search?q=Duna", "https://www.netflix.com/cz/"],
+    ["Amazon Prime Video", "https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Duna", "https://www.primevideo.com/"],
+    ["Apple TV Plus", "https://tv.apple.com/cz/search?term=Duna", "https://tv.apple.com/cz"],
+    ["Prima Plus", "https://www.iprima.cz/vyhledavani?query=Duna", "https://www.iprima.cz/"],
+    ["HBO Max", "https://play.hbomax.com/search/result?q=Duna", "https://play.hbomax.com/"],
+    ["Oneplay", "https://www.oneplay.cz/vyhledat?query=Duna", "https://www.oneplay.cz/"],
+  ])("uses search for %s on desktop and homepage on mobile", (provider, expectedSearch, expectedMobile) => {
+    expect(getProviderLink(provider, "Duna")).toEqual({
+      url: expectedSearch,
       linkType: "search",
-      mobileUrl: "https://play.hbomax.com/",
+      mobileUrl: expectedMobile,
       mobileLinkType: "homepage",
     });
   });
@@ -129,6 +136,8 @@ describe("Radar integration", () => {
     expect(getProviderLink(provider, "Duna")).toEqual({
       url: expected,
       linkType: "homepage",
+      mobileUrl: expected,
+      mobileLinkType: "homepage",
     });
   });
 
@@ -140,6 +149,8 @@ describe("Radar integration", () => {
     expect(getProviderLink("Netflix", title)).toEqual({
       url: "https://www.netflix.com/search?q=Avatar",
       linkType: "search",
+      mobileUrl: "https://www.netflix.com/cz/",
+      mobileLinkType: "homepage",
     });
   });
 
@@ -147,6 +158,8 @@ describe("Radar integration", () => {
     expect(getProviderLink("Netflix", "  ")).toEqual({
       url: "https://www.netflix.com/cz/",
       linkType: "homepage",
+      mobileUrl: "https://www.netflix.com/cz/",
+      mobileLinkType: "homepage",
     });
   });
 

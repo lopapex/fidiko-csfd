@@ -18,6 +18,7 @@ const PROVIDERS: ProviderDefinition[] = [
     homepage: "https://www.netflix.com/cz/",
     logoPath: "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
     searchUrl: (query) => `https://www.netflix.com/search?q=${query}`,
+    mobileUrl: "https://www.netflix.com/cz/",
   },
   {
     id: 337,
@@ -25,6 +26,7 @@ const PROVIDERS: ProviderDefinition[] = [
     aliases: /^disney(?: plus)?$/,
     homepage: "https://www.disneyplus.com/cs-cz",
     logoPath: "/97yvRBw1GzX7fXprcF80er19ot.jpg",
+    mobileUrl: "https://www.disneyplus.com/cs-cz",
   },
   {
     id: 119,
@@ -33,6 +35,7 @@ const PROVIDERS: ProviderDefinition[] = [
     homepage: "https://www.primevideo.com/",
     logoPath: "/pvske1MyAoymrs5bguRfVqYiM9a.jpg",
     searchUrl: (query) => `https://www.primevideo.com/search/ref=atv_nb_sr?phrase=${query}`,
+    mobileUrl: "https://www.primevideo.com/",
   },
   {
     id: 350,
@@ -41,6 +44,7 @@ const PROVIDERS: ProviderDefinition[] = [
     homepage: "https://tv.apple.com/cz",
     logoPath: "/mcbz1LgtErU9p4UdbZ0rG6RTWHX.jpg",
     searchUrl: (query) => `https://tv.apple.com/cz/search?term=${query}`,
+    mobileUrl: "https://tv.apple.com/cz",
   },
   {
     id: 1928,
@@ -49,6 +53,7 @@ const PROVIDERS: ProviderDefinition[] = [
     homepage: "https://www.iprima.cz/",
     logoPath: "/vrefjVylvD4RkEjQguuXebCp9UQ.jpg",
     searchUrl: (query) => `https://www.iprima.cz/vyhledavani?query=${query}`,
+    mobileUrl: "https://www.iprima.cz/",
   },
   {
     id: 1899,
@@ -66,6 +71,7 @@ const PROVIDERS: ProviderDefinition[] = [
     homepage: "https://www.oneplay.cz/",
     logoPath: "/rqjfOJNuH6W5wwSvaBaMOZdDX5w.jpg",
     searchUrl: (query) => `https://www.oneplay.cz/vyhledat?query=${query}`,
+    mobileUrl: "https://www.oneplay.cz/",
   },
   {
     id: 1773,
@@ -73,6 +79,7 @@ const PROVIDERS: ProviderDefinition[] = [
     aliases: /^skyshowtime$/,
     homepage: "https://www.skyshowtime.com/cz",
     logoPath: "/h0ZYcYHicKQ4Ixm5nOjqvwni5NG.jpg",
+    mobileUrl: "https://www.skyshowtime.com/cz",
   },
 ];
 
@@ -94,7 +101,12 @@ export function getProviderLink(name: string, title?: string) {
     } as const;
   }
 
-  return { url: provider.homepage, linkType: "homepage", mobileUrl: undefined, mobileLinkType: undefined } as const;
+  return {
+    url: provider.homepage,
+    linkType: "homepage",
+    mobileUrl: provider.mobileUrl ?? provider.homepage,
+    mobileLinkType: "homepage",
+  } as const;
 }
 
 export function getProviderMetadata(name: string) {

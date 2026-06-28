@@ -595,14 +595,11 @@ function RadarMini({
         ) : (
           <strong>{formatRadarTitle(item.title)}</strong>
         )}
-        <p className="weekly-film-description">
-          {formatRadarMiniMetadata(item)}
-        </p>
         <div className="weekly-film-meta">
-          <RadarMiniRating title={item.title} csfd={item.csfd} />
           <span className={`weekly-media-mark ${item.mediaType}`}>
             {item.mediaType === "movie" ? "Film" : "Seriál"}
           </span>
+          <RadarMiniRating title={item.title} csfd={item.csfd} />
         </div>
       </div>
     </div>
@@ -765,11 +762,11 @@ function RadarCard({
               <p className="radar-original-title">{item.originalTitle}</p>
             ) : null}
           </div>
-          <div className="radar-badges">
-            <span className={`media-badge ${item.mediaType}`}>
+          <div className="weekly-film-meta radar-badges">
+            <span className={`weekly-media-mark ${item.mediaType}`}>
               {item.mediaType === "movie" ? "Film" : "Seriál"}
             </span>
-            <span className={`channel-badge ${item.channel}`}>
+            <span className={`weekly-media-mark radar-channel-mark ${item.channel}`}>
               {item.channel === "cinema" ? "Kino" : "Streaming"}
             </span>
           </div>
@@ -1357,15 +1354,6 @@ function formatMobileFilmMetadata(description: string) {
     .join(", ");
 }
 
-function formatRadarMiniMetadata(item: RadarItem) {
-  const parts = [
-    item.originalTitle,
-    item.mediaType === "movie" ? "Film" : "Seriál",
-    item.channel === "cinema" ? "Kino" : "Streaming",
-  ].filter((part): part is string => Boolean(part));
-  return parts.join(", ");
-}
-
 function ProgramMiniRating({
   title,
   csfd,
@@ -1907,7 +1895,9 @@ function getProviderHref(provider: RadarProvider, preferMobile: boolean) {
   if (preferMobile && isHboMaxProvider(provider) && isAndroidDevice()) {
     return "intent://play.hbomax.com/#Intent;scheme=https;package=com.wbd.stream;S.browser_fallback_url=https%3A%2F%2Fplay.hbomax.com%2F;end";
   }
-  return (preferMobile && provider.mobileUrl) ? provider.mobileUrl : provider.url;
+  if (!preferMobile) return provider.url;
+  if (provider.mobileUrl) return provider.mobileUrl;
+  return provider.linkType === "homepage" ? provider.url : null;
 }
 
 function isHboMaxProvider(provider: RadarProvider) {
