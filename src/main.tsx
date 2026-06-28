@@ -595,6 +595,9 @@ function RadarMini({
         ) : (
           <strong>{formatRadarTitle(item.title)}</strong>
         )}
+        <p className="weekly-film-description">
+          {formatRadarMiniMetadata(item)}
+        </p>
         <div className="weekly-film-meta">
           <RadarMiniRating title={item.title} csfd={item.csfd} />
           <span className={`weekly-media-mark ${item.mediaType}`}>
@@ -613,22 +616,34 @@ function RadarMiniRating({
   title: string;
   csfd: CsfdMatch | null;
 }) {
-  if (!csfd?.url) return null;
-  const className = `weekly-rating ${csfd.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
+  const className = `weekly-rating ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
   const label =
-    csfd.rating == null
+    csfd?.rating == null
       ? `${title} na ČSFD, zatím bez hodnocení`
       : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
+  if (!csfd?.url) {
+    return (
+      <span className="weekly-rating-block">
+        <span className={className} aria-label={label} title={label}>
+          ?
+        </span>
+        <span className="weekly-rating-copy">{getCsfdStatusText(csfd)}</span>
+      </span>
+    );
+  }
   return (
-    <a
-      className={className}
-      href={csfd.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
-    >
-      {csfd.rating == null ? "?" : `${csfd.rating}%`}
-    </a>
+    <span className="weekly-rating-block">
+      <a
+        className={className}
+        href={csfd.url}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={label}
+      >
+        {csfd.rating == null ? "?" : `${csfd.rating}%`}
+      </a>
+      <span className="weekly-rating-copy">{getCsfdStatusText(csfd)}</span>
+    </span>
   );
 }
 
@@ -640,11 +655,10 @@ function RadarReleaseCell({
   onSelectProgramFilm: (id: string) => void;
 }) {
   if (item.program) {
-    const countLabel = formatScreeningCount(getUpcomingScreeningCount(item.program));
     return (
       <div className="weekly-time-link radar-release-cell cinema">
         <strong>Kino</strong>
-        <span>{countLabel}</span>
+        <span>V programu</span>
         <button
           className="radar-cell-program-button"
           type="button"
@@ -653,7 +667,7 @@ function RadarReleaseCell({
           title="Otevřít v programu kina"
         >
           <Clapperboard size={14} aria-hidden="true" />
-          V programu
+          <span className="sr-only">V programu</span>
         </button>
       </div>
     );
@@ -766,20 +780,19 @@ function RadarCard({
           </time>
         ) : null}
         <div className="radar-card-footer">
-          {item.program ? (
-            <button
-              className="radar-program-button"
-              type="button"
-              onClick={() => onSelectProgramFilm(item.program!.filmId)}
-              aria-label={`${item.title}, otevřít v programu kina`}
-            >
-              <Clapperboard size={17} aria-hidden="true" />
-              <span>Kino</span>
-              <small>{formatScreeningCount(getUpcomingScreeningCount(item.program))}</small>
-            </button>
-          ) : null}
           <div className="radar-meta-row">
             <RadarRating title={item.title} csfd={item.csfd} />
+            {item.program ? (
+              <button
+                className="radar-program-button"
+                type="button"
+                onClick={() => onSelectProgramFilm(item.program!.filmId)}
+                aria-label={`${item.title}, otevřít v programu kina`}
+              >
+                <Clapperboard size={17} aria-hidden="true" />
+                <span>Kino</span>
+              </button>
+            ) : null}
             {item.channel === "streaming" ? (
               <div className="provider-list" aria-label="Dostupné služby">
                 {item.providers.length === 0 && item.csfd?.url ? (
@@ -1344,6 +1357,51 @@ function formatMobileFilmMetadata(description: string) {
     .join(", ");
 }
 
+function formatRadarMiniMetadata(item: RadarItem) {
+  const parts = [
+    item.originalTitle,
+    item.mediaType === "movie" ? "Film" : "Seriál",
+    item.channel === "cinema" ? "Kino" : "Streaming",
+  ].filter((part): part is string => Boolean(part));
+  return parts.join(", ");
+}
+
+function ProgramMiniRating({
+  title,
+  csfd,
+}: {
+  title: string;
+  csfd: CsfdMatch | null;
+}) {
+  const className = `weekly-rating ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
+  const label =
+    csfd?.rating == null
+      ? `${title} na ČSFD, zatím bez hodnocení`
+      : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
+  const badge = csfd?.url ? (
+    <a
+      className={className}
+      href={csfd.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={label}
+      title={label}
+    >
+      {csfd.rating == null ? "?" : `${csfd.rating}%`}
+    </a>
+  ) : (
+    <span className={className} aria-label={label} title={label}>
+      ?
+    </span>
+  );
+  return (
+    <span className="weekly-rating-block">
+      {badge}
+      <span className="weekly-rating-copy">{getCsfdStatusText(csfd)}</span>
+    </span>
+  );
+}
+
 function MobileProgramAgendaItem({
   film,
   priority,
@@ -1377,37 +1435,7 @@ function MobileProgramAgendaItem({
             <p className="mobile-program-meta">{formatMobileFilmMetadata(film.description)}</p>
           ) : null}
           <div className="weekly-film-meta">
-            {film.csfd?.rating != null ? (
-              film.csfd.url ? (
-                <a
-                  className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
-                  href={film.csfd.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${film.title} na CSFD, hodnoceni ${film.csfd.rating} %`}
-                >
-                  {film.csfd.rating}%
-                </a>
-              ) : (
-                <span
-                  className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
-                >
-                  {film.csfd.rating}%
-                </span>
-              )
-            ) : film.csfd?.url ? (
-              <a
-                className="weekly-rating rating-missing"
-                href={film.csfd.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${film.title} na CSFD, zatim bez hodnoceni`}
-              >
-                ?
-              </a>
-            ) : (
-              <span className="weekly-rating rating-missing">?</span>
-            )}
+            <ProgramMiniRating title={film.title} csfd={film.csfd} />
           </div>
         </div>
       </div>
@@ -1438,36 +1466,11 @@ function FilmMini({
         >
           {film.title}
         </button>
+        <p className="weekly-film-description">
+          {formatMobileFilmMetadata(film.description)}
+        </p>
         <div className="weekly-film-meta">
-          {film.csfd?.rating != null ? (
-            film.csfd.url ? (
-              <a
-                className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
-                href={film.csfd.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}
-              >
-                {film.csfd.rating}%
-              </a>
-            ) : (
-              <span
-                className={`weekly-rating ${getRatingClass(film.csfd.rating)}`}
-              >
-                {film.csfd.rating}%
-              </span>
-            )
-          ) : film.csfd?.url ? (
-            <a
-              className="weekly-rating rating-missing"
-              href={film.csfd.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}
-            >
-              ?
-            </a>
-          ) : null}
+          <ProgramMiniRating title={film.title} csfd={film.csfd} />
           {film.hasSubtitles ? (
             <span className="weekly-subtitle-mark">Titulky</span>
           ) : null}
