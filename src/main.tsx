@@ -1757,7 +1757,18 @@ function formatRadarTitle(value: string) {
 }
 
 function getProviderHref(provider: RadarProvider, preferMobile: boolean) {
+  if (preferMobile && isHboMaxProvider(provider) && isAndroidDevice()) {
+    return "intent://play.hbomax.com/#Intent;scheme=https;package=com.wbd.stream;S.browser_fallback_url=https%3A%2F%2Fplay.hbomax.com%2F;end";
+  }
   return (preferMobile && provider.mobileUrl) ? provider.mobileUrl : provider.url;
+}
+
+function isHboMaxProvider(provider: RadarProvider) {
+  return provider.name.toLowerCase() === "hbo max";
+}
+
+function isAndroidDevice() {
+  return /android/i.test(navigator.userAgent);
 }
 
 function getProviderLinkLabel(provider: RadarProvider, title: string, preferMobile = false) {
@@ -1765,8 +1776,8 @@ function getProviderLinkLabel(provider: RadarProvider, title: string, preferMobi
     ? provider.mobileLinkType ?? "homepage"
     : provider.linkType;
   const href = getProviderHref(provider, preferMobile);
-  const isSearch = linkType === "search" || Boolean(
-    href?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i),
+  const isSearch = !href?.startsWith("intent://") && (
+    linkType === "search" || Boolean(href?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i))
   );
   if (!isSearch) return `Otevřít ${provider.name}`;
   const searchTitle = title
