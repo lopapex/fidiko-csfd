@@ -783,14 +783,15 @@ function RadarCard({
               {item.providers.length === 0 && item.csfd?.url ? (
                 <CsfdProviderLink url={item.csfd.url} title={item.title} />
               ) : null}
-              {visibleProviders.map(provider => {
-                const label = getProviderLinkLabel(provider, item.title);
-                return provider.url ? (
-                  <a
-                    href={provider.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    title={label}
+                {visibleProviders.map(provider => {
+                  const href = getProviderHref(provider, compactProviders);
+                  const label = getProviderLinkLabel(provider, item.title, compactProviders);
+                  return href ? (
+                    <a
+                      href={href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={label}
                     aria-label={label}
                     key={provider.id}
                   >
@@ -1755,9 +1756,17 @@ function formatRadarTitle(value: string) {
   return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");
 }
 
-function getProviderLinkLabel(provider: RadarProvider, title: string) {
-  const isSearch = provider.linkType === "search" || Boolean(
-    provider.url?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i),
+function getProviderHref(provider: RadarProvider, preferMobile: boolean) {
+  return (preferMobile && provider.mobileUrl) ? provider.mobileUrl : provider.url;
+}
+
+function getProviderLinkLabel(provider: RadarProvider, title: string, preferMobile = false) {
+  const linkType = (preferMobile && provider.mobileUrl)
+    ? provider.mobileLinkType ?? "homepage"
+    : provider.linkType;
+  const href = getProviderHref(provider, preferMobile);
+  const isSearch = linkType === "search" || Boolean(
+    href?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i),
   );
   if (!isSearch) return `Otevřít ${provider.name}`;
   const searchTitle = title

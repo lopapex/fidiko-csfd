@@ -7,6 +7,7 @@ type ProviderDefinition = {
   homepage: string;
   logoPath: string;
   searchUrl?: (query: string) => string;
+  mobileUrl?: string;
 };
 
 const PROVIDERS: ProviderDefinition[] = [
@@ -55,7 +56,8 @@ const PROVIDERS: ProviderDefinition[] = [
     aliases: /^(?:hbo )?max$/,
     homepage: "https://play.hbomax.com/",
     logoPath: "/jbe4gVSfRlbPTdESXhEKpornsfu.jpg",
-    searchUrl: (query) => `https://www.hbomax.com/?q=${query}`,
+    searchUrl: (query) => `https://play.hbomax.com/search/result?q=${query}`,
+    mobileUrl: "https://play.hbomax.com/",
   },
   {
     id: 2536,
@@ -87,10 +89,12 @@ export function getProviderLink(name: string, title?: string) {
     return {
       url: provider.searchUrl(encodeURIComponent(searchTitle)),
       linkType: "search",
+      mobileUrl: provider.mobileUrl,
+      mobileLinkType: provider.mobileUrl ? "homepage" : undefined,
     } as const;
   }
 
-  return { url: provider.homepage, linkType: "homepage" } as const;
+  return { url: provider.homepage, linkType: "homepage", mobileUrl: undefined, mobileLinkType: undefined } as const;
 }
 
 export function getProviderMetadata(name: string) {

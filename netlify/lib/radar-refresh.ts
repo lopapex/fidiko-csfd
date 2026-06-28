@@ -33,6 +33,8 @@ export type RadarProvider = {
   logoUrl: string;
   url: string | null;
   linkType?: ProviderLinkType;
+  mobileUrl?: string;
+  mobileLinkType?: ProviderLinkType;
 };
 
 export type RadarProgramMatch = {

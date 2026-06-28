@@ -54,6 +54,8 @@ export type RadarProvider = {
   logoUrl: string;
   url: string | null;
   linkType: "search" | "homepage";
+  mobileUrl?: string;
+  mobileLinkType?: "search" | "homepage";
 };
 export type RadarProgramMatch = {
   filmId: string;
