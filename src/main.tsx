@@ -1187,6 +1187,8 @@ function WeeklyTable({
   today: string;
   onSelectFilm: (id: string) => void;
 }) {
+  const sortedFilms = getFilmsSortedByFirstScreeningInWeek(films, days);
+
   return (
     <div
       className="weekly-table-scroll"
@@ -1214,15 +1216,15 @@ function WeeklyTable({
           </tr>
         </thead>
         <tbody>
-          {films.map(film => (
+          {sortedFilms.map(film => (
             <tr key={film.id}>
               <th className="weekly-film-cell" scope="row">
                 <FilmMini film={film} onSelectFilm={onSelectFilm} />
               </th>
               {days.map(day => {
-                const screenings = film.screenings.filter(
-                  screening => screening.dateISO === day,
-                );
+                const screenings = film.screenings
+                  .filter(screening => screening.dateISO === day)
+                  .sort(compareScreeningTime);
                 return (
                   <td
                     key={day}
@@ -1327,6 +1329,46 @@ function getFilmsForDay(films: FilmGroup[], day: string) {
     .sort((left, right) =>
       compareScreeningTime(left.screenings[0], right.screenings[0]),
     );
+}
+
+function getFilmsSortedByFirstScreeningInWeek(films: FilmGroup[], days: string[]) {
+  const dayOrder = new Map(days.map((day, index) => [day, index]));
+
+  return [...films].sort((left, right) => (
+    compareFirstScreeningInWeek(left, right, dayOrder)
+    || left.title.localeCompare(right.title, "cs-CZ")
+  ));
+}
+
+function compareFirstScreeningInWeek(
+  left: FilmGroup,
+  right: FilmGroup,
+  dayOrder: Map<string, number>,
+) {
+  const leftScreening = getFirstScreeningInWeek(left, dayOrder);
+  const rightScreening = getFirstScreeningInWeek(right, dayOrder);
+  const leftDay = leftScreening ? dayOrder.get(leftScreening.dateISO) ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+  const rightDay = rightScreening ? dayOrder.get(rightScreening.dateISO) ?? Number.POSITIVE_INFINITY : Number.POSITIVE_INFINITY;
+
+  return leftDay - rightDay
+    || compareOptionalScreeningTime(leftScreening, rightScreening);
+}
+
+function getFirstScreeningInWeek(film: FilmGroup, dayOrder: Map<string, number>) {
+  return film.screenings
+    .filter(screening => dayOrder.has(screening.dateISO))
+    .sort((left, right) => (
+      (dayOrder.get(left.dateISO) ?? Number.POSITIVE_INFINITY)
+      - (dayOrder.get(right.dateISO) ?? Number.POSITIVE_INFINITY)
+      || compareScreeningTime(left, right)
+    ))[0] ?? null;
+}
+
+function compareOptionalScreeningTime(left: Screening | null, right: Screening | null) {
+  if (!left && !right) return 0;
+  if (!left) return 1;
+  if (!right) return -1;
+  return compareScreeningTime(left, right);
 }
 
 function compareScreeningTime(left: Screening, right: Screening) {
