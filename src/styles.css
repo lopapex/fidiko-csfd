@@ -617,18 +617,19 @@ a.weekly-rating:hover {
   padding: 0;
   display: grid;
   place-items: center;
-  border: 1px solid #cccccc;
+  border: 1px solid var(--accent-dark);
   border-radius: 4px;
-  background: #ffffff;
-  color: #252525;
+  background: var(--accent);
+  color: #ffffff;
   font: inherit;
   cursor: pointer;
 }
 
 .radar-cell-program-button:hover,
 .radar-cell-program-button:focus-visible {
-  border-color: var(--subtitle-dark);
-  background: var(--subtitle-soft);
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
+  color: #ffffff;
 }
 
 .radar-cell-program-button:focus-visible,
@@ -1628,10 +1629,10 @@ a.weekly-rating:hover {
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid #cccccc;
+  border: 1px solid var(--accent-dark);
   border-radius: 4px;
-  background: #ffffff;
-  color: #252525;
+  background: var(--accent);
+  color: #ffffff;
   font: inherit;
   font-size: 12px;
   font-weight: 800;
@@ -1639,9 +1640,9 @@ a.weekly-rating:hover {
 }
 
 .radar-program-button:hover {
-  border-color: var(--accent);
-  background: #fff5f5;
-  color: var(--accent-dark);
+  border-color: var(--accent-dark);
+  background: var(--accent-dark);
+  color: #ffffff;
 }
 
 .radar-program-button:focus-visible {
@@ -2359,9 +2360,9 @@ a.weekly-rating:hover {
   .radar-meta-row {
     margin-top: 0;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: nowrap;
+    align-items: flex-start;
+    justify-content: flex-start;
+    flex-wrap: wrap;
     gap: 8px;
   }
 
@@ -2372,7 +2373,9 @@ a.weekly-rating:hover {
   }
 
   .radar-meta-row .radar-csfd-block {
+    width: 100%;
     min-width: 0;
+    flex: 0 0 100%;
   }
 
   .radar-meta-row .provider-list {
@@ -2382,7 +2385,17 @@ a.weekly-rating:hover {
   }
 
   .radar-meta-row .radar-program-button {
-    flex: 0 0 auto;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 3px;
+    justify-content: center;
+    flex: 0 0 38px;
+  }
+
+  .radar-meta-row .radar-program-button span {
+    display: none;
   }
 
   .provider-list > a,
