@@ -949,46 +949,7 @@ function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
     <>
       <div className="weekly-desktop">
         <div className="weekly-table-scroll">
-          <table className="weekly-table radar-weekly-table radar-weekly-skeleton-table">
-            <thead>
-              <tr>
-                <th className="weekly-film-heading" scope="col">
-                  Film / seriál
-                </th>
-                {days.map(day => (
-                  <th scope="col" key={day}>
-                    <span>{formatWeekday(day)}</span>
-                    <strong>{formatShortDate(day)}</strong>
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {Array.from({ length: 4 }).map((_, row) => (
-                <tr key={row}>
-                  <th className="weekly-film-cell" scope="row">
-                    <div className="weekly-film-summary">
-                      <span className="weekly-poster skeleton" />
-                      <span className="radar-week-skeleton-copy">
-                        <span className="skeleton-line wide" />
-                        <span className="skeleton-line short" />
-                      </span>
-                    </div>
-                  </th>
-                  {days.map((day, column) => (
-                    <td key={day}>
-                      <div className="weekly-times">
-                        {column === (row * 2 + 1) % 7 ||
-                        (row === 2 && column === 5) ? (
-                          <span className="radar-release-skeleton skeleton" />
-                        ) : null}
-                      </div>
-                    </td>
-                  ))}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <WeeklySkeletonTable days={days} heading="Film / seriál" />
         </div>
       </div>
       <div className="weekly-mobile">
@@ -1046,6 +1007,51 @@ function MobileAgendaSkeleton({ days }: { days: string[] }) {
         </section>
       ))}
     </div>
+  );
+}
+
+function WeeklySkeletonTable({ days, heading }: { days: string[]; heading: string }) {
+  return (
+    <table className="weekly-table radar-weekly-skeleton-table">
+      <thead>
+        <tr>
+          <th className="weekly-film-heading" scope="col">
+            {heading}
+          </th>
+          {days.map(day => (
+            <th scope="col" key={day}>
+              <span>{formatWeekday(day)}</span>
+              <strong>{formatShortDate(day)}</strong>
+            </th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {Array.from({ length: 4 }).map((_, row) => (
+          <tr key={row}>
+            <th className="weekly-film-cell" scope="row">
+              <div className="weekly-film-summary">
+                <span className="weekly-poster skeleton" />
+                <span className="radar-week-skeleton-copy">
+                  <span className="skeleton-line wide" />
+                  <span className="skeleton-line short" />
+                </span>
+              </div>
+            </th>
+            {days.map((day, column) => (
+              <td key={day}>
+                <div className="weekly-times">
+                  {column === (row * 2 + 1) % 7 ||
+                  (row === 2 && column === 5) ? (
+                    <span className="radar-release-skeleton skeleton" />
+                  ) : null}
+                </div>
+              </td>
+            ))}
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }
 
@@ -1768,7 +1774,7 @@ function WeeklyLoading({
       </div>
       <div className="weekly-desktop">
         <div className="weekly-table-scroll">
-          <div className="weekly-table-skeleton skeleton" />
+          <WeeklySkeletonTable days={days} heading="Film" />
         </div>
       </div>
       <div className="weekly-mobile">
