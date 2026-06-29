@@ -654,9 +654,9 @@ a.weekly-rating:hover {
   height: 32px;
   display: grid;
   place-items: center;
-  border: 1px solid #cccccc;
+  border: 0;
   border-radius: 4px;
-  background: #ffffff;
+  background: transparent;
 }
 
 .radar-cell-providers > .provider-csfd-link {
@@ -676,8 +676,8 @@ a.weekly-rating:hover {
 }
 
 .radar-cell-providers > a:hover {
-  border-color: var(--subtitle-dark);
-  background: var(--subtitle-soft);
+  background: transparent;
+  filter: brightness(1.08);
 }
 
 .radar-cell-providers img {
@@ -1683,13 +1683,13 @@ a.weekly-rating:hover {
 .provider-list > a,
 .provider-list > span {
   min-height: 38px;
-  padding: 3px 8px 3px 3px;
+  padding: 3px;
   display: inline-flex;
   align-items: center;
   gap: 7px;
-  border: 1px solid #cccccc;
+  border: 0;
   border-radius: 4px;
-  background: #ffffff;
+  background: transparent;
   color: #252525;
   font-size: 12px;
   font-weight: 800;
@@ -1697,8 +1697,8 @@ a.weekly-rating:hover {
 }
 
 .provider-list > a:hover {
-  border-color: var(--subtitle-dark);
-  background: var(--subtitle-soft);
+  background: transparent;
+  filter: brightness(1.08);
 }
 
 .provider-list > .provider-csfd-link {
@@ -1972,11 +1972,6 @@ a.weekly-rating:hover {
 
 .mobile-agenda-items .mobile-program-item:first-child {
   border-top: 0;
-}
-
-.mobile-program-item.has-subtitles {
-  border-color: var(--subtitle-line);
-  background: var(--subtitle-soft);
 }
 
 .mobile-program-main {
@@ -2409,7 +2404,7 @@ a.weekly-rating:hover {
 
   .provider-list > a,
   .provider-list > span {
-    padding-right: 4px;
+    padding: 3px;
   }
 
   .provider-list > a span,

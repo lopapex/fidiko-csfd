@@ -1401,11 +1401,7 @@ function MobileProgramAgendaItem({
 }) {
   return (
     <article
-      className={
-        film.screenings.some(screening => screening.hasSubtitles)
-          ? "mobile-program-item has-subtitles"
-          : "mobile-program-item"
-      }
+      className="mobile-program-item"
       aria-labelledby={`mobile-film-title-${film.id}`}
     >
       <div className="mobile-program-main">
