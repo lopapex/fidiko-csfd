@@ -405,7 +405,7 @@ a {
   display: grid;
   grid-template-columns: 75px minmax(0, 1fr);
   gap: 11px;
-  align-items: start;
+  align-items: stretch;
 }
 
 .weekly-poster {
@@ -440,6 +440,9 @@ a {
 
 .weekly-film-copy {
   min-width: 0;
+  min-height: 112px;
+  display: flex;
+  flex-direction: column;
 }
 
 .weekly-film-title-button,
@@ -494,7 +497,7 @@ a {
   align-items: center;
   flex-wrap: wrap;
   gap: 5px;
-  margin-top: 8px;
+  margin-top: auto;
 }
 
 .weekly-rating,
@@ -514,23 +517,26 @@ a {
 }
 
 .weekly-rating {
-  width: 38px;
-  flex: 0 0 38px;
+  width: 48px;
+  flex: 0 0 48px;
+  min-height: 30px;
+  padding: 7px 8px;
+  font-size: 14px;
 }
 
 .weekly-rating-block {
   display: inline-flex;
   align-items: center;
   flex-wrap: nowrap;
-  gap: 3px;
+  gap: 7px;
   max-width: 100%;
   min-width: max-content;
 }
 
 .weekly-rating-copy {
   color: var(--text-muted);
-  font-size: 9px;
-  line-height: 1.15;
+  font-size: 11px;
+  line-height: 1.18;
   font-weight: 800;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1210,6 +1216,10 @@ a.weekly-rating:hover {
     font-size: 12px;
   }
 
+  .weekly-film-copy {
+    min-height: 54px;
+  }
+
   .weekly-film-description {
     font-size: 10px;
     line-height: 1.3;
@@ -1532,6 +1542,11 @@ a.weekly-rating:hover {
 .radar-card-footer .radar-meta-row {
   width: 100%;
   margin-top: auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
 }
 
 .radar-card-head {
@@ -1543,6 +1558,18 @@ a.weekly-rating:hover {
   overflow-wrap: anywhere;
   font-size: 22px;
   line-height: 1.14;
+}
+
+.radar-card-meta {
+  margin: 6px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 800;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .radar-program-title {
@@ -1568,10 +1595,6 @@ a.weekly-rating:hover {
   outline-offset: 3px;
 }
 
-.radar-badges {
-  margin-top: 8px;
-}
-
 .program-badge {
   padding: 7px 9px;
   border-radius: 4px;
@@ -1593,7 +1616,16 @@ a.weekly-rating:hover {
 }
 
 .radar-csfd-block {
-  margin-top: 12px;
+  min-width: 0;
+  margin-top: 0;
+}
+
+.radar-csfd-block .rating-copy {
+  width: auto;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .radar-program-button {
@@ -1622,6 +1654,22 @@ a.weekly-rating:hover {
 .radar-program-button:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
+}
+
+.radar-meta-row .radar-csfd-block,
+.radar-meta-row .provider-list,
+.radar-meta-row .radar-program-button {
+  margin-top: 0;
+}
+
+.radar-meta-row .provider-list {
+  margin-left: auto;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.radar-meta-row .radar-program-button {
+  flex: 0 0 auto;
 }
 
 .film-row:focus-visible {
@@ -1985,12 +2033,12 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-copy .weekly-rating {
-  min-height: 24px;
-  width: 38px;
-  flex: 0 0 38px;
-  padding: 5px 6px;
+  min-height: 30px;
+  width: 48px;
+  flex: 0 0 48px;
+  padding: 7px 8px;
   border-radius: 3px;
-  font-size: 11px;
+  font-size: 14px;
 }
 
 .mobile-agenda-times {
@@ -2298,11 +2346,6 @@ a.weekly-rating:hover {
 
   .radar-copy {
     min-height: 129px;
-  }
-
-  .radar-badges {
-    margin-top: 7px;
-    justify-content: flex-start;
   }
 
   .radar-card-footer {

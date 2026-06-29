@@ -758,14 +758,9 @@ function RadarCard({
                 formatRadarTitle(item.title)
               )}
             </h2>
-            <div className="weekly-film-meta radar-badges">
-              <span className={`weekly-media-mark ${item.mediaType}`}>
-                {item.mediaType === "movie" ? "Film" : "Seriál"}
-              </span>
-              <span className={`weekly-media-mark ${item.channel}`}>
-                {item.channel === "cinema" ? "Kino" : "Streaming"}
-              </span>
-            </div>
+            <p className="radar-card-meta">
+              {formatRadarCardMetadata(item, compactProviders)}
+            </p>
           </div>
         </div>
         {showDate ? (
@@ -1351,6 +1346,14 @@ function formatMobileFilmMetadata(description: string) {
     .join(", ");
 }
 
+function formatRadarCardMetadata(item: RadarItem, includeChannel: boolean) {
+  const parts = [
+    item.mediaType === "movie" ? "Film" : "Seriál",
+    includeChannel ? (item.channel === "cinema" ? "Kino" : "Streaming") : null,
+  ].filter((part): part is string => Boolean(part));
+  return parts.join(", ");
+}
+
 function ProgramMiniRating({
   title,
   csfd,
@@ -1456,9 +1459,6 @@ function FilmMini({
         </p>
         <div className="weekly-film-meta">
           <ProgramMiniRating title={film.title} csfd={film.csfd} />
-          {film.hasSubtitles ? (
-            <span className="weekly-subtitle-mark">Titulky</span>
-          ) : null}
         </div>
       </div>
     </div>
