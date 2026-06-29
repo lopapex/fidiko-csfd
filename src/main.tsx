@@ -689,6 +689,7 @@ function RadarReleaseCell({
             const label = getProviderLinkLabel(provider, item.title);
             return provider.url ? (
               <a
+                className={getProviderTileClassName(provider)}
                 href={provider.url}
                 target="_blank"
                 rel="noopener noreferrer"
@@ -699,7 +700,7 @@ function RadarReleaseCell({
                 <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
               </a>
             ) : (
-              <span title={provider.name} key={provider.id}>
+              <span className={getProviderTileClassName(provider)} title={provider.name} key={provider.id}>
                 <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
               </span>
             );
@@ -792,6 +793,7 @@ function RadarCard({
                   const label = getProviderLinkLabel(provider, item.title, compactProviders);
                   return href ? (
                     <a
+                      className={getProviderTileClassName(provider)}
                       href={href}
                       target="_blank"
                       rel="noopener noreferrer"
@@ -810,6 +812,7 @@ function RadarCard({
                   </a>
                 ) : (
                   <span
+                    className={getProviderTileClassName(provider)}
                     title={`${provider.name} nemá dostupný přímý odkaz`}
                     key={provider.id}
                   >
@@ -1893,8 +1896,16 @@ function getProviderHref(provider: RadarProvider, preferMobile: boolean) {
   return provider.linkType === "homepage" ? provider.url : null;
 }
 
+function getProviderTileClassName(provider: RadarProvider) {
+  return isPrimeVideoProvider(provider) ? "provider-tile provider-tile-prime-video" : "provider-tile";
+}
+
 function isHboMaxProvider(provider: RadarProvider) {
   return provider.name.toLowerCase() === "hbo max";
+}
+
+function isPrimeVideoProvider(provider: RadarProvider) {
+  return provider.name.toLowerCase() === "prime video";
 }
 
 function isAndroidDevice() {

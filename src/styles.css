@@ -1719,6 +1719,10 @@ a.weekly-rating:hover {
   border-radius: 3px;
 }
 
+.provider-tile-prime-video img {
+  border: 1px solid #111111;
+}
+
 .radar-loading {
   border-left-color: #b8b8b8;
   background: #ffffff;
@@ -2223,6 +2227,12 @@ a.weekly-rating:hover {
 
   .weekly-mobile {
     display: block;
+  }
+
+  .week-toolbar,
+  .weekly-table-scroll,
+  .mobile-week-agenda {
+    border-radius: 0;
   }
 
   .mobile-day-tabs {
