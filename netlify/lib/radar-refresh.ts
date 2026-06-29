@@ -388,6 +388,7 @@ function shouldReplacePreparedItem(existing: RadarItem, candidate: RadarItem) {
   if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
   if (existing.csfd?.url && !candidate.csfd?.url) return false;
   if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
+  if (!hasLocalizedTitle(existing) && hasLocalizedTitle(candidate)) return true;
   if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
   return false;
 }
@@ -729,12 +730,19 @@ function deduplicateRadarItems(items: RadarItem[]) {
 
 function getRadarDeduplicationKeys(item: RadarItem) {
   const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
+  keys.push(...getCinemaTitleDeduplicationKeys(item));
   const streamingKey = getStreamingDeduplicationKey(item);
   if (streamingKey) keys.push(streamingKey);
   const titleKeys = getStreamingTitleDeduplicationKeys(item);
   keys.push(...titleKeys);
   keys.push(`item:${item.id}`);
   return keys;
+}
+
+function getCinemaTitleDeduplicationKeys(item: RadarItem) {
+  if (item.channel !== "cinema") return [];
+  return getComparableTitles(item)
+    .map((title) => `cinema-title:${item.mediaType}:${item.releaseDate}:${title}`);
 }
 
 function getStreamingDeduplicationKey(item: RadarItem) {
@@ -756,6 +764,10 @@ function getComparableTitles(item: Pick<RadarItem, "title" | "originalTitle" | "
     .filter((value): value is string => Boolean(value))
     .map(normalizeMatchTitle)
     .filter(Boolean))];
+}
+
+function hasLocalizedTitle(item: Pick<RadarItem, "title" | "originalTitle">) {
+  return Boolean(item.originalTitle && normalizeMatchTitle(item.title) !== normalizeMatchTitle(item.originalTitle));
 }
 
 function compareItems(left: RadarItem, right: RadarItem) {

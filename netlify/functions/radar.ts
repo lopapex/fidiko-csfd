@@ -324,11 +324,18 @@ function deduplicateRadarItems(items: RadarSnapshot["items"]) {
 
 function getRadarDeduplicationKeys(item: RadarSnapshot["items"][number]) {
   const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
+  keys.push(...getCinemaTitleDeduplicationKeys(item));
   const streamingKey = getStreamingDeduplicationKey(item);
   if (streamingKey) keys.push(streamingKey);
   keys.push(...getStreamingTitleDeduplicationKeys(item));
   keys.push(`item:${item.id}`);
   return keys;
+}
+
+function getCinemaTitleDeduplicationKeys(item: RadarSnapshot["items"][number]) {
+  if (item.channel !== "cinema") return [];
+  return getComparableTitles(item)
+    .map((title) => `cinema-title:${item.mediaType}:${item.releaseDate}:${title}`);
 }
 
 function getStreamingDeduplicationKey(item: RadarSnapshot["items"][number]) {
@@ -356,8 +363,13 @@ function shouldReplaceRadarItem(existing: RadarSnapshot["items"][number], candid
   if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
   if (existing.csfd?.url && !candidate.csfd?.url) return false;
   if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
+  if (!hasLocalizedTitle(existing) && hasLocalizedTitle(candidate)) return true;
   if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
   return false;
+}
+
+function hasLocalizedTitle(item: Pick<RadarSnapshot["items"][number], "title" | "originalTitle">) {
+  return Boolean(item.originalTitle && normalizeTitle(item.title) !== normalizeTitle(item.originalTitle));
 }
 
 function normalizeCsfdUrl(value: string) {

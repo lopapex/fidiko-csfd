@@ -1,10 +1,10 @@
 import { getStore } from "@netlify/blobs";
-import { csfd, type CSFDSearchMovie } from "node-csfd-api";
+import { csfd, type CSFDMovie, type CSFDSearchMovie } from "node-csfd-api";
 import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v7";
+const CACHE_VERSION = "v8";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -56,6 +56,7 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
     return {
       ...item,
       id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
+      title: match?.title ?? item.title,
       releaseDate,
       csfd: match
     };
@@ -133,24 +134,25 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
       const candidates = item.mediaType === "series"
         ? [...result.tvSeries, ...result.movies]
         : [...result.movies, ...result.tvSeries];
-      const match = selectCandidate(candidates, item, query);
-      if (!match) continue;
+      for (const match of selectCandidates(candidates, item, query)) {
+        const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
+        if (!isDetailedTitleMatch(match, details, query)) continue;
+        const url = details?.url ?? match.url;
+        if (!url) continue;
+        const title = details ? formatSeasonTitle(details.title, details.seasonName) : match.title;
 
-      const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
-      const url = details?.url ?? match.url;
-      if (!url) continue;
-
-      return {
-        status: "matched",
-        match: {
-          title: details?.title ?? match.title,
-          rating: numberOrNull(details?.rating),
-          ratingCount: numberOrNull(details?.ratingCount),
-          url,
-          releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
-          vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
-        }
-      };
+        return {
+          status: "matched",
+          match: {
+            title,
+            rating: numberOrNull(details?.rating),
+            ratingCount: numberOrNull(details?.ratingCount),
+            url,
+            releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
+            vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
+          }
+        };
+      }
     } catch (error) {
       failed = true;
       console.warn(`Radar CSFD lookup failed for "${query}"`, error);
@@ -212,27 +214,43 @@ export function selectCzechVodPremieres(
   ));
 }
 
-function selectCandidate(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
+function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
   const normalizedQuery = comparableTitle(query);
   const year = Number(item.releaseDate.slice(0, 4));
 
   return candidates
     .map((candidate) => ({ candidate, score: scoreCandidate(candidate, normalizedQuery, year, item.mediaType) }))
-    .filter(({ score }) => score >= 70)
-    .sort((left, right) => right.score - left.score)[0]?.candidate ?? null;
+    .filter(({ score }) => score >= 55)
+    .sort((left, right) => right.score - left.score)
+    .slice(0, 5)
+    .map(({ candidate }) => candidate);
 }
 
 function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number, mediaType: RadarMediaType) {
   const title = comparableTitle(candidate.title);
-  if (!isPlausibleTitleMatch(title, query)) return -Infinity;
+  const titleMatches = isPlausibleTitleMatch(title, query);
 
-  let score = title === query ? 100 : 65;
+  let score = titleMatches ? (title === query ? 100 : 65) : 0;
   const yearDifference = Math.abs(candidate.year - year);
   score += yearDifference === 0 ? 40 : yearDifference === 1 ? 20 : -Math.min(50, yearDifference * 10);
 
   const isSeries = candidate.type === "series" || candidate.type === "tv-show" || candidate.type === "season";
   if ((mediaType === "series") === isSeries) score += 20;
+  if (!titleMatches && (yearDifference > 1 || (mediaType === "series") !== isSeries)) return -Infinity;
   return score;
+}
+
+function isDetailedTitleMatch(candidate: CSFDSearchMovie, details: CSFDMovie | null, query: string) {
+  const normalizedQuery = comparableTitle(query);
+  const titles = [
+    candidate.title,
+    details?.title,
+    ...(details?.titlesOther ?? []).map((title) => title.title),
+  ];
+  return titles
+    .filter((value): value is string => Boolean(value))
+    .map(comparableTitle)
+    .some((title) => isPlausibleTitleMatch(title, normalizedQuery));
 }
 
 function cacheKey(item: RadarItem) {
