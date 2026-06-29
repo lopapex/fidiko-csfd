@@ -19,8 +19,12 @@ export function getCachedApi<T>(url: string): ApiResult<T> | null {
   return { ...entry, fresh: Date.now() - entry.storedAt <= FRESH_MS };
 }
 
-export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<ApiResult<T>> {
-  const response = await fetchWithDevFallback(url, signal);
+export async function fetchJson<T>(
+  url: string,
+  signal?: AbortSignal,
+  init: RequestInit = {},
+): Promise<ApiResult<T>> {
+  const response = await fetchWithDevFallback(url, signal, init);
   const contentType = response.headers.get("content-type") ?? "";
   if (!contentType.toLowerCase().includes("application/json")) {
     throw new Error(createNonJsonApiError(response, url));
@@ -42,8 +46,9 @@ export async function fetchJson<T>(url: string, signal?: AbortSignal): Promise<A
   return { ...entry, fresh: true };
 }
 
-async function fetchWithDevFallback(url: string, signal?: AbortSignal) {
-  const response = await fetch(url, { signal });
+async function fetchWithDevFallback(url: string, signal?: AbortSignal, init: RequestInit = {}) {
+  const requestInit = { ...init, signal };
+  const response = await fetch(url, requestInit);
   if (response.headers.get("content-type")?.toLowerCase().includes("application/json")) {
     return response;
   }
@@ -52,7 +57,7 @@ async function fetchWithDevFallback(url: string, signal?: AbortSignal) {
   if (!fallbackUrl) return response;
 
   try {
-    const fallbackResponse = await fetch(fallbackUrl, { signal });
+    const fallbackResponse = await fetch(fallbackUrl, requestInit);
     if (fallbackResponse.headers.get("content-type")?.toLowerCase().includes("application/json")) {
       return fallbackResponse;
     }

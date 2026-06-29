@@ -30,3 +30,8 @@
   from = "/api/radar"
   to = "/.netlify/functions/radar"
   status = 200
+
+[[redirects]]
+  from = "/api/csfd-ratings"
+  to = "/.netlify/functions/csfd-ratings"
+  status = 200

@@ -619,20 +619,20 @@ a.weekly-rating:hover {
   padding: 0;
   display: grid;
   place-items: center;
-  border: 1px solid var(--accent-dark);
+  border: 0;
   border-radius: 4px;
   background: var(--accent);
   color: #ffffff;
   font: inherit;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
 }
 
 .radar-cell-program-button:hover,
 .radar-cell-program-button:focus-visible {
-  border-color: var(--accent-dark);
   background: var(--accent-dark);
   color: #ffffff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.24);
 }
 
 .radar-cell-program-button:focus-visible,
@@ -1637,7 +1637,7 @@ a.weekly-rating:hover {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  border: 1px solid var(--accent-dark);
+  border: 0;
   border-radius: 4px;
   background: var(--accent);
   color: #ffffff;
@@ -1645,7 +1645,7 @@ a.weekly-rating:hover {
   font-size: 12px;
   font-weight: 800;
   cursor: pointer;
-  box-shadow: 0 1px 3px rgb(0 0 0 / 0.22);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
 }
 
 .radar-program-button span {
@@ -1653,9 +1653,9 @@ a.weekly-rating:hover {
 }
 
 .radar-program-button:hover {
-  border-color: var(--accent-dark);
   background: var(--accent-dark);
   color: #ffffff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.24);
 }
 
 .radar-program-button:focus-visible {

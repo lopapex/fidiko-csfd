@@ -5,11 +5,19 @@ import { AppHeader } from "./AppHeader";
 import { ProgramView } from "./ProgramView";
 import { RadarView } from "./RadarView";
 import { fetchJson } from "./api";
+import {
+  applyLiveRatingsToFilms,
+  applyLiveRatingsToRadarItems,
+  collectRadarCsfdUrls,
+  collectScheduleCsfdUrls,
+} from "./live-ratings";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "./page-state";
 import { useApiResource } from "./use-api-resource";
 import type {
   AppMode,
   CsfdMatch,
+  CsfdRating,
+  CsfdRatingsResponse,
   FilmGroup,
   InstallPromptEvent,
   PageState,
@@ -40,6 +48,7 @@ function App() {
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
   const [radarPreparing, setRadarPreparing] = useState(false);
+  const [liveRatings, setLiveRatings] = useState<Record<string, CsfdRating>>({});
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
@@ -132,6 +141,29 @@ function App() {
   }, [page.mode]);
 
   useEffect(() => {
+    const urls = page.mode === "radar"
+      ? collectRadarCsfdUrls(radarLoad.data)
+      : collectScheduleCsfdUrls(load.data);
+    if (urls.length === 0) return;
+
+    const controller = new AbortController();
+    void fetchJson<CsfdRatingsResponse>("/api/csfd-ratings", controller.signal, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ urls }),
+    })
+      .then(result => {
+        setLiveRatings(current => ({ ...current, ...result.data.ratings }));
+      })
+      .catch(error => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        console.warn("Live CSFD ratings could not be loaded", error);
+      });
+
+    return () => controller.abort();
+  }, [load.data, page.mode, radarLoad.data]);
+
+  useEffect(() => {
     if (
       !page.filmId ||
       page.mode !== "program" ||
@@ -158,7 +190,7 @@ function App() {
     if (!load.data) return [];
     const normalizedQuery = page.query.trim().toLocaleLowerCase("cs-CZ");
 
-    return load.data.films
+    return applyLiveRatingsToFilms(load.data.films, liveRatings)
       .filter(
         film =>
           !normalizedQuery ||
@@ -172,7 +204,12 @@ function App() {
         }),
       }))
       .filter(film => film.screenings.length > 0);
-  }, [load.data, page.query, page.subtitles]);
+  }, [liveRatings, load.data, page.query, page.subtitles]);
+
+  const radarItems = useMemo(
+    () => applyLiveRatingsToRadarItems(radarLoad.data?.items ?? [], liveRatings),
+    [liveRatings, radarLoad.data?.items],
+  );
 
   const filtersActive = Boolean(page.query || page.subtitles);
 
@@ -268,7 +305,7 @@ function App() {
           renderSchedule={data => (
             <RadarWeeklySchedule
               data={data}
-              items={data.items}
+              items={radarItems}
               selectedDay={page.radarDay}
               preparing={radarPreparing}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}

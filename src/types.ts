@@ -22,6 +22,16 @@ export type CsfdMatch = {
   poster: string | null;
 };
 
+export type CsfdRating = {
+  rating: number | null;
+  ratingCount: number | null;
+};
+
+export type CsfdRatingsResponse = {
+  fetchedAt: string;
+  ratings: Record<string, CsfdRating>;
+};
+
 export type FilmGroup = {
   id: string;
   title: string;
