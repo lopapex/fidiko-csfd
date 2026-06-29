@@ -49,6 +49,7 @@ function App() {
   const [radarRetry, setRadarRetry] = useState(0);
   const [radarPreparing, setRadarPreparing] = useState(false);
   const [liveRatings, setLiveRatings] = useState<Record<string, CsfdRating>>({});
+  const [liveRatingLoadingUrls, setLiveRatingLoadingUrls] = useState<Set<string>>(() => new Set());
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
@@ -147,6 +148,11 @@ function App() {
     if (urls.length === 0) return;
 
     const controller = new AbortController();
+    setLiveRatingLoadingUrls(current => {
+      const next = new Set(current);
+      for (const url of urls) next.add(url);
+      return next;
+    });
     void fetchJson<CsfdRatingsResponse>("/api/csfd-ratings", controller.signal, {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -158,6 +164,13 @@ function App() {
       .catch(error => {
         if (error instanceof DOMException && error.name === "AbortError") return;
         console.warn("Live CSFD ratings could not be loaded", error);
+      })
+      .finally(() => {
+        setLiveRatingLoadingUrls(current => {
+          const next = new Set(current);
+          for (const url of urls) next.delete(url);
+          return next;
+        });
       });
 
     return () => controller.abort();
@@ -295,6 +308,7 @@ function App() {
         onViewChange={changeView}
         onInstall={() => void installApp()}
       />
+      {liveRatingLoadingUrls.size > 0 ? <LiveRatingsNotice /> : null}
 
       {page.mode === "radar" ? (
         <RadarView
@@ -335,7 +349,13 @@ function App() {
               onSelectFilm={showFilmInAll}
             />
           )}
-          renderFilm={(film, index) => <FilmRow film={film} priority={index === 0} key={film.id} />}
+          renderFilm={(film, index) => (
+            <FilmRow
+              film={film}
+              priority={index === 0}
+              key={film.id}
+            />
+          )}
         />
       )}
     </main>
@@ -438,6 +458,19 @@ function RadarWeeklySchedule({
         </div>
       )}
     </section>
+  );
+}
+
+function LiveRatingsNotice() {
+  return (
+    <div className="live-ratings-notice" role="status" aria-live="polite">
+      <span>Aktualizuji ČSFD hodnocení</span>
+      <span className="loading-dots" aria-hidden="true">
+        <span />
+        <span />
+        <span />
+      </span>
+    </div>
   );
 }
 
