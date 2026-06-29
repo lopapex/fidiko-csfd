@@ -2341,12 +2341,9 @@ a.weekly-rating:hover {
     font-size: 18px;
   }
 
-  .radar-copy {
-    min-height: 129px;
-  }
-
   .radar-card-footer {
-    padding-top: 8px;
+    margin-top: 8px;
+    padding-top: 0;
   }
 
   .radar-csfd-block .rating-copy {
@@ -2379,9 +2376,10 @@ a.weekly-rating:hover {
   }
 
   .radar-meta-row .provider-list {
-    margin-left: auto;
+    width: 100%;
+    margin-left: 0;
     justify-content: flex-end;
-    flex: 0 0 auto;
+    flex: 0 0 100%;
   }
 
   .radar-meta-row .radar-program-button {
