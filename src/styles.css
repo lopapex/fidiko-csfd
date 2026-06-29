@@ -2033,12 +2033,18 @@ a.weekly-rating:hover {
 }
 
 .mobile-program-copy .weekly-rating {
-  min-height: 30px;
-  width: 48px;
-  flex: 0 0 48px;
-  padding: 7px 8px;
-  border-radius: 3px;
-  font-size: 14px;
+  min-height: 38px;
+  width: 62px;
+  flex: 0 0 62px;
+  padding: 9px 10px;
+  border-radius: 4px;
+  font-size: 20px;
+}
+
+.mobile-program-copy .weekly-rating-copy {
+  font-size: 13px;
+  line-height: 1.18;
+  font-weight: 700;
 }
 
 .mobile-agenda-times {

@@ -595,10 +595,10 @@ function RadarMini({
         ) : (
           <strong>{formatRadarTitle(item.title)}</strong>
         )}
+        <p className="weekly-film-description">
+          {formatRadarCardMetadata(item, false)}
+        </p>
         <div className="weekly-film-meta">
-          <span className={`weekly-media-mark ${item.mediaType}`}>
-            {item.mediaType === "movie" ? "Film" : "Seriál"}
-          </span>
           <RadarMiniRating title={item.title} csfd={item.csfd} />
         </div>
       </div>
