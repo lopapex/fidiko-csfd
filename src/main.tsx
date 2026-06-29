@@ -1897,15 +1897,11 @@ function getProviderHref(provider: RadarProvider, preferMobile: boolean) {
 }
 
 function getProviderTileClassName(provider: RadarProvider) {
-  return isPrimeVideoProvider(provider) ? "provider-tile provider-tile-prime-video" : "provider-tile";
+  return "provider-tile";
 }
 
 function isHboMaxProvider(provider: RadarProvider) {
   return provider.name.toLowerCase() === "hbo max";
-}
-
-function isPrimeVideoProvider(provider: RadarProvider) {
-  return provider.name.toLowerCase() === "prime video";
 }
 
 function isAndroidDevice() {
