@@ -12,11 +12,11 @@ const loadingState = <T,>(url: string): ResourceState<T> => ({
   refreshing: false,
 });
 
-export function useApiResource<T>(
+export const useApiResource = <T,>(
   url: string | null,
   retryToken: number,
   onOfflineChange: (offline: boolean) => void,
-) {
+) => {
   const requestId = useRef(0);
   const [state, setState] = useState<ResourceState<T>>({
     ...loadingState<T>(url ?? ""),
@@ -85,5 +85,5 @@ export function useApiResource<T>(
   }, [onOfflineChange, retryToken, url]);
 
   return visibleState;
-}
+};
 

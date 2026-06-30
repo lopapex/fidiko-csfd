@@ -19,14 +19,14 @@ import type {
 } from "../types";
 const POSTER_PLACEHOLDER_SRC = "/poster-placeholder.png";
 
-function getScheduleUrl(page: PageState) {
+const getScheduleUrl = (page: PageState) => {
   if (page.view !== "week") return "/api/schedule";
   return `/api/schedule?view=week${page.week ? `&week=${encodeURIComponent(page.week)}` : ""}`;
-}
+};
 
-function getRadarUrl(page: PageState) {
+const getRadarUrl = (page: PageState) => {
   return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
-}
+};
 
 export const App = () => {
   const [page, setPage] = useState<PageState>(readPageState);

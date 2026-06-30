@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { LoadNotice } from "../../shared/components/LoadNotice";
 import type { FilmGroup, LoadState, ScheduleResponse, ViewMode } from "../../types";
 
-export function ProgramView({
+export const ProgramView = ({
   view,
   load,
   films,
@@ -24,7 +24,7 @@ export function ProgramView({
   renderLoading: (view: ViewMode) => ReactNode;
   renderWeekly: (data: ScheduleResponse, films: FilmGroup[]) => ReactNode;
   renderFilm: (film: FilmGroup, index: number) => ReactNode;
-}) {
+}) => {
   return (
     <>
       {view === "all" ? toolbar : null}
@@ -57,12 +57,12 @@ export function ProgramView({
       ) : null}
     </>
   );
-}
+};
 
-function formatFetchedAt(value: string) {
+const formatFetchedAt = (value: string) => {
   return new Intl.DateTimeFormat("cs-CZ", {
     dateStyle: "short",
     timeStyle: "short",
     timeZone: "Europe/Prague",
   }).format(new Date(value));
-}
+};

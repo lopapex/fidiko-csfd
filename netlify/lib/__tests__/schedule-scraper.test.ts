@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { extractFormats, inferScreeningDateISO, normalizeFilmTitle } from "./schedule-scraper";
+import { extractFormats, inferScreeningDateISO, normalizeFilmTitle } from "../schedule-scraper";
 
 afterEach(() => vi.useRealTimers());
 

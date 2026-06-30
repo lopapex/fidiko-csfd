@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { getRadarPrecomputeWeekStarts, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, type RadarItem, type RadarSnapshot } from "./radar-refresh";
-import { getProviderLink, isAllowedProvider } from "./radar-providers";
-import type { ScheduleResponse } from "./schedule-scraper";
+import { getRadarPrecomputeWeekStarts, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, type RadarItem, type RadarSnapshot } from "../radar-refresh";
+import { getProviderLink, isAllowedProvider } from "../radar-providers";
+import type { ScheduleResponse } from "../schedule-scraper";
 
 const baseItem: RadarItem = {
   id: "movie-1-cinema-2026-06-21",

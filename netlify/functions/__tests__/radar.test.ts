@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import handler, { chooseNewestSnapshot, filterRadarItems } from "../functions/radar";
-import type { RadarSnapshot } from "./radar-refresh";
+import handler, { chooseNewestSnapshot, filterRadarItems } from "../radar";
+import type { RadarSnapshot } from "../../lib/radar-refresh";
 
 const snapshot: RadarSnapshot = {
   fetchedAt: "2026-06-21T00:00:00Z",

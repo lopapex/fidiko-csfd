@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysISO, getPragueNow, getPragueTodayISO, isISOWeekStart, isMondayISODate, parseISODate, startOfISOWeek } from "./date";
+import { addDaysISO, getPragueNow, getPragueTodayISO, isISOWeekStart, isMondayISODate, parseISODate, startOfISOWeek } from "../date";
 
 describe("shared date helpers", () => {
   it("validates ISO dates and Mondays", () => {

@@ -2,7 +2,7 @@
 
 const VIEW_MODE_KEY = "nzfd-view-mode-v2";
 
-export function readPageState(location = window.location): PageState {
+export const readPageState = (location = window.location): PageState => {
   const params = new URLSearchParams(location.search);
   const modeParam = params.get("mode");
   const mode = modeParam === "radar" || modeParam === "program" ? modeParam : "program";
@@ -20,9 +20,9 @@ export function readPageState(location = window.location): PageState {
     radarDay: mode === "radar" ? validISODate(params.get("day")) : null,
     filmId: mode === "program" && view === "all" ? filmId : null,
   };
-}
+};
 
-export function writePageState(page: PageState, mode: "push" | "replace") {
+export const writePageState = (page: PageState, mode: "push" | "replace") => {
   const params = new URLSearchParams();
   params.set("mode", page.mode);
   if (page.mode === "radar") {
@@ -39,40 +39,40 @@ export function writePageState(page: PageState, mode: "push" | "replace") {
   }
   const url = `${window.location.pathname}?${params.toString()}${window.location.hash}`;
   window.history[mode === "push" ? "pushState" : "replaceState"](null, "", url);
-}
+};
 
-export function storeViewMode(view: ViewMode) {
+export const storeViewMode = (view: ViewMode) => {
   try {
     sessionStorage.setItem(VIEW_MODE_KEY, view);
   } catch {
     // Session preferences are optional when storage is unavailable.
   }
-}
+};
 
-export function validISODate(value: string | null) {
+export const validISODate = (value: string | null) => {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
   const date = new Date(`${value}T00:00:00.000Z`);
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : value;
-}
+};
 
-export function validFilmId(value: string | null) {
+export const validFilmId = (value: string | null) => {
   return value && /^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(value) ? value : null;
-}
+};
 
-export function getPragueTodayISO() {
+export const getPragueTodayISO = () => {
   const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
   const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
   return `${values.year}-${values.month}-${values.day}`;
-}
+};
 
-export function startOfWeek(value: string) {
+export const startOfWeek = (value: string) => {
   const date = new Date(`${value}T00:00:00.000Z`);
   const day = date.getUTCDay();
   date.setUTCDate(date.getUTCDate() + (day === 0 ? -6 : 1 - day));
   return date.toISOString().slice(0, 10);
-}
+};
 
-function readStoredViewMode(): ViewMode {
+const readStoredViewMode = (): ViewMode => {
   try {
     localStorage.removeItem("nzfd-view-mode");
     sessionStorage.removeItem("nzfd-view-mode");
@@ -81,5 +81,5 @@ function readStoredViewMode(): ViewMode {
   } catch {
     return "all";
   }
-}
+};
 

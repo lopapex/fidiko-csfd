@@ -1,7 +1,7 @@
 import { Clapperboard, Download, Radar } from "lucide-react";
 import type { AppMode, ViewMode } from "../../types";
 
-export function AppHeader({
+export const AppHeader = ({
   mode,
   view,
   canInstall,
@@ -15,7 +15,7 @@ export function AppHeader({
   onModeChange: (mode: AppMode) => void;
   onViewChange: (view: ViewMode) => void;
   onInstall: () => void;
-}) {
+}) => {
   return (
     <header className="topbar topbar-standalone">
       <div className="brand-block">
@@ -82,9 +82,9 @@ export function AppHeader({
       </div>
     </header>
   );
-}
+};
 
-function InstallButton({ onInstall }: { onInstall: () => void }) {
+const InstallButton = ({ onInstall }: { onInstall: () => void }) => {
   return (
     <button
       className="header-icon-button"
@@ -96,4 +96,4 @@ function InstallButton({ onInstall }: { onInstall: () => void }) {
       <Download size={19} aria-hidden="true" />
     </button>
   );
-}
+};

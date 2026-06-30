@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { createCsfdRatingsResponse, extractCsfdMovieId, patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
+import { createCsfdRatingsResponse, extractCsfdMovieId, patchItemsWithFreshCsfdRatings } from "../csfd-ratings";
 
 describe("CSFD live ratings endpoint helpers", () => {
   it("extracts movie IDs only from CSFD film URLs", () => {

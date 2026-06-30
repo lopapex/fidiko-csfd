@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getStaleRadarWeekKeys } from "./radar-cache";
+import { getStaleRadarWeekKeys } from "../radar-cache";
 
 describe("Radar cache helpers", () => {
   it("removes weekly snapshots outside retained weeks and older versions", () => {

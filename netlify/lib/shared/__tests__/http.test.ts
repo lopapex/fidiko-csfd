@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "./http";
+import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../http";
 
 describe("shared HTTP helpers", () => {
   it("creates cached JSON responses with Netlify CDN headers", async () => {

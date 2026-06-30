@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, isDetailedTitleMatch, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
-import type { RadarItem } from "./radar-refresh";
+import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, isDetailedTitleMatch, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "../radar-csfd";
+import type { RadarItem } from "../radar-refresh";
 
 const match: RadarCsfdMatch = {
   title: "Film",

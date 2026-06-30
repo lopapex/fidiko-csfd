@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { LoadNotice } from "../../shared/components/LoadNotice";
 import type { LoadState, RadarResponse } from "../../types";
 
-export function RadarView({
+export const RadarView = ({
   load,
   offline,
   onRetry,
@@ -14,7 +14,7 @@ export function RadarView({
   onRetry: () => void;
   renderLoading: () => ReactNode;
   renderSchedule: (data: RadarResponse) => ReactNode;
-}) {
+}) => {
   return (
     <section className="radar-view" aria-label="Radar premiér">
       {offline && load.data ? (
@@ -36,12 +36,12 @@ export function RadarView({
           : null}
     </section>
   );
-}
+};
 
-function formatFetchedAt(value: string) {
+const formatFetchedAt = (value: string) => {
   return new Intl.DateTimeFormat("cs-CZ", {
     dateStyle: "short",
     timeStyle: "short",
     timeZone: "Europe/Prague",
   }).format(new Date(value));
-}
+};

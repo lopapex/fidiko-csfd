@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decodeHtmlEntities } from "./text";
+import { decodeHtmlEntities } from "../text";
 
 describe("text helpers", () => {
   it("decodes common HTML entities from external titles", () => {

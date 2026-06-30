@@ -1,4 +1,4 @@
-export function LoadNotice({
+export const LoadNotice = ({
   message,
   warning,
   onRetry,
@@ -6,7 +6,7 @@ export function LoadNotice({
   message: string;
   warning: boolean;
   onRetry: () => void;
-}) {
+}) => {
   return (
     <div className={warning ? "load-notice warning" : "load-notice"} role="alert">
       <span>{warning ? `Zobrazuji poslední data. ${message}` : message}</span>
@@ -15,4 +15,4 @@ export function LoadNotice({
       </button>
     </div>
   );
-}
+};
