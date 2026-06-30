@@ -1,6 +1,8 @@
 import { getStore } from "@netlify/blobs";
 import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
+import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
 import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
+import { decodeHtmlEntities } from "./text";
 import type { ScheduleResponse } from "./schedule-scraper";
 
 const TMDB_API_BASE = "https://api.themoviedb.org/3";
@@ -225,7 +227,9 @@ async function buildRadarSnapshot(
   );
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
-  const items = linkProgramMatches(prepareRadarItemsForSnapshot(enrichedItems, rangeStart, rangeEnd), schedule).sort(compareItems);
+  const items = (await patchItemsWithFreshCsfdRatings(
+    linkProgramMatches(prepareRadarItemsForSnapshot(enrichedItems, rangeStart, rangeEnd), schedule)
+  )).sort(compareItems);
   const linkingMs = performance.now() - linkingStarted;
   const csfdMatches = items.filter((item) => item.csfd?.url).length;
   const programMatches = items.filter((item) => item.program).length;
@@ -569,8 +573,8 @@ function createRadarItem(
   channel: RadarChannel,
   streaming: { providers: RadarProvider[]; watchUrl: string | null } | null
 ): RadarItem {
-  const title = mediaType === "movie" ? item.title : item.name;
-  const originalTitle = mediaType === "movie" ? item.original_title : item.original_name;
+  const title = decodeHtmlEntities((mediaType === "movie" ? item.title : item.name) ?? "");
+  const originalTitle = decodeHtmlEntities((mediaType === "movie" ? item.original_title : item.original_name) ?? "");
   const releaseDate = mediaType === "movie" ? item.release_date : item.first_air_date;
 
   if (!title || !releaseDate) {
@@ -584,7 +588,7 @@ function createRadarItem(
     channel,
     title,
     originalTitle: originalTitle && originalTitle !== title ? originalTitle : null,
-    overview: item.overview?.trim() ?? "",
+    overview: decodeHtmlEntities(item.overview?.trim() ?? ""),
     posterUrl: item.poster_path ? `${TMDB_IMAGE_BASE}/w342${item.poster_path}` : null,
     releaseDate,
     providers: streaming?.providers ?? [],

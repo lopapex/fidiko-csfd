@@ -1,6 +1,8 @@
 import * as cheerio from "cheerio";
 import { getStore } from "@netlify/blobs";
 import { csfd } from "node-csfd-api";
+import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
+import { decodeHtmlEntities } from "./text";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
 const MAX_PAGES = 50;
@@ -83,13 +85,14 @@ const csfdCache = new Map<string, Promise<CsfdMatch | null>>();
 export async function refreshScheduleCache() {
   const screenings = await fetchAllScreenings();
   const groups = await groupScreenings(screenings, true);
+  const films = await patchItemsWithFreshCsfdRatings(groups);
   const schedule: ScheduleResponse = {
     fetchedAt: new Date().toISOString(),
     source: FIDIKO_BASE,
     totals: {
-      films: groups.length,
+      films: films.length,
       screenings: screenings.length,
-      withSubtitles: groups.filter((group) => group.hasSubtitles).length
+      withSubtitles: films.filter((group) => group.hasSubtitles).length
     },
     period: {
       mode: "all",
@@ -98,7 +101,7 @@ export async function refreshScheduleCache() {
       previousWeekStart: null,
       nextWeekStart: null
     },
-    films: groups
+    films
   };
 
   await getScheduleStore().setJSON(SCHEDULE_CACHE_KEY, schedule);
@@ -615,7 +618,7 @@ function compareScreenings(left: RawScreening, right: RawScreening) {
 }
 
 function cleanText(value = "") {
-  return value.replace(/\s+/g, " ").replace(/&nbsp;/g, " ").trim();
+  return decodeHtmlEntities(value).replace(/\s+/g, " ").replace(/&nbsp;/g, " ").trim();
 }
 
 function absolutize(value?: string | null) {

@@ -6,19 +6,11 @@ import { RadarView } from "../features/radar/RadarView";
 import { RadarWeeklyLoading, RadarWeeklySchedule } from "../features/radar/components/RadarWeeklySchedule";
 import { fetchJson, storeApiResult } from "../shared/api/api";
 import { AppHeader } from "../shared/components/AppHeader";
-import {
-  applyLiveRatingsToFilms,
-  applyLiveRatingsToRadarItems,
-  collectRadarCsfdUrls,
-  collectScheduleCsfdUrls,
-} from "../shared/ratings/live-ratings";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "../shared/state/page-state";
 import { getWeekDays } from "../shared/lib/view-helpers";
 import { useApiResource } from "../shared/api/use-api-resource";
 import type {
   AppMode,
-  CsfdRating,
-  CsfdRatingsResponse,
   InstallPromptEvent,
   PageState,
   RadarResponse,
@@ -26,7 +18,6 @@ import type {
   ViewMode,
 } from "../types";
 const POSTER_PLACEHOLDER_SRC = "/poster-placeholder.png";
-const CSFD_RATINGS_SESSION_KEY = "nzfd-csfd-ratings-v1";
 
 function getScheduleUrl(page: PageState) {
   if (page.view !== "week") return "/api/schedule";
@@ -37,37 +28,12 @@ function getRadarUrl(page: PageState) {
   return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
 }
 
-function readSessionCsfdRatingUrls() {
-  try {
-    const stored = sessionStorage.getItem(CSFD_RATINGS_SESSION_KEY);
-    const parsed = stored ? JSON.parse(stored) : [];
-    return new Set(
-      Array.isArray(parsed)
-        ? parsed.filter((url): url is string => typeof url === "string")
-        : [],
-    );
-  } catch {
-    return new Set<string>();
-  }
-}
-
-function writeSessionCsfdRatingUrls(urls: Set<string>) {
-  try {
-    sessionStorage.setItem(CSFD_RATINGS_SESSION_KEY, JSON.stringify([...urls]));
-  } catch {
-    // Rating refresh dedupe is only an optimization; blocked storage should not affect the app.
-  }
-}
-
 export const App = () => {
   const [page, setPage] = useState<PageState>(readPageState);
   const pageRef = useRef(page);
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
   const [radarPreparing, setRadarPreparing] = useState(false);
-  const [liveRatings, setLiveRatings] = useState<Record<string, CsfdRating>>({});
-  const requestedLiveRatingUrlsRef = useRef<Set<string>>(readSessionCsfdRatingUrls());
-  const pendingLiveRatingUrlsRef = useRef<Set<string>>(new Set());
   const [offline, setOffline] = useState(!navigator.onLine);
   const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
     null,
@@ -160,40 +126,6 @@ export const App = () => {
   }, [page.mode]);
 
   useEffect(() => {
-    const visibleUrls = page.mode === "radar"
-      ? collectRadarCsfdUrls(radarLoad.data)
-      : collectScheduleCsfdUrls(load.data);
-    const urls = visibleUrls.filter(
-      url =>
-        !requestedLiveRatingUrlsRef.current.has(url) &&
-        !pendingLiveRatingUrlsRef.current.has(url),
-    );
-    if (urls.length === 0) return;
-
-    const controller = new AbortController();
-    for (const url of urls) pendingLiveRatingUrlsRef.current.add(url);
-    void fetchJson<CsfdRatingsResponse>("/api/csfd-ratings", controller.signal, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ urls }),
-    })
-      .then(result => {
-        setLiveRatings(current => ({ ...current, ...result.data.ratings }));
-        for (const url of urls) requestedLiveRatingUrlsRef.current.add(url);
-        writeSessionCsfdRatingUrls(requestedLiveRatingUrlsRef.current);
-      })
-      .catch(error => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        console.warn("Live CSFD ratings could not be loaded", error);
-      })
-      .finally(() => {
-        for (const url of urls) pendingLiveRatingUrlsRef.current.delete(url);
-      });
-
-    return () => controller.abort();
-  }, [load.data, page.mode, radarLoad.data]);
-
-  useEffect(() => {
     if (
       !page.filmId ||
       page.mode !== "program" ||
@@ -220,7 +152,7 @@ export const App = () => {
     if (!load.data) return [];
     const normalizedQuery = page.query.trim().toLocaleLowerCase("cs-CZ");
 
-    return applyLiveRatingsToFilms(load.data.films, liveRatings)
+    return load.data.films
       .filter(
         film =>
           !normalizedQuery ||
@@ -234,11 +166,11 @@ export const App = () => {
         }),
       }))
       .filter(film => film.screenings.length > 0);
-  }, [liveRatings, load.data, page.query, page.subtitles]);
+  }, [load.data, page.query, page.subtitles]);
 
   const radarItems = useMemo(
-    () => applyLiveRatingsToRadarItems(radarLoad.data?.items ?? [], liveRatings),
-    [liveRatings, radarLoad.data?.items],
+    () => radarLoad.data?.items ?? [],
+    [radarLoad.data?.items],
   );
 
   const filtersActive = Boolean(page.query || page.subtitles);

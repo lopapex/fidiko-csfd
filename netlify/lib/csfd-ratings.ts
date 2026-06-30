@@ -14,6 +14,9 @@ export type CsfdRatingsResponse = {
 };
 
 type RatingLookup = (id: number) => Promise<CsfdRating | null>;
+type ItemWithCsfdRating = {
+  csfd: (CsfdRating & { url: string | null }) | null;
+};
 
 export async function createCsfdRatingsResponse(
   urls: unknown,
@@ -41,6 +44,29 @@ export async function createCsfdRatingsResponse(
     fetchedAt: new Date().toISOString(),
     ratings,
   };
+}
+
+export async function patchItemsWithFreshCsfdRatings<T extends ItemWithCsfdRating>(
+  items: T[],
+  lookup: RatingLookup = lookupCsfdRating,
+) {
+  const urls = items
+    .map((item) => item.csfd?.url)
+    .filter((url): url is string => Boolean(url));
+  if (urls.length === 0) return items;
+
+  try {
+    const { ratings } = await createCsfdRatingsResponse(urls, lookup);
+    return items.map((item) => {
+      const rating = item.csfd?.url ? ratings[item.csfd.url] : null;
+      return rating && item.csfd
+        ? { ...item, csfd: { ...item.csfd, ...rating } }
+        : item;
+    });
+  } catch (error) {
+    console.warn("CSFD snapshot rating refresh failed", error);
+    return items;
+  }
 }
 
 export function extractCsfdMovieId(value: string) {

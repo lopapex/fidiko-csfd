@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { createCsfdRatingsResponse, extractCsfdMovieId } from "./csfd-ratings";
+import { describe, expect, it, vi } from "vitest";
+import { createCsfdRatingsResponse, extractCsfdMovieId, patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
 
 describe("CSFD live ratings endpoint helpers", () => {
   it("extracts movie IDs only from CSFD film URLs", () => {
@@ -41,5 +41,72 @@ describe("CSFD live ratings endpoint helpers", () => {
     ], async () => null);
 
     expect(response.ratings).toEqual({});
+  });
+
+  it("patches only rating fields and preserves snapshot metadata", async () => {
+    const item = {
+      title: "Snapshot title",
+      posterUrl: "poster.jpg",
+      csfd: {
+        title: "ČSFD title",
+        rating: 40,
+        ratingCount: 10,
+        url: "https://www.csfd.cz/film/10-test/prehled/",
+        poster: "csfd-poster.jpg",
+      },
+    };
+
+    const [patched] = await patchItemsWithFreshCsfdRatings([item], async () => ({
+      rating: 72,
+      ratingCount: 500,
+    }));
+
+    expect(patched).toEqual({
+      ...item,
+      csfd: {
+        ...item.csfd,
+        rating: 72,
+        ratingCount: 500,
+      },
+    });
+  });
+
+  it("deduplicates URLs while patching multiple items", async () => {
+    const calls: number[] = [];
+    const first = {
+      id: "first",
+      csfd: { rating: 10, ratingCount: 1, url: "https://www.csfd.cz/film/10-test/prehled/" },
+    };
+    const second = {
+      id: "second",
+      csfd: { rating: 20, ratingCount: 2, url: "https://www.csfd.cz/film/10-test/prehled/?x=1" },
+    };
+
+    const patched = await patchItemsWithFreshCsfdRatings([first, second], async id => {
+      calls.push(id);
+      return { rating: 80, ratingCount: 900 };
+    });
+
+    expect(calls).toEqual([10]);
+    expect(patched.map(item => item.csfd)).toEqual([
+      { ...first.csfd, rating: 80, ratingCount: 900 },
+      { ...second.csfd, rating: 80, ratingCount: 900 },
+    ]);
+  });
+
+  it("keeps snapshot ratings when the shared refresh fails", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const item = {
+      csfd: { rating: 55, ratingCount: 123, url: "https://www.csfd.cz/film/10-test/prehled/" },
+    };
+
+    try {
+      await expect(patchItemsWithFreshCsfdRatings([item], async () => {
+        throw new Error("CSFD outage");
+      })).resolves.toEqual([item]);
+      expect(warn).toHaveBeenCalledOnce();
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
