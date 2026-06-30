@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDaysISO, getPragueTodayISO, isISOWeekStart, isMondayISODate, parseISODate, startOfISOWeek } from "./date";
+import { addDaysISO, getPragueNow, getPragueTodayISO, isISOWeekStart, isMondayISODate, parseISODate, startOfISOWeek } from "./date";
 
 describe("shared date helpers", () => {
   it("validates ISO dates and Mondays", () => {
@@ -19,5 +19,9 @@ describe("shared date helpers", () => {
   it("formats today in Europe/Prague", () => {
     expect(getPragueTodayISO(new Date("2026-06-30T21:59:00.000Z"))).toBe("2026-06-30");
     expect(getPragueTodayISO(new Date("2026-06-30T22:01:00.000Z"))).toBe("2026-07-01");
+    expect(getPragueNow(new Date("2026-06-30T22:01:00.000Z"))).toEqual({
+      dateISO: "2026-07-01",
+      time: "00:01",
+    });
   });
 });

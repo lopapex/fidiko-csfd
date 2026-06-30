@@ -10,6 +10,24 @@ export const getPragueTodayISO = (now = new Date()) => {
   return `${values.year}-${values.month}-${values.day}`;
 };
 
+export const getPragueNow = (now = new Date()) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Europe/Prague",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+
+  return {
+    dateISO: `${values.year}-${values.month}-${values.day}`,
+    time: `${values.hour}:${values.minute}`,
+  };
+};
+
 export const parseISODate = (value: string) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     return null;

@@ -1,15 +1,14 @@
 import { getStore } from "@netlify/blobs";
 import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
+import { cleanupRadarWeekCache, getRadarStore, getStaleRadarWeekKeys, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION, readRadarSnapshot } from "./radar-cache";
 import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
 import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
+import { fetchDiscoverPages, TMDB_IMAGE_BASE, tmdbFetch, type TmdbDiscoverItem, type TmdbProvider, type TmdbTvDetails, type TmdbWatchResponse } from "./radar-tmdb";
+import { mapConcurrent } from "./shared/concurrency";
+import { addDaysISO, getPragueNow, getPragueTodayISO, startOfISOWeek } from "./shared/date";
 import { decodeHtmlEntities } from "./text";
 import type { ScheduleResponse } from "./schedule-scraper";
 
-const TMDB_API_BASE = "https://api.themoviedb.org/3";
-const TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p";
-const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v18";
-const RADAR_WEEK_CACHE_VERSION = "week-v17";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
@@ -18,8 +17,6 @@ const PRECOMPUTE_PAST_WEEKS = 5;
 const PRECOMPUTE_FUTURE_WEEKS = 12;
 const WEEK_REFRESH_CONCURRENCY = 2;
 const PROVIDER_CONCURRENCY = 6;
-const REQUEST_TIMEOUT_MS = 12000;
-const REQUEST_ATTEMPTS = 3;
 const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
 const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1684377, mediaType: "series" },
@@ -81,56 +78,11 @@ export type RadarSourceState = {
   fetchedAt: string | null;
 };
 
-type TmdbDiscoverItem = {
-  id: number;
-  title?: string;
-  original_title?: string;
-  name?: string;
-  original_name?: string;
-  overview?: string;
-  poster_path?: string | null;
-  release_date?: string;
-  first_air_date?: string;
-};
-
-type TmdbDiscoverResponse = {
-  page: number;
-  total_pages: number;
-  results: TmdbDiscoverItem[];
-};
-
-type TmdbTvDetails = TmdbDiscoverItem & {
-  seasons?: Array<{
-    season_number: number;
-    name?: string;
-    air_date?: string | null;
-    poster_path?: string | null;
-  }>;
-};
-
 type DiscoverResult = { items: TmdbDiscoverItem[]; succeeded: boolean };
 export type ItemSourceResult = { items: RadarItem[]; succeeded: boolean };
 
-type TmdbProvider = {
-  provider_id: number;
-  provider_name: string;
-  logo_path: string;
-  display_priority: number;
-};
-
-type TmdbWatchRegion = {
-  link?: string;
-  flatrate?: TmdbProvider[];
-  free?: TmdbProvider[];
-  ads?: TmdbProvider[];
-};
-
-type TmdbWatchResponse = {
-  results?: Record<string, TmdbWatchRegion>;
-};
-
 export async function hasRadarCache() {
-  const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
+  const store = getRadarStore();
   return Boolean(await store.get(RADAR_CACHE_KEY));
 }
 
@@ -138,10 +90,10 @@ export async function refreshRadarCache(): Promise<RadarSnapshot> {
   const today = getPragueTodayISO();
   const currentWeek = startOfISOWeek(today);
   const weekStarts = getRadarPrecomputeWeekStarts(currentWeek);
-  const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
+  const store = getRadarStore();
   const snapshots = await mapConcurrent(weekStarts, WEEK_REFRESH_CONCURRENCY, async (weekStart) => {
     const key = `${RADAR_WEEK_CACHE_VERSION}/${weekStart}`;
-    const previous = await readSnapshot(store, key);
+    const previous = await readRadarSnapshot(store, key);
     const snapshot = await buildRadarSnapshot(weekStart, addDaysISO(weekStart, 6), previous);
     await store.setJSON(key, snapshot);
     return snapshot;
@@ -160,9 +112,9 @@ export function getRadarPrecomputeWeekStarts(currentWeek: string) {
 }
 
 export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot> {
-  const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
+  const store = getRadarStore();
   const key = `${RADAR_WEEK_CACHE_VERSION}/${weekStart}`;
-  const previous = await readSnapshot(store, key);
+  const previous = await readRadarSnapshot(store, key);
   const snapshot = await buildRadarSnapshot(weekStart, addDaysISO(weekStart, 6), previous);
   await store.setJSON(key, snapshot);
   return snapshot;
@@ -258,35 +210,7 @@ async function buildRadarSnapshot(
   } satisfies RadarSnapshot;
 }
 
-async function readSnapshot(store: ReturnType<typeof getStore>, key: string) {
-  try {
-    return await store.get(key, { type: "json" }) as RadarSnapshot | null;
-  } catch (error) {
-    console.warn(`Radar snapshot ${key} could not be read`, error);
-    return null;
-  }
-}
-
-async function cleanupRadarWeekCache(store: ReturnType<typeof getStore>, retainedWeeks: Set<string>) {
-  try {
-    const { blobs } = await store.list();
-    const staleKeys = getStaleRadarWeekKeys(blobs.map((blob) => blob.key), retainedWeeks);
-    await Promise.all(staleKeys.map((key) => store.delete(key)));
-    if (staleKeys.length > 0) {
-      console.log(`Radar cache cleanup removed ${staleKeys.length} stale weekly snapshots`);
-    }
-  } catch (error) {
-    console.warn("Radar weekly cache cleanup failed", error);
-  }
-}
-
-export function getStaleRadarWeekKeys(keys: string[], retainedWeeks: Set<string>) {
-  return keys.filter((key) => {
-    const match = key.match(/^week-v\d+\/(\d{4}-\d{2}-\d{2})$/);
-    if (!match) return false;
-    return key.split("/")[0] !== RADAR_WEEK_CACHE_VERSION || !retainedWeeks.has(match[1]);
-  });
-}
+export { getStaleRadarWeekKeys };
 
 export function resolveSource(
   source: RadarSource,
@@ -410,7 +334,7 @@ async function discoverMovies(token: string, start: string, end: string, release
   });
 
   try {
-    return { items: await fetchDiscoverPages(token, "/discover/movie", params), succeeded: true };
+    return { items: await fetchDiscoverPages(token, "/discover/movie", params, MAX_PAGES), succeeded: true };
   } catch (error) {
     console.warn(`TMDb ${releaseType === "4" ? "digital" : "regional cinema"} discovery failed for ${start} to ${end}`, error);
     return { items: [], succeeded: false };
@@ -434,7 +358,7 @@ async function discoverSeries(token: string, start: string, end: string): Promis
     params.set(gteKey, start);
     params.set(lteKey, end);
     params.set("sort_by", sort);
-    return fetchDiscoverPages(token, "/discover/tv", params);
+    return fetchDiscoverPages(token, "/discover/tv", params, MAX_PAGES);
     })
   )));
   const fulfilled = results.filter((result): result is PromiseFulfilledResult<TmdbDiscoverItem[]> => result.status === "fulfilled");
@@ -496,30 +420,6 @@ async function resolveSeriesPremieres(
     items: resolved.flatMap((result) => result.items),
     succeeded: candidates.length === 0 || resolved.some((result) => result.succeeded),
   };
-}
-
-async function fetchDiscoverPages(token: string, path: string, baseParams: URLSearchParams, maxPages = MAX_PAGES) {
-  const items: TmdbDiscoverItem[] = [];
-  let totalPages = 1;
-
-  for (let page = 1; page <= Math.min(totalPages, maxPages); page += 1) {
-    const params = new URLSearchParams(baseParams);
-    params.set("page", String(page));
-    let response: TmdbDiscoverResponse;
-    try {
-      response = await tmdbFetch<TmdbDiscoverResponse>(token, `${path}?${params}`);
-    } catch (error) {
-      if (page === 1) {
-        throw error;
-      }
-      console.warn(`TMDb ${path} page ${page} was skipped after retries`, error);
-      break;
-    }
-    items.push(...response.results);
-    totalPages = Math.max(1, response.total_pages);
-  }
-
-  return items;
 }
 
 async function enrichStreamingItems(
@@ -776,106 +676,4 @@ function hasLocalizedTitle(item: Pick<RadarItem, "title" | "originalTitle">) {
 
 function compareItems(left: RadarItem, right: RadarItem) {
   return left.releaseDate.localeCompare(right.releaseDate) || left.title.localeCompare(right.title, "cs-CZ");
-}
-
-async function tmdbFetch<T>(token: string, path: string): Promise<T> {
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= REQUEST_ATTEMPTS; attempt += 1) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
-    try {
-      const response = await fetch(`${TMDB_API_BASE}${path}`, {
-        headers: { Authorization: `Bearer ${token}`, Accept: "application/json" },
-        signal: controller.signal
-      });
-
-      if (response.ok) {
-        return (await response.json()) as T;
-      }
-
-      const error = new Error(`TMDb ${path} failed with HTTP ${response.status}`);
-      if (response.status < 500 || attempt === REQUEST_ATTEMPTS) {
-        throw error;
-      }
-      lastError = error;
-    } catch (error) {
-      lastError = error;
-      if (attempt === REQUEST_ATTEMPTS || (error instanceof Error && /HTTP 4\d\d$/.test(error.message))) {
-        throw error;
-      }
-    } finally {
-      clearTimeout(timeout);
-    }
-
-    await new Promise((resolve) => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
-  }
-
-  throw lastError;
-}
-
-async function mapConcurrent<T, R>(items: T[], concurrency: number, mapper: (item: T) => Promise<R>) {
-  const results = new Array<R>(items.length);
-  let index = 0;
-
-  async function worker() {
-    while (index < items.length) {
-      const currentIndex = index;
-      index += 1;
-      results[currentIndex] = await mapper(items[currentIndex]);
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(concurrency, items.length) }, worker));
-  return results;
-}
-
-function getPragueTodayISO() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function getPragueNow() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hourCycle: "h23",
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return {
-    dateISO: `${values.year}-${values.month}-${values.day}`,
-    time: `${values.hour}:${values.minute}`,
-  };
-}
-
-function parseISODate(value: string) {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-  return date;
-}
-
-function startOfISOWeek(value: string) {
-  const date = parseISODate(value);
-  const dayOffset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - dayOffset);
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysISO(value: string, days: number) {
-  const date = parseISODate(value);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }

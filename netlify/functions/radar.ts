@@ -1,12 +1,9 @@
-import { getStore } from "@netlify/blobs";
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
+import { getRadarStore, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION } from "../lib/radar-cache";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 import { addDaysISO, getPragueTodayISO, isISOWeekStart, startOfISOWeek } from "../lib/shared/date";
 import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
-const RADAR_CACHE_STORE = "radar-cache";
-const RADAR_CACHE_KEY = "current-v18";
-const RADAR_WEEK_CACHE_VERSION = "week-v17";
 const LEGACY_RADAR_CACHE_KEYS = ["current-v17", "current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
 const LEGACY_WEEK_CACHE_VERSIONS = ["week-v16", "week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
@@ -191,7 +188,7 @@ async function initializeSnapshot(cacheKey: string, week: string) {
 }
 
 async function readRadarCache(key: string) {
-  const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
+  const store = getRadarStore();
   return (await store.get(key, { type: "json" })) as RadarSnapshot | null;
 }
 
