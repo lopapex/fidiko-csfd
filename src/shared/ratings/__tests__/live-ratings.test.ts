@@ -1,11 +1,11 @@
-import { describe, expect, it } from "vitest";
+﻿import { describe, expect, it } from "vitest";
 import {
   applyLiveRatingsToFilms,
   applyLiveRatingsToRadarItems,
   collectRadarCsfdUrls,
   collectScheduleCsfdUrls,
-} from "./live-ratings";
-import type { FilmGroup, RadarItem, RadarResponse, ScheduleResponse } from "./types";
+} from "../live-ratings";
+import type { FilmGroup, RadarItem, RadarResponse, ScheduleResponse } from "../../../types";
 
 const csfdUrl = "https://www.csfd.cz/film/1-test/prehled/";
 
@@ -82,3 +82,4 @@ describe("live CSFD rating helpers", () => {
     });
   });
 });
+

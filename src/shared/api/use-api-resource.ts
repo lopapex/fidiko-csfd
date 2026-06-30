@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { fetchJson, getCachedApi } from "./api";
-import type { LoadState } from "./types";
+import type { LoadState } from "../../types";
 
 type ResourceState<T> = LoadState<T> & { url: string | null };
 
@@ -76,7 +76,7 @@ export function useApiResource<T>(
           url,
           status: "error",
           data: cached?.data ?? null,
-          error: error instanceof Error ? error.message : "Data se nepodařilo načíst.",
+          error: error instanceof Error ? error.message : "Data se nepodaÅ™ilo naÄÃ­st.",
           refreshing: false,
         });
       });
@@ -86,3 +86,4 @@ export function useApiResource<T>(
 
   return visibleState;
 }
+

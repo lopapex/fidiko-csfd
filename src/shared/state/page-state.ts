@@ -1,4 +1,4 @@
-import type { PageState, ViewMode } from "./types";
+﻿import type { PageState, ViewMode } from "../../types";
 
 const VIEW_MODE_KEY = "nzfd-view-mode-v2";
 
@@ -82,3 +82,4 @@ function readStoredViewMode(): ViewMode {
     return "all";
   }
 }
+

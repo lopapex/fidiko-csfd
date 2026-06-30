@@ -1,0 +1,363 @@
+﻿:root {
+  color: #221f1f;
+  background: #eeeeee;
+  font-family: Arial, Helvetica, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  --accent: #d31724;
+  --accent-dark: #9e111a;
+  --subtitle: #0b6b64;
+  --subtitle-dark: #07564f;
+  --subtitle-soft: #edf8f7;
+  --subtitle-line: #7fc5bf;
+  --series: #296b91;
+  --series-dark: #1d526f;
+  --series-soft: #edf5f9;
+  --line: #d3d3d3;
+  --soft: #f7f7f7;
+  --text-muted: #6f6f6f;
+  --screening-card-width: 158px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+}
+
+a {
+  color: inherit;
+}
+
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.app-shell {
+  width: min(1180px, calc(100% - 28px));
+  margin: 0 auto;
+  padding: 18px 0 44px;
+}
+
+.app-shell > .program-list > .film-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
+}
+
+.topbar {
+  min-height: 74px;
+  background: var(--accent);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  border-radius: 6px 6px 0 0;
+  box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+}
+
+.topbar-standalone {
+  border-radius: 6px;
+}
+
+.kicker,
+.section-label {
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.topbar h1 {
+  margin: 0;
+  font-size: clamp(25px, 4vw, 40px);
+  line-height: 1;
+  letter-spacing: 0;
+}
+
+.brand-block {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.app-wordmark {
+  width: min(430px, 58vw);
+  height: 48px;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
+}
+
+.view-switch {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  flex: 0 0 auto;
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 0.48);
+  border-radius: 5px;
+  background: rgb(126 9 18 / 0.34);
+}
+
+.view-switch-button {
+  min-width: 76px;
+  min-height: 36px;
+  border: 0;
+  border-radius: 3px;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.view-switch-placeholder {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+.view-switch-button.active {
+  background: #ffffff;
+  color: var(--accent-dark);
+  box-shadow: 0 2px 8px rgb(91 7 13 / 0.25);
+}
+
+.view-switch-button:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.week-nav-button:focus-visible,
+.weekly-time-link:focus-visible,
+.weekly-rating:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.screening-button:active {
+  transform: translateY(1px);
+}
+
+.status-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  background: #252525;
+  color: #ffffff;
+  border-radius: 0 0 6px 6px;
+  overflow: hidden;
+}
+
+.metric {
+  padding: 12px 16px;
+  border-right: 1px solid rgb(255 255 255 / 0.14);
+}
+
+.metric:last-child {
+  border-right: 0;
+}
+
+.metric span {
+  display: block;
+  color: #cfcfcf;
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+.metric strong {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.metric-accent strong {
+  color: #ffccd0;
+}
+
+.error-box,
+.empty-box {
+  margin: 18px 0 0;
+  background: #fff3f3;
+  border: 1px solid #efb1b7;
+  color: #7d1018;
+  border-radius: 6px;
+  padding: 14px 16px;
+  font-weight: 700;
+}
+
+.load-notice {
+  margin-top: 12px;
+  padding: 11px 13px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid #efb1b7;
+  border-radius: 5px;
+  background: #fff3f3;
+  color: #7d1018;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.load-notice.warning {
+  border-color: #d9b05f;
+  background: #fff8e7;
+  color: #5f430d;
+}
+
+.load-notice button {
+  min-height: 34px;
+  flex: 0 0 auto;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.load-notice button:hover,
+.load-notice button:focus-visible {
+  background: rgb(255 255 255 / 0.72);
+}
+
+.inline-action-button {
+  min-height: 34px;
+  margin-top: 10px;
+  border: 1px solid currentColor;
+  border-radius: 4px;
+  background: #ffffff;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.inline-action-button:hover,
+.inline-action-button:focus-visible {
+  background: rgb(255 255 255 / 0.72);
+}
+
+.weekly-program {
+  margin-top: 18px;
+}
+
+.week-toolbar {
+  min-height: 76px;
+  display: grid;
+  grid-template-columns: 44px minmax(0, 1fr) 44px;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: #ffffff;
+  text-align: center;
+}
+
+.week-toolbar-label {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.week-toolbar h2 {
+  margin: 0;
+  font-size: 21px;
+  line-height: 1.15;
+}
+
+.week-nav-button {
+  width: 44px;
+  height: 44px;
+  border: 1px solid #bdbdbd;
+  border-radius: 4px;
+  background: #252525;
+  color: #ffffff;
+  font-size: 30px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.week-nav-button:disabled {
+  cursor: not-allowed;
+  background: #eeeeee;
+  color: #999999;
+  border-color: #d6d6d6;
+}
+
+.weekly-table-scroll {
+  overflow: auto;
+  max-width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 0 0 6px 6px;
+  background: #ffffff;
+  overscroll-behavior-inline: contain;
+}
+
+.weekly-table-scroll:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.weekly-table {
+  width: 100%;
+  min-width: 1160px;
+  table-layout: fixed;
+  border-spacing: 0;
+  border-collapse: separate;
+  color: #221f1f;
+}
+
+.weekly-table th,
+.weekly-table td {
+  border-right: 1px solid #dddddd;
+  border-bottom: 1px solid #dddddd;
+  background: #ffffff;
+  vertical-align: top;
+}
+
+.weekly-table tr:last-child th,
+.weekly-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.weekly-table th:last-child,
+.weekly-table td:last-child {
+  border-right: 0;
+}
+
+.weekly-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  height: 62px;
+  padding: 10px 8px;
+  background: #252525;
+  color: #ffffff;
+  text-align: center;
+}
+
+.weekly-table thead th span,
+.weekly-table thead th strong {
+  display: block;
+}
+
+.weekly-table thead th span {
+  margin-bottom: 3px;
+  color: #cccccc;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+}

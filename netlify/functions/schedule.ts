@@ -1,4 +1,4 @@
-import { getStore } from "@netlify/blobs";
+﻿import { getStore } from "@netlify/blobs";
 import type { RawScreening, ScheduleResponse } from "../lib/schedule-scraper";
 
 const SCHEDULE_CACHE_STORE = "schedule-cache";
@@ -7,7 +7,7 @@ const CACHE_MAX_AGE_SECONDS = 300;
 
 type ScheduleMode = "all" | "week";
 
-export default async function handler(request: Request) {
+const handler = async (request: Request) => {
   const requestStarted = performance.now();
 
   if (request.method !== "GET") {
@@ -224,3 +224,6 @@ function addDaysISO(value: string, days: number) {
   date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
+
+export default handler;
+

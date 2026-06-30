@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { LoadNotice } from "./LoadNotice";
-import type { FilmGroup, LoadState, ScheduleResponse, ViewMode } from "./types";
+import { LoadNotice } from "../../shared/components/LoadNotice";
+import type { FilmGroup, LoadState, ScheduleResponse, ViewMode } from "../../types";
 
 export function ProgramView({
   view,

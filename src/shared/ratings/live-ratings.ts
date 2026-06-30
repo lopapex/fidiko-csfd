@@ -1,11 +1,11 @@
-import type {
+﻿import type {
   CsfdMatch,
   CsfdRating,
   FilmGroup,
   RadarItem,
   RadarResponse,
   ScheduleResponse,
-} from "./types";
+} from "../../types";
 
 export function collectScheduleCsfdUrls(schedule: ScheduleResponse | null) {
   return uniqueCsfdUrls(schedule?.films.map(film => film.csfd?.url) ?? []);
@@ -44,3 +44,4 @@ function patchCsfdRating(csfd: CsfdMatch | null, ratings: Record<string, CsfdRat
   const rating = ratings[csfd.url];
   return rating ? { ...csfd, ...rating } : csfd;
 }
+

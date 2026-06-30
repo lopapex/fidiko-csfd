@@ -1,5 +1,5 @@
 import { Clapperboard, Download, Radar } from "lucide-react";
-import type { AppMode, ViewMode } from "./types";
+import type { AppMode, ViewMode } from "../../types";
 
 export function AppHeader({
   mode,

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
-import { readPageState, startOfWeek, validFilmId, validISODate, writePageState } from "./page-state";
-import type { PageState } from "./types";
+﻿import { afterEach, describe, expect, it, vi } from "vitest";
+import { readPageState, startOfWeek, validFilmId, validISODate, writePageState } from "../page-state";
+import type { PageState } from "../../../types";
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -45,3 +45,4 @@ describe("page dates", () => {
     expect(pushState).toHaveBeenCalledWith(null, "", "/?mode=program&view=all&film=po-vecerce");
   });
 });
+

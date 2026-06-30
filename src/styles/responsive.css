@@ -1,0 +1,316 @@
+﻿
+.mobile-day-tabs button.today {
+  box-shadow: inset 0 -3px 0 var(--accent);
+}
+
+.mobile-day-tabs button.has-subtitles {
+  box-shadow: inset 0 -3px 0 var(--subtitle);
+}
+
+.mobile-day-tabs button.today.has-subtitles {
+  box-shadow:
+    inset 0 -3px 0 var(--subtitle),
+    inset 0 -6px 0 var(--accent);
+}
+
+.mobile-day-tabs button.empty {
+  background: #f1f1f1;
+  color: #9a9a9a;
+}
+
+.mobile-day-tabs button.active {
+  background: #252525;
+  color: #ffffff;
+}
+
+.mobile-day-tabs button.active.empty {
+  background: #626262;
+  color: #eeeeee;
+}
+
+.mobile-day-tabs .day-tab-skeleton {
+  display: grid;
+  place-content: center;
+  gap: 6px;
+  background: #ffffff;
+}
+
+.day-tab-skeleton .day-name-skeleton,
+.day-tab-skeleton .day-date-skeleton {
+  display: block;
+  margin: 0 auto;
+  border-radius: 3px;
+}
+
+.day-name-skeleton {
+  width: 24px;
+  height: 8px;
+}
+
+.day-date-skeleton {
+  width: 34px;
+  height: 15px;
+}
+
+.mobile-day-program .program-list,
+.mobile-day-program {
+  margin-top: 12px;
+}
+
+.mobile-day-program {
+  display: grid;
+  gap: 12px;
+}
+
+.mobile-day-empty {
+  margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  .filter-toolbar {
+    align-items: center;
+  }
+
+  .weekly-desktop {
+    display: none;
+  }
+
+  .weekly-mobile {
+    display: block;
+  }
+
+  .week-toolbar,
+  .weekly-table-scroll,
+  .mobile-week-agenda {
+    border-radius: 0;
+  }
+
+  .mobile-day-tabs {
+    width: 100%;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .mobile-day-tabs button {
+    min-width: 0;
+  }
+
+  .mobile-day-program .film-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 340px) {
+  .mobile-program-main {
+    grid-template-columns: 72px minmax(0, 1fr);
+  }
+
+  .mobile-program-main .weekly-poster {
+    width: 72px;
+    height: 108px;
+    max-height: 108px;
+  }
+
+  .mobile-agenda-times {
+    grid-template-columns: 62px;
+    grid-auto-rows: 62px;
+  }
+
+  .mobile-agenda-times .weekly-screening {
+    width: 62px;
+    min-height: 62px;
+  }
+
+  .mobile-agenda-times .weekly-screening > strong {
+    font-size: 15px;
+  }
+
+  .mobile-day-tabs {
+    grid-template-columns: repeat(7, minmax(48px, 1fr));
+  }
+
+  .mobile-day-tabs button {
+    min-width: 48px;
+  }
+}
+
+@media (max-width: 520px) {
+  .topbar {
+    flex-wrap: nowrap;
+  }
+
+  .topbar-actions {
+    width: auto;
+    padding-top: 0;
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    border-top: 0;
+  }
+
+  .mode-switch {
+    min-width: 0;
+    padding: 2px;
+  }
+
+  .mode-button {
+    width: 34px;
+    min-width: 34px;
+    min-height: 34px;
+    flex: 0 0 34px;
+    padding: 0;
+  }
+
+  .mode-button span {
+    display: none;
+  }
+
+  .header-icon-button {
+    width: 34px;
+    height: 34px;
+  }
+
+  .radar-view {
+    margin-top: 9px;
+  }
+
+  .radar-list {
+    padding-inline: 9px;
+  }
+
+  .radar-card {
+    min-height: 151px;
+    padding: 10px;
+    grid-template-columns: 86px minmax(0, 1fr);
+    gap: 11px;
+  }
+
+  .radar-poster {
+    width: 86px;
+    height: 129px;
+    max-height: 129px;
+  }
+
+  .radar-card-head {
+    display: block;
+  }
+
+  .radar-card h2 {
+    font-size: 18px;
+  }
+
+  .radar-copy {
+    min-height: 129px;
+    position: relative;
+    padding-bottom: 44px;
+    text-align: left;
+  }
+
+  .radar-program-title {
+    text-align: left;
+  }
+
+  .radar-card-footer {
+    margin-top: 8px;
+    padding-top: 0;
+  }
+
+  .radar-csfd-block .rating-copy {
+    width: auto;
+    min-width: 0;
+    flex: 0 1 auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .radar-meta-row {
+    margin-top: 0;
+    display: block;
+  }
+
+  .radar-meta-row .radar-csfd-block,
+  .radar-meta-row .provider-list,
+  .radar-meta-row .radar-program-button {
+    margin-top: 0;
+  }
+
+  .radar-meta-row .radar-csfd-block {
+    min-width: 0;
+  }
+
+  .radar-meta-row .provider-list {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    margin-left: 0;
+    justify-content: flex-end;
+  }
+
+  .radar-meta-row .radar-program-button {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    width: 38px;
+    min-width: 38px;
+    height: 38px;
+    min-height: 38px;
+    padding: 3px;
+    justify-content: center;
+    flex: 0 0 38px;
+  }
+
+  .radar-meta-row .radar-program-button span {
+    display: none;
+  }
+
+  .provider-list > a,
+  .provider-list > span {
+    padding: 3px;
+  }
+
+  .provider-list > a span,
+  .provider-list > span span {
+    display: none;
+  }
+
+  .provider-list > a .csfd-logo-mark {
+    display: block;
+  }
+
+  .filter-toolbar {
+    margin-top: 9px;
+    padding: 9px;
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .app-shell > .program-list,
+  .mobile-day-program {
+    padding-inline: 9px;
+  }
+
+  .mobile-week-agenda {
+    padding-inline: 0;
+  }
+
+  .mobile-day-program > .program-list {
+    padding-inline: 0;
+  }
+
+  .mobile-agenda-day .radar-list {
+    padding: 0;
+  }
+
+  .mobile-day-program .film-info {
+    grid-template-columns: 82px minmax(0, 1fr);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}

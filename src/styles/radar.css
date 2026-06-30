@@ -1,0 +1,362 @@
+﻿.filter-button.active {
+  border-color: var(--subtitle-dark);
+  background: var(--subtitle);
+  color: #ffffff;
+}
+
+.filter-button:focus-visible,
+.search-clear-button:focus-visible,
+.header-icon-button:focus-visible,
+.mobile-day-tabs button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.offline-banner {
+  margin-top: 12px;
+  padding: 10px 13px;
+  border: 1px solid #d9b05f;
+  border-radius: 4px;
+  background: #fff8e7;
+  color: #5f430d;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.radar-view {
+  margin-top: 14px;
+}
+
+.radar-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 12px;
+}
+
+.radar-mobile-day-list {
+  margin-top: 0;
+}
+
+.radar-card {
+  min-height: 199px;
+  padding: 13px;
+  display: grid;
+  grid-template-columns: 114px minmax(0, 1fr);
+  gap: 15px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #ffffff;
+}
+
+.radar-card.radar-series {
+  border-color: var(--line);
+  background: #ffffff;
+}
+
+.radar-card.radar-movie {
+  border-color: var(--line);
+  background: #ffffff;
+}
+
+.radar-poster {
+  width: 132px;
+  height: 198px;
+  max-height: 198px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border: 1px solid #c9c9c9;
+  border-radius: 4px;
+  background: #dedede;
+  color: #777777;
+  font-size: 11px;
+  font-weight: 800;
+  text-align: center;
+}
+
+.radar-poster img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.radar-copy {
+  min-width: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.radar-card-footer {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.radar-card-footer .radar-meta-row {
+  width: 100%;
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: nowrap;
+  gap: 8px;
+}
+
+.radar-card-head {
+  display: block;
+}
+
+.radar-card h2 {
+  margin: 0;
+  overflow-wrap: anywhere;
+  font-size: 22px;
+  line-height: 1.14;
+}
+
+.radar-card-meta {
+  margin: 6px 0 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 11px;
+  line-height: 1.35;
+  font-weight: 800;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.radar-program-title {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  line-height: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.radar-program-title:hover {
+  color: var(--accent-dark);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.radar-program-title:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.program-badge {
+  padding: 7px 9px;
+  border-radius: 4px;
+  background: var(--subtitle-dark);
+  color: #ffffff;
+  font-size: 11px;
+  line-height: 1;
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.radar-copy time {
+  display: block;
+  margin-top: 9px;
+  color: #333333;
+  font-size: 14px;
+  font-weight: 900;
+}
+
+.radar-csfd-block {
+  min-width: 0;
+  margin-top: 0;
+}
+
+.radar-csfd-block .rating-copy {
+  width: auto;
+  min-width: 0;
+  flex: 0 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.radar-program-button {
+  width: 38px;
+  min-width: 38px;
+  height: 38px;
+  min-height: 38px;
+  margin: 0 0 0 auto;
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: 4px;
+  background: var(--accent);
+  color: #ffffff;
+  font: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+.radar-program-button span {
+  display: none;
+}
+
+.radar-program-button:hover {
+  background: var(--accent-dark);
+  color: #ffffff;
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.24);
+}
+
+.radar-program-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.radar-meta-row .radar-csfd-block,
+.radar-meta-row .provider-list,
+.radar-meta-row .radar-program-button {
+  margin-top: 0;
+}
+
+.radar-meta-row .provider-list {
+  margin-left: auto;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+}
+
+.radar-meta-row .radar-program-button {
+  flex: 0 0 auto;
+}
+
+.film-row:focus-visible {
+  outline: 4px solid var(--accent);
+  outline-offset: 3px;
+}
+
+.provider-list {
+  margin-top: 11px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.provider-list > a,
+.provider-list > span {
+  width: 38px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: #252525;
+  font-size: 12px;
+  font-weight: 800;
+  text-decoration: none;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
+}
+
+.provider-list > a:hover {
+  background: transparent;
+  filter: brightness(1.08);
+  box-shadow: 0 2px 5px rgb(0 0 0 / 0.24);
+}
+
+.provider-list > a span,
+.provider-list > span span {
+  display: none;
+}
+
+.provider-list > .provider-csfd-link {
+  width: 38px;
+  min-width: 38px;
+  padding: 3px;
+  justify-content: center;
+}
+
+.provider-list > a:focus-visible {
+  outline: 3px solid var(--subtitle);
+  outline-offset: 2px;
+}
+
+.provider-list img {
+  width: 32px;
+  height: 32px;
+  border-radius: 3px;
+}
+
+.radar-loading {
+  border-left-color: #b8b8b8;
+  background: #ffffff;
+}
+
+.radar-loading .radar-copy {
+  padding-top: 8px;
+}
+
+.radar-weekly-skeleton-table .weekly-film-cell,
+.radar-weekly-skeleton-table td {
+  background: #ffffff;
+}
+
+.radar-week-skeleton-copy {
+  min-width: 0;
+  display: grid;
+  align-content: center;
+  gap: 9px;
+}
+
+.radar-week-skeleton-copy .skeleton-line {
+  margin: 0;
+}
+
+.radar-release-skeleton {
+  min-height: 64px;
+  display: block;
+  margin: 8px;
+  border-radius: 4px;
+}
+
+.screening-button {
+  min-height: 112px;
+  cursor: pointer;
+}
+
+.screening-button:hover {
+  transform: none;
+}
+
+.screening-button:active {
+  transform: none;
+}
+
+.weekly-screening {
+  min-height: 100%;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #cccccc;
+  border-radius: 0;
+  background: var(--soft);
+  color: #202020;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    box-shadow 160ms ease;
+}

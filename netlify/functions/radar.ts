@@ -1,4 +1,4 @@
-import { getStore } from "@netlify/blobs";
+﻿import { getStore } from "@netlify/blobs";
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 
@@ -15,7 +15,7 @@ const PRECOMPUTE_FUTURE_WEEKS = 12;
 type RadarType = "all" | RadarMediaType;
 const initializationPromises = new Map<string, Promise<RadarSnapshot>>();
 
-export default async function handler(request: Request) {
+const handler = async (request: Request) => {
   const started = performance.now();
 
   if (request.method !== "GET") {
@@ -105,7 +105,7 @@ export default async function handler(request: Request) {
         end,
         items: [],
         status: "missing",
-        detail: "Radar pro tento týden zatím není připravený."
+        detail: "Radar pro tento tÃ½den zatÃ­m nenÃ­ pÅ™ipravenÃ½."
       }), {
         blob: blobDuration,
         initialize: initializationDuration,
@@ -389,3 +389,6 @@ function normalizeCsfdPath(value: string) {
 function normalizeTitle(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
+
+export default handler;
+

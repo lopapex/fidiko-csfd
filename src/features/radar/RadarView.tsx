@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
-import { LoadNotice } from "./LoadNotice";
-import type { LoadState, RadarResponse } from "./types";
+import { LoadNotice } from "../../shared/components/LoadNotice";
+import type { LoadState, RadarResponse } from "../../types";
 
 export function RadarView({
   load,
