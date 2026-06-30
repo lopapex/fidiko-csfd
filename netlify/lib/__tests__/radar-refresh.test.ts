@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getRadarPrecomputeWeekStarts, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, type RadarItem, type RadarSnapshot } from "../radar-refresh";
+import { getRadarPrecomputeWeekStarts, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, seedItemsWithKnownCsfd, type RadarItem, type RadarSnapshot } from "../radar-refresh";
 import { getProviderLink, isAllowedProvider } from "../radar-providers";
 import type { ScheduleResponse } from "../schedule-scraper";
 
@@ -71,6 +71,43 @@ describe("Radar integration", () => {
     const titleItem = { ...baseItem, csfd: null };
     expect(linkProgramMatches([titleItem], { ...schedule, films: [withoutCsfd] }, now)[0].program?.filmId).toBe("po-vecerce");
     expect(linkProgramMatches([titleItem], { ...schedule, films: [withoutCsfd, { ...withoutCsfd, id: "duplicate" }] }, now)[0].program).toBeNull();
+  });
+
+  it("adopts the Program CSFD match when Radar lookup missed an unambiguous cinema title", () => {
+    const titleItem = { ...baseItem, csfd: null };
+    const linked = linkProgramMatches([titleItem], schedule, now)[0];
+
+    expect(linked.program?.filmId).toBe("po-vecerce");
+    expect(linked.csfd?.url).toBe(schedule.films[0].csfd?.url);
+    expect(linked.csfd?.rating).toBe(schedule.films[0].csfd?.rating);
+    expect(linked.csfd?.ratingCount).toBe(schedule.films[0].csfd?.ratingCount);
+  });
+
+  it("seeds known CSFD matches from the Program snapshot before Radar lookup", () => {
+    const titleItem = { ...baseItem, csfd: null };
+    const [seeded] = seedItemsWithKnownCsfd([titleItem], null, schedule);
+
+    expect(seeded.csfd?.url).toBe(schedule.films[0].csfd?.url);
+    expect(seeded.csfd?.rating).toBe(schedule.films[0].csfd?.rating);
+  });
+
+  it("seeds known CSFD matches from the previous Radar snapshot before Radar lookup", () => {
+    const nextItem = { ...baseItem, csfd: null, title: "Other title" };
+    const previous: RadarSnapshot = {
+      fetchedAt: "2026-06-20T00:00:00Z",
+      range: { start: "2026-06-15", end: "2026-06-21" },
+      sources: {
+        cinemaMovies: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+        streamingMovies: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+        streamingSeries: { status: "fresh", fetchedAt: "2026-06-20T00:00:00Z" },
+      },
+      items: [baseItem],
+    };
+
+    const [seeded] = seedItemsWithKnownCsfd([nextItem], previous, null);
+
+    expect(seeded.csfd?.url).toBe(baseItem.csfd?.url);
+    expect(seeded.title).toBe("Other title");
   });
 
   it("does not expose a program link after the final screening", () => {

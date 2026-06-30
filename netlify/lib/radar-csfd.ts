@@ -45,7 +45,10 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
   }
 
   const entries = [...unique.entries()];
-  const matches = await mapConcurrent(entries, LOOKUP_CONCURRENCY, async ([key, item]) => [key, await loadMatch(item)] as const);
+  const matches = await mapConcurrent(entries, LOOKUP_CONCURRENCY, async ([key, item]) => [
+    key,
+    item.csfd ?? await loadMatch(item)
+  ] as const);
   const byItem = new Map(matches);
 
   return items.map((item) => {

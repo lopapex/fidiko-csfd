@@ -174,9 +174,9 @@ async function buildRadarSnapshot(
   }
 
   const csfdStarted = performance.now();
-  const enrichedItems = await enrichRadarItemsWithCsfd(
-    deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming])
-  );
+  const discoveredItems = deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming]);
+  const seededItems = seedItemsWithKnownCsfd(discoveredItems, previous, schedule);
+  const enrichedItems = await enrichRadarItemsWithCsfd(seededItems);
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
   const items = (await patchItemsWithFreshCsfdRatings(
@@ -537,8 +537,11 @@ export function linkProgramMatches(
       .sort((left, right) => left.dateISO.localeCompare(right.dateISO) || (left.time ?? "99:99").localeCompare(right.time ?? "99:99"));
     if (upcoming.length === 0) return item;
 
+    const csfd = item.csfd ?? createRadarCsfdFromProgramFilm(film);
+
     return {
       ...item,
+      csfd,
       program: {
         filmId: film.id,
         firstScreeningDate: screeningDates[0],
@@ -552,6 +555,57 @@ export function linkProgramMatches(
     };
   });
 }
+
+export const seedItemsWithKnownCsfd = (
+  items: RadarItem[],
+  previous: RadarSnapshot | null,
+  schedule: ScheduleResponse | null,
+) => {
+  if (!previous && !schedule) return items;
+
+  const previousByIdentity = new Map<string, RadarCsfdMatch>();
+  for (const item of previous?.items ?? []) {
+    if (!item.csfd) continue;
+    previousByIdentity.set(radarIdentityKey(item), item.csfd);
+  }
+
+  const programByTitle = new Map<string, ScheduleResponse["films"][number][]>();
+  for (const film of schedule?.films ?? []) {
+    if (!film.csfd?.url) continue;
+    const title = normalizeMatchTitle(film.title);
+    programByTitle.set(title, [...(programByTitle.get(title) ?? []), film]);
+  }
+
+  return items.map((item) => {
+    if (item.csfd) return item;
+
+    const previousMatch = previousByIdentity.get(radarIdentityKey(item));
+    if (previousMatch) return { ...item, csfd: previousMatch };
+
+    if (item.channel !== "cinema" || item.mediaType !== "movie") return item;
+    const film = uniqueFilm(programByTitle.get(normalizeMatchTitle(item.title)) ?? []);
+    const csfd = film ? createRadarCsfdFromProgramFilm(film) : null;
+    return csfd ? { ...item, csfd } : item;
+  });
+};
+
+const radarIdentityKey = (item: Pick<RadarItem, "mediaType" | "channel" | "tmdbId">) => (
+  `${item.mediaType}/${item.channel}/${item.tmdbId}`
+);
+
+const createRadarCsfdFromProgramFilm = (film: ScheduleResponse["films"][number]): RadarCsfdMatch | null => {
+  const { csfd } = film;
+  if (!csfd?.url) return null;
+
+  return {
+    title: csfd.title,
+    rating: csfd.rating,
+    ratingCount: csfd.ratingCount,
+    url: csfd.url,
+    releaseDate: null,
+    vodPremieres: [],
+  };
+};
 
 function uniqueFilm(films: ScheduleResponse["films"]) {
   return films.length === 1 ? films[0] : undefined;
