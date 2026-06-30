@@ -12,13 +12,13 @@ const CSFD_CACHE_STORE = "csfd-cache";
 const CSFD_CACHE_VERSION = "v2";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
-const FORMAT_TAG_PATTERN = "(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct|ÄŒV|ÄV|Äv|ČV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
+const FORMAT_TAG_PATTERN = "(?:ČT|čT|čt|CT|ct|ČV|čV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
-const SUBTITLE_TAG_RE = /\((?:\s*(?:ÄŒT|ÄT|Ät|ČT|čt|CT|ct)\s*)\)/i;
-const DUBBING_TAG_RE = /\((?:\s*(?:ÄŒV|ÄV|Äv|ČV|čv|CV|cv)\s*)\)/i;
+const SUBTITLE_TAG_RE = /\((?:\s*(?:ČT|čT|čt|CT|ct)\s*)\)/i;
+const DUBBING_TAG_RE = /\((?:\s*(?:ČV|čV|čv|CV|cv)\s*)\)/i;
 const MOVIE_FORMAT_TAG_RE = new RegExp(`\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "i");
 const TITLE_SUFFIX_RE =
-  /\s+-\s+(?:PREMIÉRA|PREMIERA|PREMIÃ‰RA|Kino senior|Filmový klub|FilmovÃ½ klub|Dopoledn|TICHÁ STŘEDA|TICHA STREDA).*$/i;
+  /\s+-\s+(?:PREMIÉRA|PREMIERA|Kino senior|Filmový klub|Dopoledn|TICHÁ STŘEDA|TICHA STREDA).*$/i;
 
 export type RawScreening = {
   id: string;
@@ -550,7 +550,7 @@ export function normalizeFilmTitle(title: string) {
 
 export function extractFormats(title: string, description: string) {
   const formats: string[] = [];
-  const combined = `${title} ${description}`.toLowerCase();
+  const combined = (title + " " + description).toLowerCase();
 
   if (detectsSubtitles(title, description)) {
     formats.push("Titulky");
@@ -564,8 +564,8 @@ export function extractFormats(title: string, description: string) {
   if (combined.includes("3d")) formats.push("3D");
   if (isOriginalVersion(title)) formats.push("Originál");
   if (title.includes("Kino senior")) formats.push("Kino senior");
-  if (title.includes("FilmovÃ½ klub")) formats.push("FilmovÃ½ klub");
-  if (title.toLowerCase().includes("premiÃ©ra") || title.toLowerCase().includes("premiera")) formats.push("PremiÃ©ra");
+  if (title.includes("Filmový klub")) formats.push("Filmový klub");
+  if (title.toLowerCase().includes("premiéra") || title.toLowerCase().includes("premiera")) formats.push("Premiéra");
 
   return compactFormats(formats);
 }
@@ -573,7 +573,7 @@ export function extractFormats(title: string, description: string) {
 function isLikelyMovieScreening(title: string, description: string) {
   return (
     MOVIE_FORMAT_TAG_RE.test(title) ||
-    /\b(?:2D|3D|dabing|titulky|pÅ™Ã­stupnÃ©|\d{2}\+)\b/i.test(description)
+    /\b(?:2D|3D|dabing|titulky|přístupné|\d{2}\+)\b/i.test(description)
   );
 }
 
@@ -597,7 +597,7 @@ function detectsSubtitles(title: string, description: string) {
 }
 
 function firstUsefulDescription(screenings: RawScreening[]) {
-  return screenings.find((screening) => screening.description)?.description ?? "Bez doplÅˆujÃ­cÃ­ch informacÃ­.";
+  return screenings.find((screening) => screening.description)?.description ?? "Bez doplňujících informací.";
 }
 
 function cleanMovieDescription(description: string) {

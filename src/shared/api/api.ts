@@ -38,12 +38,20 @@ export async function fetchJson<T>(
   const entry: CacheEntry<T> = {
     data: body,
     storedAt: Date.now(),
-    offline: response.headers.get("x-nzfd-offline") === "1" || !navigator.onLine
+    offline: response.headers.get("x-nzfd-offline") === "1" || !navigator.onLine,
   };
   if (!response.headers.get("cache-control")?.toLowerCase().includes("no-store")) {
     setCachedApi(url, entry);
   }
   return { ...entry, fresh: true };
+}
+
+export function storeApiResult<T>(url: string, result: ApiResult<T>) {
+  setCachedApi(url, {
+    data: result.data,
+    storedAt: result.storedAt,
+    offline: result.offline,
+  });
 }
 
 async function fetchWithDevFallback(url: string, signal?: AbortSignal, init: RequestInit = {}) {

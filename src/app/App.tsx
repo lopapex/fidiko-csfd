@@ -4,7 +4,7 @@ import { FilmRow } from "../features/program/components/ProgramCards";
 import { FilterToolbar, LoadingRows, WeeklyLoading, WeeklySchedule } from "../features/program/components/ProgramSchedule";
 import { RadarView } from "../features/radar/RadarView";
 import { RadarWeeklyLoading, RadarWeeklySchedule } from "../features/radar/components/RadarWeeklySchedule";
-import { fetchJson } from "../shared/api/api";
+import { fetchJson, storeApiResult } from "../shared/api/api";
 import { AppHeader } from "../shared/components/AppHeader";
 import {
   applyLiveRatingsToFilms,
@@ -296,9 +296,14 @@ export const App = () => {
   async function prepareRadarWeek() {
     const current = pageRef.current;
     if (current.mode !== "radar" || radarPreparing) return;
+    const radarUrl = getRadarUrl(current);
+    const refreshUrl = `${radarUrl}${radarUrl.includes("?") ? "&" : "?"}refresh=1&_=${Date.now()}`;
     setRadarPreparing(true);
     try {
-      await fetchJson<RadarResponse>(`${getRadarUrl(current)}&refresh=1`);
+      const result = await fetchJson<RadarResponse>(refreshUrl, undefined, {
+        cache: "no-store",
+      });
+      storeApiResult(radarUrl, result);
       setRadarRetry(value => value + 1);
     } catch (error) {
       console.error("Radar week preparation failed", error);

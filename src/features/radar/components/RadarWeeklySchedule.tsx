@@ -1,4 +1,5 @@
-﻿import type { RadarItem, RadarResponse } from "../../../types";
+import { ChevronLeft, ChevronRight } from "lucide-react";
+import type { RadarItem, RadarResponse } from "../../../types";
 import { getPragueTodayISO, startOfWeek } from "../../../shared/state/page-state";
 import { RadarCard, RadarMini, RadarReleaseCell } from "./RadarCards";
 import {
@@ -47,13 +48,13 @@ export function RadarWeeklySchedule({
             data.period.previousWeekStart &&
             onNavigate(data.period.previousWeekStart)
           }
-          aria-label="PÅ™edchozÃ­ tÃ½den"
-          title="PÅ™edchozÃ­ tÃ½den"
+          aria-label="Předchozí týden"
+          title="Předchozí týden"
         >
-          <span aria-hidden="true">â€¹</span>
+          <ChevronLeft size={24} aria-hidden="true" />
         </button>
         <div>
-          <span className="week-toolbar-label">PremiÃ©ry na tÃ½den</span>
+          <span className="week-toolbar-label">Premiéry na týden</span>
           <h2 id="radar-week-title">{formatWeekRange(start, end)}</h2>
         </div>
         <button
@@ -62,20 +63,20 @@ export function RadarWeeklySchedule({
           onClick={() =>
             data.period.nextWeekStart && onNavigate(data.period.nextWeekStart)
           }
-          aria-label="DalÅ¡Ã­ tÃ½den"
-          title="DalÅ¡Ã­ tÃ½den"
+          aria-label="Další týden"
+          title="Další týden"
         >
-          <span aria-hidden="true">â€º</span>
+          <ChevronRight size={24} aria-hidden="true" />
         </button>
       </div>
       {data.status === "missing" ? (
         <div className={preparing ? "weekly-empty-loading" : "empty-box weekly-empty"}>
-          {!preparing ? <p>{data.detail ?? "Radar pro tento tÃ½den zatÃ­m nenÃ­ pÅ™ipravenÃ½."}</p> : null}
+          {!preparing ? <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p> : null}
           {preparing ? (
             <RadarWeeklyLoadingContent days={days} />
           ) : (
             <button className="inline-action-button" type="button" onClick={onPrepareWeek}>
-              NaÄÃ­st tento tÃ½den
+              Načíst tento týden
             </button>
           )}
         </div>
@@ -100,7 +101,7 @@ export function RadarWeeklySchedule({
         </>
       ) : (
         <div className="empty-box weekly-empty">
-          V tomto tÃ½dnu nejsou premiÃ©ry odpovÃ­dajÃ­cÃ­ vÃ½bÄ›ru.
+          V tomto týdnu nejsou premiéry odpovídající výběru.
         </div>
       )}
     </section>
@@ -122,14 +123,14 @@ function RadarWeeklyTable({
     <div
       className="weekly-table-scroll"
       role="region"
-      aria-label="TÃ½dennÃ­ radar premiÃ©r"
+      aria-label="Týdenní radar premiér"
       tabIndex={0}
     >
       <table className="weekly-table radar-weekly-table">
         <thead>
           <tr>
             <th className="weekly-film-heading" scope="col">
-              Film / seriÃ¡l
+              Film / seriál
             </th>
             {days.map(day => (
               <th
@@ -161,8 +162,8 @@ function RadarWeeklyTable({
                   key={day}
                   aria-label={
                     item.releaseDate === day
-                      ? `${item.title}: premiÃ©ra`
-                      : `${item.title}: bez premiÃ©ry`
+                      ? `${item.title}: premiéra`
+                      : `${item.title}: bez premiéry`
                   }
                 >
                   <div className="weekly-times">
@@ -230,7 +231,7 @@ function RadarMobileWeek({
                 ))}
               </div>
             ) : (
-              <div className="mobile-agenda-empty">Bez premiÃ©r.</div>
+              <div className="mobile-agenda-empty">Bez premiér.</div>
             )}
           </section>
         );
@@ -264,7 +265,7 @@ export function MobileAgendaHeader({
 
 function RadarLoading() {
   return (
-    <div className="radar-list" aria-label="NaÄÃ­tÃ¡nÃ­ radaru">
+    <div className="radar-list" aria-label="Načítání radaru">
       {Array.from({ length: 5 }).map((_, index) => (
         <div className="radar-card radar-loading" key={index}>
           <div className="radar-poster skeleton" />
@@ -287,7 +288,7 @@ export function RadarWeeklyLoading({ weekStart }: { weekStart: string | null }) 
   return (
     <section
       className="weekly-program radar-weekly-program"
-      aria-label="NaÄÃ­tÃ¡nÃ­ tÃ½dennÃ­ho radaru"
+      aria-label="Načítání týdenního radaru"
       aria-busy="true"
     >
       <div className="week-toolbar">
@@ -295,21 +296,21 @@ export function RadarWeeklyLoading({ weekStart }: { weekStart: string | null }) 
           className="week-nav-button"
           type="button"
           disabled
-          aria-label="PÅ™edchozÃ­ tÃ½den"
+          aria-label="Předchozí týden"
         >
-          <span aria-hidden="true">â€¹</span>
+          <ChevronLeft size={24} aria-hidden="true" />
         </button>
         <div>
-          <span className="week-toolbar-label">PremiÃ©ry na tÃ½den</span>
+          <span className="week-toolbar-label">Premiéry na týden</span>
           <h2>{formatWeekRange(start, days[6])}</h2>
         </div>
         <button
           className="week-nav-button"
           type="button"
           disabled
-          aria-label="DalÅ¡Ã­ tÃ½den"
+          aria-label="Další týden"
         >
-          <span aria-hidden="true">â€º</span>
+          <ChevronRight size={24} aria-hidden="true" />
         </button>
       </div>
       <RadarWeeklyLoadingContent days={days} />
@@ -322,7 +323,7 @@ function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
     <>
       <div className="weekly-desktop">
         <div className="weekly-table-scroll">
-          <WeeklySkeletonTable days={days} heading="Film / seriÃ¡l" />
+          <WeeklySkeletonTable days={days} heading="Film / seriál" />
         </div>
       </div>
       <div className="weekly-mobile">
@@ -331,14 +332,14 @@ function RadarWeeklyLoadingContent({ days }: { days: string[] }) {
           className="mobile-day-tabs"
           hidden
           role="tablist"
-          aria-label="NaÄÃ­tÃ¡nÃ­ dnÅ¯ v tÃ½dnu"
+          aria-label="Načítání dnů v týdnu"
         >
           {days.map(day => (
             <button
               className="day-tab-skeleton"
               type="button"
               role="tab"
-              aria-label="NaÄÃ­tÃ¡nÃ­ dne"
+              aria-label="Načítání dne"
               disabled
               key={day}
             >

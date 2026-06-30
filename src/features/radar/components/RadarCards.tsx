@@ -70,8 +70,8 @@ function RadarMiniRating({
   const className = `weekly-rating ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
   const label =
     csfd?.rating == null
-      ? `${title} na ÄŒSFD, zatÃ­m bez hodnocenÃ­`
-      : `${title} na ÄŒSFD, hodnocenÃ­ ${csfd.rating} %`;
+      ? `${title} na ČSFD, zatím bez hodnocení`
+      : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
   if (!csfd?.url) {
     return (
       <span className="weekly-rating-block">
@@ -114,8 +114,8 @@ export function RadarReleaseCell({
           className="radar-cell-program-button"
           type="button"
           onClick={() => onSelectProgramFilm(item.program!.filmId)}
-          aria-label={`${item.title}, otevÅ™Ã­t v programu kina`}
-          title="OtevÅ™Ã­t v programu kina"
+          aria-label={`${item.title}, otevřít v programu kina`}
+          title="Otevřít v programu kina"
         >
           <Clapperboard size={14} aria-hidden="true" />
           <span className="sr-only">V programu</span>
@@ -129,13 +129,13 @@ export function RadarReleaseCell({
       <strong>{item.channel === "cinema" ? "Kino" : "Streaming"}</strong>
       <span>
         {item.channel === "cinema"
-          ? "PremiÃ©ra"
+          ? "Premiéra"
           : item.providers.length === 0 && item.csfd?.url
-            ? "VÃ­ce informacÃ­ na"
-            : "DostupnÃ© na"}
+            ? "Více informací na"
+            : "Dostupné na"}
       </span>
       {item.channel === "streaming" ? (
-        <div className="radar-cell-providers" aria-label="DostupnÃ© sluÅ¾by">
+        <div className="radar-cell-providers" aria-label="Dostupné služby">
           {item.providers.length === 0 && item.csfd?.url ? (
             <CsfdProviderLink url={item.csfd.url} title={item.title} />
           ) : null}
@@ -231,14 +231,14 @@ export function RadarCard({
                 className="radar-program-button"
                 type="button"
                 onClick={() => onSelectProgramFilm(item.program!.filmId)}
-                aria-label={`${item.title}, otevÅ™Ã­t v programu kina`}
+                aria-label={`${item.title}, otevřít v programu kina`}
               >
                 <Clapperboard size={17} aria-hidden="true" />
                 <span>Kino</span>
               </button>
             ) : null}
             {item.channel === "streaming" ? (
-              <div className="provider-list" aria-label="DostupnÃ© sluÅ¾by">
+              <div className="provider-list" aria-label="Dostupné služby">
                 {item.providers.length === 0 && item.csfd?.url ? (
                   <CsfdProviderLink url={item.csfd.url} title={item.title} />
                 ) : null}
@@ -267,7 +267,7 @@ export function RadarCard({
                 ) : (
                   <span
                     className={getProviderTileClassName(provider)}
-                    title={`${provider.name} nemÃ¡ dostupnÃ½ pÅ™Ã­mÃ½ odkaz`}
+                    title={`${provider.name} nemá dostupný přímý odkaz`}
                     key={provider.id}
                   >
                     <img
@@ -291,7 +291,7 @@ export function RadarCard({
 }
 
 function CsfdProviderLink({ url, title }: { url: string; title: string }) {
-  const label = `VÃ­ce informacÃ­ na ÄŒSFD: ${title}`;
+  const label = `Více informací na ČSFD: ${title}`;
   return (
     <a
       className="provider-csfd-link"
@@ -302,7 +302,7 @@ function CsfdProviderLink({ url, title }: { url: string; title: string }) {
       aria-label={label}
     >
       <img className="csfd-logo-mark" src="/csfd-logo.png" alt="" width="28" height="28" loading="lazy" />
-      <span className="sr-only">ÄŒSFD</span>
+      <span className="sr-only">ČSFD</span>
     </a>
   );
 }
@@ -316,8 +316,8 @@ function RadarRating({
 }) {
   const label =
     csfd?.rating == null
-      ? `${title} na ÄŒSFD, zatÃ­m bez hodnocenÃ­`
-      : `${title} na ÄŒSFD, hodnocenÃ­ ${csfd.rating} %`;
+      ? `${title} na ČSFD, zatím bez hodnocení`
+      : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
   const badgeClass = `rating-badge${csfd?.url ? " rating-link" : ""} ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
   const badge = csfd?.url ? (
     <a

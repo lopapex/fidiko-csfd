@@ -97,7 +97,7 @@ const handler = async (request: Request) => {
         end,
         items: [],
         status: "missing",
-        detail: "Radar pro tento tÃ½den zatÃ­m nenÃ­ pÅ™ipravenÃ½."
+        detail: "Radar pro tento týden zatím není připravený."
       }), {
         blob: blobDuration,
         initialize: initializationDuration,
@@ -116,7 +116,7 @@ const handler = async (request: Request) => {
       initialize: initializationDuration,
       filter: filterDuration,
       total: performance.now() - started
-    });
+    }, { noStore: allowRefresh });
   } catch (error) {
     console.error("Radar reader failed", error);
     return errorResponse({ error: "Radar could not be loaded", detail: error instanceof Error ? error.message : "Unknown error" }, 500);
@@ -207,7 +207,12 @@ export function chooseNewestSnapshot(
   return weekTime >= rangeTime ? weekSnapshot : rangeSnapshot;
 }
 
-function successResponse(body: unknown, cacheStatus: string, timings: { blob: number; initialize: number; filter: number; total: number }) {
+function successResponse(
+  body: unknown,
+  cacheStatus: string,
+  timings: { blob: number; initialize: number; filter: number; total: number },
+  options: { noStore?: boolean } = {},
+) {
   const serverTiming = [
     `blob;dur=${timings.blob.toFixed(1)}`,
     timings.initialize ? `initialize;dur=${timings.initialize.toFixed(1)}` : null,
@@ -219,8 +224,8 @@ function successResponse(body: unknown, cacheStatus: string, timings: { blob: nu
     status: 200,
     headers: {
       "content-type": "application/json; charset=utf-8",
-      "cache-control": `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
-      "netlify-cdn-cache-control": `public, s-maxage=${CACHE_MAX_AGE_SECONDS}`,
+      "cache-control": options.noStore ? "no-store" : `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
+      ...(options.noStore ? {} : { "netlify-cdn-cache-control": `public, s-maxage=${CACHE_MAX_AGE_SECONDS}` }),
       "server-timing": serverTiming,
       "x-radar-cache": cacheStatus
     }

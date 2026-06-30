@@ -42,10 +42,10 @@ export const getRadarPosterProps = (url: string) => {
 }
 
 export const getCsfdStatusText = (csfd: CsfdMatch | null) => {
-  if (!csfd?.url) return "ÄŒSFD nenalezeno";
+  if (!csfd?.url) return "ČSFD nenalezeno";
   if (csfd.ratingCount)
-    return `${csfd.ratingCount.toLocaleString("cs-CZ")} hodnocenÃ­`;
-  return "Bez hodnocenÃ­";
+    return `${csfd.ratingCount.toLocaleString("cs-CZ")} hodnocení`;
+  return "Bez hodnocení";
 }
 
 export const getRatingClass = (rating: number) => {
@@ -78,7 +78,7 @@ export const formatShortDate = (value: string) => {
 }
 
 export const formatWeekRange = (start: string | null, end: string | null) => {
-  if (!start || !end) return "AktuÃ¡lnÃ­ tÃ½den";
+  if (!start || !end) return "Aktuální týden";
   const formatter = new Intl.DateTimeFormat("cs-CZ", {
     day: "numeric",
     month: "long",
@@ -103,7 +103,7 @@ export const getUpcomingScreeningCount = (program: RadarProgramMatch) => {
 }
 
 export const formatRadarTitle = (value: string) => {
-  return value.replace(/SÃ©rie\s+(\d+)$/i, "SÃ©rie\u00a0$1");
+  return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");
 }
 
 export const getProviderHref = (provider: RadarProvider, preferMobile: boolean) => {
@@ -135,9 +135,9 @@ export const getProviderLinkLabel = (provider: RadarProvider, title: string, pre
   const isSearch = !href?.startsWith("intent://") && (
     linkType === "search" || Boolean(href?.match(/\/(?:search(?:\/result)?|vyhledavani|vyhledat)(?:[/?]|$)/i))
   );
-  if (!isSearch) return `OtevÅ™Ã­t ${provider.name}`;
+  if (!isSearch) return `Otevřít ${provider.name}`;
   const searchTitle = title
-    .replace(/\s*-\s*(?:sÃ©rie|serie|season)\s+\d+\s*$/iu, "")
+    .replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "")
     .trim();
   return `Vyhledat ${searchTitle} na ${provider.name}`;
 }

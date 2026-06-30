@@ -1,5 +1,5 @@
 ﻿import { afterEach, describe, expect, it, vi } from "vitest";
-import { clearApiCache, fetchJson, getApiCacheSize, getCachedApi } from "../api";
+import { clearApiCache, fetchJson, getApiCacheSize, getCachedApi, storeApiResult } from "../api";
 
 afterEach(() => {
   clearApiCache();
@@ -68,6 +68,18 @@ describe("fetchJson", () => {
     await fetchJson("/api/radar?period=week&week=2027-01-04");
 
     expect(getCachedApi("/api/radar?period=week&week=2027-01-04")).toBeNull();
+  });
+
+  it("can store a refreshed result under the canonical URL", async () => {
+    vi.stubGlobal("navigator", { onLine: true });
+    storeApiResult("/api/radar?period=week&week=2026-06-29", {
+      data: { value: 3 },
+      storedAt: Date.now(),
+      offline: false,
+      fresh: true,
+    });
+
+    expect(getCachedApi<{ value: number }>("/api/radar?period=week&week=2026-06-29")?.data.value).toBe(3);
   });
 });
 

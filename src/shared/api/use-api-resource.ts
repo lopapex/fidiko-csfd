@@ -76,7 +76,7 @@ export function useApiResource<T>(
           url,
           status: "error",
           data: cached?.data ?? null,
-          error: error instanceof Error ? error.message : "Data se nepodaÅ™ilo naÄÃ­st.",
+          error: error instanceof Error ? error.message : "Data se nepodařilo načíst.",
           refreshing: false,
         });
       });

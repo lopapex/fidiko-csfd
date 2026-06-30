@@ -17,8 +17,8 @@ function ProgramMiniRating({
   const className = `weekly-rating ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
   const label =
     csfd?.rating == null
-      ? `${title} na ÄŒSFD, zatÃ­m bez hodnocenÃ­`
-      : `${title} na ÄŒSFD, hodnocenÃ­ ${csfd.rating} %`;
+      ? `${title} na ČSFD, zatím bez hodnocení`
+      : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
   const badge = csfd?.url ? (
     <a
       className={className}
@@ -160,7 +160,7 @@ export function FilmRow({
                     href={film.csfd.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    aria-label={`${film.title} na ÄŒSFD, hodnocenÃ­ ${film.csfd.rating} %`}
+                    aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}
                   >
                     {film.csfd.rating}%
                   </a>
@@ -177,7 +177,7 @@ export function FilmRow({
                   href={film.csfd.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={`${film.title} na ÄŒSFD, zatÃ­m bez hodnocenÃ­`}
+                  aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}
                 >
                   ?
                 </a>

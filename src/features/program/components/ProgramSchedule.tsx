@@ -1,4 +1,4 @@
-﻿import { Search, X } from "lucide-react";
+import { Search, X, ChevronLeft, ChevronRight } from "lucide-react";
 import type { FilmGroup, PageState, ScheduleResponse, Screening } from "../../../types";
 import { getPragueTodayISO, startOfWeek } from "../../../shared/state/page-state";
 import { MobileAgendaHeader, MobileAgendaSkeleton, WeeklySkeletonTable } from "../../radar/components/RadarWeeklySchedule";
@@ -17,7 +17,7 @@ export function FilterToolbar({
   onChange: (patch: Partial<PageState>, mode?: "push" | "replace") => void;
 }) {
   return (
-    <section className="filter-toolbar" aria-label="FiltrovÃ¡nÃ­ programu">
+    <section className="filter-toolbar" aria-label="Filtrování programu">
       <label className="search-field">
         <Search size={18} aria-hidden="true" />
         <span className="sr-only">Hledat film</span>
@@ -32,8 +32,8 @@ export function FilterToolbar({
             className="search-clear-button"
             type="button"
             onClick={() => onChange({ query: "" }, "replace")}
-            aria-label="Vymazat hledÃ¡nÃ­"
-            title="Vymazat hledÃ¡nÃ­"
+            aria-label="Vymazat hledání"
+            title="Vymazat hledání"
           >
             <X size={16} />
           </button>
@@ -83,13 +83,13 @@ export function WeeklySchedule({
           onClick={() =>
             period.previousWeekStart && onNavigate(period.previousWeekStart)
           }
-          aria-label="PÅ™edchozÃ­ tÃ½den s programem"
-          title="PÅ™edchozÃ­ tÃ½den"
+          aria-label="Předchozí týden s programem"
+          title="Předchozí týden"
         >
-          <span aria-hidden="true">â€¹</span>
+          <ChevronLeft size={24} aria-hidden="true" />
         </button>
         <div>
-          <span className="week-toolbar-label">Program na tÃ½den</span>
+          <span className="week-toolbar-label">Program na týden</span>
           <h2 id="weekly-program-title">
             {formatWeekRange(period.weekStart, period.weekEnd)}
           </h2>
@@ -101,10 +101,10 @@ export function WeeklySchedule({
           onClick={() =>
             period.nextWeekStart && onNavigate(period.nextWeekStart)
           }
-          aria-label="DalÅ¡Ã­ tÃ½den s programem"
-          title="DalÅ¡Ã­ tÃ½den"
+          aria-label="Další týden s programem"
+          title="Další týden"
         >
-          <span aria-hidden="true">â€º</span>
+          <ChevronRight size={24} aria-hidden="true" />
         </button>
       </div>
 
@@ -129,7 +129,7 @@ export function WeeklySchedule({
         </>
       ) : (
         <div className="empty-box weekly-empty">
-          V tomto tÃ½dnu nejsou projekce odpovÃ­dajÃ­cÃ­ vybranÃ½m filtrÅ¯m.
+          V tomto týdnu nejsou projekce odpovídající vybraným filtrům.
         </div>
       )}
     </section>
@@ -153,7 +153,7 @@ function WeeklyTable({
     <div
       className="weekly-table-scroll"
       role="region"
-      aria-label="TÃ½dennÃ­ program"
+      aria-label="Týdenní program"
       tabIndex={0}
     >
       <table className="weekly-table">
@@ -362,9 +362,9 @@ export function WeeklyLoading({
           className="week-nav-button"
           type="button"
           disabled
-          aria-label="PÅ™edchozÃ­ tÃ½den"
+          aria-label="Předchozí týden"
         >
-          <span aria-hidden="true">â€¹</span>
+          <ChevronLeft size={24} aria-hidden="true" />
         </button>
         <div>
           <span className="week-toolbar-label">{label}</span>
@@ -374,9 +374,9 @@ export function WeeklyLoading({
           className="week-nav-button"
           type="button"
           disabled
-          aria-label="DalÅ¡Ã­ tÃ½den"
+          aria-label="Další týden"
         >
-          <span aria-hidden="true">â€º</span>
+          <ChevronRight size={24} aria-hidden="true" />
         </button>
       </div>
       <div className="weekly-desktop">
@@ -390,14 +390,14 @@ export function WeeklyLoading({
           className="mobile-day-tabs"
           hidden
           role="tablist"
-          aria-label="Dny v tÃ½dnu"
+          aria-label="Dny v týdnu"
         >
           {days.map(day => (
             <button
               className="day-tab-skeleton"
               type="button"
               role="tab"
-              aria-label="NaÄÃ­tÃ¡nÃ­ dne"
+              aria-label="Načítání dne"
               disabled
               key={day}
             >
@@ -416,7 +416,7 @@ export function WeeklyLoading({
 
 export function LoadingRows() {
   return (
-    <section className="program-list" aria-label="NaÄÃ­tÃ¡nÃ­ programu">
+    <section className="program-list" aria-label="Načítání programu">
       {Array.from({ length: 4 }).map((_, index) => (
         <div className="film-row loading-row" key={index}>
           <div className="film-info">
