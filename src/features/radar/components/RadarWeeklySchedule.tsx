@@ -13,19 +13,15 @@ export function RadarWeeklySchedule({
   data,
   items,
   selectedDay,
-  preparing,
   onNavigate,
   onDayChange,
-  onPrepareWeek,
   onSelectProgramFilm,
 }: {
   data: RadarResponse;
   items: RadarItem[];
   selectedDay: string | null;
-  preparing: boolean;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
-  onPrepareWeek: () => void;
   onSelectProgramFilm: (id: string) => void;
 }) {
   const start = data.period.weekStart ?? data.period.start;
@@ -70,15 +66,8 @@ export function RadarWeeklySchedule({
         </button>
       </div>
       {data.status === "missing" ? (
-        <div className={preparing ? "weekly-empty-loading" : "empty-box weekly-empty"}>
-          {!preparing ? <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p> : null}
-          {preparing ? (
-            <RadarWeeklyLoadingContent days={days} />
-          ) : (
-            <button className="inline-action-button" type="button" onClick={onPrepareWeek}>
-              Načíst tento týden
-            </button>
-          )}
+        <div className="empty-box weekly-empty">
+          <p>{data.detail ?? "Radar pro tento týden zatím není připravený."}</p>
         </div>
       ) : items.length ? (
         <>

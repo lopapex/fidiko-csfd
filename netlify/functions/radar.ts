@@ -1,6 +1,8 @@
-﻿import { getStore } from "@netlify/blobs";
+import { getStore } from "@netlify/blobs";
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
+import { addDaysISO, getPragueTodayISO, isISOWeekStart, startOfISOWeek } from "../lib/shared/date";
+import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
 const RADAR_CACHE_STORE = "radar-cache";
 const RADAR_CACHE_KEY = "current-v18";
@@ -25,14 +27,13 @@ const handler = async (request: Request) => {
   const url = new URL(request.url);
   const period = url.searchParams.get("period") ?? "week";
   const type = (url.searchParams.get("type") ?? "all") as RadarType;
-  const allowRefresh = url.searchParams.get("refresh") === "1";
   const currentWeekStart = startOfISOWeek(getPragueTodayISO());
   const requestedWeek = url.searchParams.get("week") ?? currentWeekStart;
 
   if (period !== "week" || url.searchParams.has("month")) {
     return errorResponse({ error: "Invalid radar period" }, 400);
   }
-  if (!validWeek(requestedWeek)) {
+  if (!isISOWeekStart(requestedWeek)) {
     return errorResponse({ error: "Invalid radar week" }, 400);
   }
   if (type !== "all" && type !== "movie" && type !== "series") {
@@ -46,18 +47,18 @@ const handler = async (request: Request) => {
     const end = weekEnd;
     const blobStarted = performance.now();
     const cacheKey = `${RADAR_WEEK_CACHE_VERSION}/${requestedWeek}`;
-    const currentSnapshot = allowRefresh ? null : await readRadarCache(RADAR_CACHE_KEY);
+    const currentSnapshot = await readRadarCache(RADAR_CACHE_KEY);
     const rangeSnapshot = currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end
       ? currentSnapshot
       : null;
-    const weekSnapshot = allowRefresh ? null : await readRadarCache(cacheKey);
+    const weekSnapshot = await readRadarCache(cacheKey);
     let snapshot = chooseNewestSnapshot(rangeSnapshot, weekSnapshot);
     let staleSnapshot: RadarSnapshot | null = null;
     const blobDuration = performance.now() - blobStarted;
     let initializationDuration = 0;
     let cacheStatus = snapshot
       ? snapshot === weekSnapshot ? "hit" : "range-hit"
-      : allowRefresh ? "force-refresh" : "miss";
+      : "miss";
 
     if (snapshot && isStaleFutureSnapshot(snapshot, start)) {
       staleSnapshot = snapshot;
@@ -65,7 +66,7 @@ const handler = async (request: Request) => {
       cacheStatus = "stale-range";
     }
 
-    if (!snapshot && (allowRefresh || isInsidePrecomputeWindow(requestedWeek, currentWeekStart))) {
+    if (!snapshot && isInsidePrecomputeWindow(requestedWeek, currentWeekStart)) {
       const initializationStarted = performance.now();
       try {
         snapshot = await initializeSnapshot(cacheKey, requestedWeek);
@@ -116,7 +117,7 @@ const handler = async (request: Request) => {
       initialize: initializationDuration,
       filter: filterDuration,
       total: performance.now() - started
-    }, { noStore: allowRefresh });
+    });
   } catch (error) {
     console.error("Radar reader failed", error);
     return errorResponse({ error: "Radar could not be loaded", detail: error instanceof Error ? error.message : "Unknown error" }, 500);
@@ -210,25 +211,18 @@ export function chooseNewestSnapshot(
 function successResponse(
   body: unknown,
   cacheStatus: string,
-  timings: { blob: number; initialize: number; filter: number; total: number },
-  options: { noStore?: boolean } = {},
+  timings: { blob: number; initialize: number; filter: number; total: number }
 ) {
-  const serverTiming = [
-    `blob;dur=${timings.blob.toFixed(1)}`,
-    timings.initialize ? `initialize;dur=${timings.initialize.toFixed(1)}` : null,
-    `filter;dur=${timings.filter.toFixed(1)}`,
-    `total;dur=${timings.total.toFixed(1)}`
-  ].filter(Boolean).join(", ");
-
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": options.noStore ? "no-store" : `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
-      ...(options.noStore ? {} : { "netlify-cdn-cache-control": `public, s-maxage=${CACHE_MAX_AGE_SECONDS}` }),
-      "server-timing": serverTiming,
-      "x-radar-cache": cacheStatus
-    }
+  return cachedJsonResponse({
+    body,
+    cacheStatus: { name: "x-radar-cache", value: cacheStatus },
+    cacheHeader: { maxAgeSeconds: CACHE_MAX_AGE_SECONDS },
+    timingHeader: serverTimingHeader({
+      blob: timings.blob,
+      initialize: timings.initialize,
+      filter: timings.filter,
+      total: timings.total
+    })
   });
 }
 
@@ -238,55 +232,19 @@ function missingResponse(body: unknown, timings: { blob: number; initialize: num
     headers: {
       "content-type": "application/json; charset=utf-8",
       "cache-control": "no-store",
-      "server-timing": [
-        `blob;dur=${timings.blob.toFixed(1)}`,
-        `filter;dur=${timings.filter.toFixed(1)}`,
-        `total;dur=${timings.total.toFixed(1)}`
-      ].join(", "),
+      "server-timing": serverTimingHeader({
+        blob: timings.blob,
+        initialize: timings.initialize,
+        filter: timings.filter,
+        total: timings.total
+      }),
       "x-radar-cache": "missing"
     }
   });
 }
 
 function errorResponse(body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", ...extraHeaders }
-  });
-}
-
-function getPragueTodayISO() {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Prague", year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function parseISODate(value: string) {
-  const date = new Date(`${value}T00:00:00.000Z`);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-  return date;
-}
-
-function startOfISOWeek(value: string) {
-  const date = parseISODate(value);
-  date.setUTCDate(date.getUTCDate() - ((date.getUTCDay() + 6) % 7));
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysISO(value: string, days: number) {
-  const date = parseISODate(value);
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
-function validWeek(value: string) {
-  try {
-    return startOfISOWeek(value) === value;
-  } catch {
-    return false;
-  }
+  return errorJsonResponse(body, status, extraHeaders);
 }
 
 function isInsidePrecomputeWindow(weekStart: string, currentWeekStart: string) {

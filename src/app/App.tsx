@@ -4,14 +4,14 @@ import { FilmRow } from "../features/program/components/ProgramCards";
 import { FilterToolbar, LoadingRows, WeeklyLoading, WeeklySchedule } from "../features/program/components/ProgramSchedule";
 import { RadarView } from "../features/radar/RadarView";
 import { RadarWeeklyLoading, RadarWeeklySchedule } from "../features/radar/components/RadarWeeklySchedule";
-import { fetchJson, storeApiResult } from "../shared/api/api";
 import { AppHeader } from "../shared/components/AppHeader";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "../shared/state/page-state";
 import { getWeekDays } from "../shared/lib/view-helpers";
 import { useApiResource } from "../shared/api/use-api-resource";
+import { useInstallPrompt } from "./use-install-prompt";
+import { useOnlineStatus } from "./use-online-status";
 import type {
   AppMode,
-  InstallPromptEvent,
   PageState,
   RadarResponse,
   ScheduleResponse,
@@ -33,11 +33,8 @@ export const App = () => {
   const pageRef = useRef(page);
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
-  const [radarPreparing, setRadarPreparing] = useState(false);
-  const [offline, setOffline] = useState(!navigator.onLine);
-  const [installPrompt, setInstallPrompt] = useState<InstallPromptEvent | null>(
-    null,
-  );
+  const [offline, setOffline] = useOnlineStatus();
+  const { canInstall, installApp } = useInstallPrompt();
   const load = useApiResource<ScheduleResponse>(
     page.mode === "program" ? getScheduleUrl(page) : null,
     scheduleRetry,
@@ -55,26 +52,11 @@ export const App = () => {
       pageRef.current = next;
       setPage(next);
     };
-    const onOnline = () => setOffline(false);
-    const onOffline = () => setOffline(true);
-    const onInstallPrompt = (event: Event) => {
-      event.preventDefault();
-      setInstallPrompt(event as InstallPromptEvent);
-    };
-    const onInstalled = () => setInstallPrompt(null);
 
     window.addEventListener("popstate", onPopState);
-    window.addEventListener("online", onOnline);
-    window.addEventListener("offline", onOffline);
-    window.addEventListener("beforeinstallprompt", onInstallPrompt);
-    window.addEventListener("appinstalled", onInstalled);
 
     return () => {
       window.removeEventListener("popstate", onPopState);
-      window.removeEventListener("online", onOnline);
-      window.removeEventListener("offline", onOffline);
-      window.removeEventListener("beforeinstallprompt", onInstallPrompt);
-      window.removeEventListener("appinstalled", onInstalled);
     };
   }, []);
 
@@ -225,39 +207,12 @@ export const App = () => {
     });
   }
 
-  async function prepareRadarWeek() {
-    const current = pageRef.current;
-    if (current.mode !== "radar" || radarPreparing) return;
-    const radarUrl = getRadarUrl(current);
-    const refreshUrl = `${radarUrl}${radarUrl.includes("?") ? "&" : "?"}refresh=1&_=${Date.now()}`;
-    setRadarPreparing(true);
-    try {
-      const result = await fetchJson<RadarResponse>(refreshUrl, undefined, {
-        cache: "no-store",
-      });
-      storeApiResult(radarUrl, result);
-      setRadarRetry(value => value + 1);
-    } catch (error) {
-      console.error("Radar week preparation failed", error);
-      setRadarRetry(value => value + 1);
-    } finally {
-      setRadarPreparing(false);
-    }
-  }
-
-  async function installApp() {
-    if (!installPrompt) return;
-    await installPrompt.prompt();
-    await installPrompt.userChoice;
-    setInstallPrompt(null);
-  }
-
   return (
     <main className="app-shell">
       <AppHeader
         mode={page.mode}
         view={page.view}
-        canInstall={Boolean(installPrompt)}
+        canInstall={canInstall}
         onModeChange={changeMode}
         onViewChange={changeView}
         onInstall={() => void installApp()}
@@ -273,10 +228,8 @@ export const App = () => {
               data={data}
               items={radarItems}
               selectedDay={page.radarDay}
-              preparing={radarPreparing}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
               onDayChange={day => changePage({ radarDay: day })}
-              onPrepareWeek={() => void prepareRadarWeek()}
               onSelectProgramFilm={showFilmInAll}
             />
           )}

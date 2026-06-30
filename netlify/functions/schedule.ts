@@ -1,5 +1,7 @@
-﻿import { getStore } from "@netlify/blobs";
+import { getStore } from "@netlify/blobs";
 import type { RawScreening, ScheduleResponse } from "../lib/schedule-scraper";
+import { addDaysISO, getPragueTodayISO, isMondayISODate, startOfISOWeek } from "../lib/shared/date";
+import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
@@ -139,36 +141,21 @@ function successResponse(
   cacheStatus: string,
   timings: { blob: number; initialization: number; filter: number; total: number }
 ) {
-  const serverTiming = [
-    `blob;dur=${timings.blob.toFixed(1)}`,
-    timings.initialization > 0 ? `initialize;dur=${timings.initialization.toFixed(1)}` : null,
-    `filter;dur=${timings.filter.toFixed(1)}`,
-    `total;dur=${timings.total.toFixed(1)}`
-  ]
-    .filter(Boolean)
-    .join(", ");
-
-  return new Response(JSON.stringify(body), {
-    status: 200,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": `public, max-age=${CACHE_MAX_AGE_SECONDS}`,
-      "netlify-cdn-cache-control": `public, s-maxage=${CACHE_MAX_AGE_SECONDS}`,
-      "server-timing": serverTiming,
-      "x-schedule-cache": cacheStatus
-    }
+  return cachedJsonResponse({
+    body,
+    cacheStatus: { name: "x-schedule-cache", value: cacheStatus },
+    cacheHeader: { maxAgeSeconds: CACHE_MAX_AGE_SECONDS },
+    timingHeader: serverTimingHeader({
+      blob: timings.blob,
+      initialize: timings.initialization,
+      filter: timings.filter,
+      total: timings.total
+    })
   });
 }
 
 function errorResponse(body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: {
-      "content-type": "application/json; charset=utf-8",
-      "cache-control": "no-store",
-      ...extraHeaders
-    }
-  });
+  return errorJsonResponse(body, status, extraHeaders);
 }
 
 function isDateInRange(value: string, start: string, end: string) {
@@ -177,52 +164,6 @@ function isDateInRange(value: string, start: string, end: string) {
 
 function compareScreeningDates(left: RawScreening, right: RawScreening) {
   return left.dateISO.localeCompare(right.dateISO) || left.sourceOrder - right.sourceOrder;
-}
-
-function getPragueTodayISO() {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Prague",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit"
-  }).formatToParts(new Date());
-  const values = Object.fromEntries(parts.map((part) => [part.type, part.value]));
-
-  return `${values.year}-${values.month}-${values.day}`;
-}
-
-function parseISODate(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return null;
-  }
-
-  const date = new Date(`${value}T00:00:00.000Z`);
-  return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
-}
-
-function isMondayISODate(value: string) {
-  return parseISODate(value)?.getUTCDay() === 1;
-}
-
-function startOfISOWeek(value: string) {
-  const date = parseISODate(value);
-  if (!date) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-
-  const dayOffset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - dayOffset);
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysISO(value: string, days: number) {
-  const date = parseISODate(value);
-  if (!date) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
 }
 
 export default handler;
