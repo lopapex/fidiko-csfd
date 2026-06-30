@@ -46,31 +46,23 @@ const handler = async (request: Request) => {
     const end = weekEnd;
     const blobStarted = performance.now();
     const cacheKey = `${RADAR_WEEK_CACHE_VERSION}/${requestedWeek}`;
-    const currentSnapshot = await readRadarCache(RADAR_CACHE_KEY);
-    let snapshot = currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end
+    const currentSnapshot = allowRefresh ? null : await readRadarCache(RADAR_CACHE_KEY);
+    const rangeSnapshot = currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end
       ? currentSnapshot
       : null;
+    const weekSnapshot = allowRefresh ? null : await readRadarCache(cacheKey);
+    let snapshot = chooseNewestSnapshot(rangeSnapshot, weekSnapshot);
     let staleSnapshot: RadarSnapshot | null = null;
     const blobDuration = performance.now() - blobStarted;
     let initializationDuration = 0;
-    let cacheStatus = snapshot ? "range-hit" : "miss";
+    let cacheStatus = snapshot
+      ? snapshot === weekSnapshot ? "hit" : "range-hit"
+      : allowRefresh ? "force-refresh" : "miss";
 
     if (snapshot && isStaleFutureSnapshot(snapshot, start)) {
       staleSnapshot = snapshot;
       snapshot = null;
       cacheStatus = "stale-range";
-    }
-
-    if (!snapshot) {
-      snapshot = await readRadarCache(cacheKey);
-      if (snapshot) {
-        cacheStatus = "hit";
-        if (isStaleFutureSnapshot(snapshot, start)) {
-          staleSnapshot ??= snapshot;
-          snapshot = null;
-          cacheStatus = "stale";
-        }
-      }
     }
 
     if (!snapshot && (allowRefresh || isInsidePrecomputeWindow(requestedWeek, currentWeekStart))) {
@@ -200,6 +192,19 @@ async function initializeSnapshot(cacheKey: string, week: string) {
 async function readRadarCache(key: string) {
   const store = getStore(RADAR_CACHE_STORE, { consistency: "strong" });
   return (await store.get(key, { type: "json" })) as RadarSnapshot | null;
+}
+
+export function chooseNewestSnapshot(
+  rangeSnapshot: RadarSnapshot | null,
+  weekSnapshot: RadarSnapshot | null,
+) {
+  if (!rangeSnapshot) return weekSnapshot;
+  if (!weekSnapshot) return rangeSnapshot;
+  const rangeTime = Date.parse(rangeSnapshot.fetchedAt);
+  const weekTime = Date.parse(weekSnapshot.fetchedAt);
+  if (!Number.isFinite(rangeTime)) return weekSnapshot;
+  if (!Number.isFinite(weekTime)) return rangeSnapshot;
+  return weekTime >= rangeTime ? weekSnapshot : rangeSnapshot;
 }
 
 function successResponse(body: unknown, cacheStatus: string, timings: { blob: number; initialize: number; filter: number; total: number }) {

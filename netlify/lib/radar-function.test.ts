@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import handler, { filterRadarItems } from "../functions/radar";
+import handler, { chooseNewestSnapshot, filterRadarItems } from "../functions/radar";
 import type { RadarSnapshot } from "./radar-refresh";
 
 const snapshot: RadarSnapshot = {
@@ -43,6 +43,17 @@ describe("Radar reader", () => {
     expect(providers.map(provider => provider.name)).toEqual(["Netflix"]);
     expect(providers[0].url).toBe("https://www.netflix.com/search?q=Seri%C3%A1l");
     expect(providers[0].linkType).toBe("search");
+  });
+
+  it("prefers a newer week snapshot over an older range snapshot", () => {
+    const newerWeek = {
+      ...snapshot,
+      fetchedAt: "2026-06-22T00:00:00Z",
+      range: { start: "2026-06-15", end: "2026-06-21" },
+    };
+
+    expect(chooseNewestSnapshot(snapshot, newerWeek)).toBe(newerWeek);
+    expect(chooseNewestSnapshot(newerWeek, snapshot)).toBe(newerWeek);
   });
 
   it("removes a streaming series without whitelisted providers even when CSFD fallback exists", () => {

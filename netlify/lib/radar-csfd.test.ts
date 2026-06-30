@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
+import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, isDetailedTitleMatch, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "./radar-csfd";
+import type { RadarItem } from "./radar-refresh";
 
 const match: RadarCsfdMatch = {
   title: "Film",
@@ -48,5 +49,31 @@ describe("Radar CSFD cache", () => {
       "Testovací titul",
       "Test Title",
     ]);
+  });
+
+  it("matches a localized CSFD title through its original alternative title", () => {
+    const item = {
+      mediaType: "movie",
+      channel: "cinema",
+      title: "The Death of Robin Hood",
+      originalTitle: null,
+      releaseDate: "2026-08-13",
+    } as RadarItem;
+    const candidate = {
+      id: 1515925,
+      title: "Smrt Robina Hooda",
+      year: 2026,
+      url: "https://www.csfd.cz/film/1515925-smrt-robina-hooda/prehled/",
+      type: "film",
+    } as Parameters<typeof selectCandidates>[0][number];
+    const details = {
+      title: "Smrt Robina Hooda",
+      titlesOther: [
+        { country: "USA", title: "The Death of Robin Hood" },
+      ],
+    } as Parameters<typeof isDetailedTitleMatch>[1];
+
+    expect(selectCandidates([candidate], item, "The Death of Robin Hood")).toEqual([candidate]);
+    expect(isDetailedTitleMatch(candidate, details, "The Death of Robin Hood")).toBe(true);
   });
 });

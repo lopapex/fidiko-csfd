@@ -4,7 +4,7 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v8";
+const CACHE_VERSION = "v9";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -214,7 +214,7 @@ export function selectCzechVodPremieres(
   ));
 }
 
-function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
+export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
   const normalizedQuery = comparableTitle(query);
   const year = Number(item.releaseDate.slice(0, 4));
 
@@ -240,7 +240,7 @@ function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number,
   return score;
 }
 
-function isDetailedTitleMatch(candidate: CSFDSearchMovie, details: CSFDMovie | null, query: string) {
+export function isDetailedTitleMatch(candidate: CSFDSearchMovie, details: CSFDMovie | null, query: string) {
   const normalizedQuery = comparableTitle(query);
   const titles = [
     candidate.title,
