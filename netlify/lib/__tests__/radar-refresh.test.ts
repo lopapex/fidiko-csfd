@@ -226,6 +226,35 @@ describe("Radar integration", () => {
     expect(item.providers[0].url).toBe("https://www.primevideo.com/search/ref=atv_nb_sr?phrase=Testovac%C3%AD%20seri%C3%A1l");
   });
 
+  it("uses the CSFD VOD premiere inside the requested week when a series has older premieres too", () => {
+    const xmen: RadarItem = {
+      ...baseItem,
+      id: "series-csfd-1140499-streaming-2024-03-20",
+      tmdbId: -1140499,
+      mediaType: "series",
+      channel: "streaming",
+      title: "X-Men '97",
+      releaseDate: "2024-03-20",
+      providers: [],
+      csfd: {
+        title: "X-Men '97",
+        rating: 84,
+        ratingCount: 786,
+        url: "https://www.csfd.cz/film/1140499/prehled/",
+        releaseDate: "2024-03-20",
+        vodPremieres: [
+          { date: "2024-03-20", provider: "Disney+" },
+          { date: "2026-07-01", provider: "Disney+" },
+        ],
+      },
+    };
+
+    const [item] = prepareRadarItemsForSnapshot([xmen], "2026-06-29", "2026-07-05");
+
+    expect(item.releaseDate).toBe("2026-07-01");
+    expect(item.providers.map((provider) => provider.name)).toEqual(["Disney Plus"]);
+  });
+
   it("prefers CSFD VOD providers over TMDb providers", () => {
     const item: RadarItem = {
       ...baseItem,

@@ -23,6 +23,7 @@ const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1654643, mediaType: "series" },
   { csfdId: 1494570, mediaType: "series" },
   { csfdId: 1552381, mediaType: "series" },
+  { csfdId: 1140499, mediaType: "series" },
 ];
 
 export type RadarMediaType = "movie" | "series";
@@ -269,12 +270,12 @@ function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
 }
 
 export function prepareRadarItemsForSnapshot(items: RadarItem[], rangeStart: string, rangeEnd: string) {
-  return deduplicatePreparedRadarItems(applyCsfdStreamingProviders(items)
+  return deduplicatePreparedRadarItems(applyCsfdStreamingProviders(items, rangeStart, rangeEnd)
     .filter((item) => item.releaseDate >= rangeStart && item.releaseDate <= rangeEnd)
     .filter((item) => item.channel !== "streaming" || item.providers.length > 0));
 }
 
-function applyCsfdStreamingProviders(items: RadarItem[]) {
+function applyCsfdStreamingProviders(items: RadarItem[], rangeStart: string, rangeEnd: string) {
   return items.map((item) => {
     if (item.channel !== "streaming") return item;
     const vodPremieres = item.csfd?.vodPremieres ?? [];
@@ -282,8 +283,16 @@ function applyCsfdStreamingProviders(items: RadarItem[]) {
       return item;
     }
 
-    const releaseDate = vodPremieres[0].date;
-    const providers = createProvidersFromCsfdPremieres(vodPremieres, item.title);
+    const premieresInRange = vodPremieres.filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
+    if (premieresInRange.length === 0) {
+      return {
+        ...item,
+        providers: [],
+      };
+    }
+
+    const releaseDate = premieresInRange[0].date;
+    const providers = createProvidersFromCsfdPremieres(premieresInRange, item.title);
     return {
       ...item,
       id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
