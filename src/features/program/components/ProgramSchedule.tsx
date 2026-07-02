@@ -291,13 +291,70 @@ function getFilmsForDay(films: FilmGroup[], day: string) {
     );
 }
 
-function getFilmsSortedByFirstScreeningInWeek(films: FilmGroup[], days: string[]) {
+export function getFilmsSortedByFirstScreeningInWeek(films: FilmGroup[], days: string[]) {
   const dayOrder = new Map(days.map((day, index) => [day, index]));
-
-  return [...films].sort((left, right) => (
+  const baseSortedFilms = [...films].sort((left, right) => (
     compareFirstScreeningInWeek(left, right, dayOrder)
     || left.title.localeCompare(right.title, "cs-CZ")
   ));
+  const priority = new Map(baseSortedFilms.map((film, index) => [film.id, index]));
+  const byId = new Map(films.map(film => [film.id, film]));
+  const edges = new Map(films.map(film => [film.id, new Set<string>()]));
+  const indegrees = new Map(films.map(film => [film.id, 0]));
+
+  for (const day of days) {
+    const dayFilms = films
+      .map(film => ({ film, screening: getFirstScreeningForDay(film, day) }))
+      .filter((entry): entry is { film: FilmGroup; screening: Screening } => entry.screening !== null)
+      .sort((left, right) => (
+        compareScreeningTime(left.screening, right.screening)
+        || (priority.get(left.film.id) ?? Number.POSITIVE_INFINITY) - (priority.get(right.film.id) ?? Number.POSITIVE_INFINITY)
+      ));
+
+    for (let leftIndex = 0; leftIndex < dayFilms.length; leftIndex += 1) {
+      for (let rightIndex = leftIndex + 1; rightIndex < dayFilms.length; rightIndex += 1) {
+        if (compareScreeningTime(dayFilms[leftIndex].screening, dayFilms[rightIndex].screening) === 0) continue;
+        addOrderingEdge(dayFilms[leftIndex].film.id, dayFilms[rightIndex].film.id, edges, indegrees);
+      }
+    }
+  }
+
+  const ordered: FilmGroup[] = [];
+  const remaining = new Set(films.map(film => film.id));
+  while (remaining.size > 0) {
+    const nextId = [...remaining]
+      .filter(id => (indegrees.get(id) ?? 0) === 0)
+      .sort((left, right) => (priority.get(left) ?? 0) - (priority.get(right) ?? 0))[0]
+      ?? [...remaining].sort((left, right) => (priority.get(left) ?? 0) - (priority.get(right) ?? 0))[0];
+    const film = byId.get(nextId);
+    if (!film) break;
+
+    ordered.push(film);
+    remaining.delete(nextId);
+    for (const target of edges.get(nextId) ?? []) {
+      indegrees.set(target, Math.max(0, (indegrees.get(target) ?? 0) - 1));
+    }
+  }
+
+  return ordered;
+}
+
+function addOrderingEdge(
+  beforeId: string,
+  afterId: string,
+  edges: Map<string, Set<string>>,
+  indegrees: Map<string, number>,
+) {
+  const outgoing = edges.get(beforeId);
+  if (!outgoing || outgoing.has(afterId)) return;
+  outgoing.add(afterId);
+  indegrees.set(afterId, (indegrees.get(afterId) ?? 0) + 1);
+}
+
+function getFirstScreeningForDay(film: FilmGroup, day: string) {
+  return film.screenings
+    .filter(screening => screening.dateISO === day)
+    .sort(compareScreeningTime)[0] ?? null;
 }
 
 function compareFirstScreeningInWeek(
