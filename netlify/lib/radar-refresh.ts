@@ -23,7 +23,7 @@ const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1654643, mediaType: "series" },
   { csfdId: 1494570, mediaType: "series" },
   { csfdId: 1552381, mediaType: "series" },
-  { csfdId: 1140499, mediaType: "series" },
+  { csfdId: 1140499, mediaType: "series", titleSuffix: "Série 2" },
 ];
 
 export type RadarMediaType = "movie" | "series";

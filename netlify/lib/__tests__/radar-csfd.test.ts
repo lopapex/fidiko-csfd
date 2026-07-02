@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, isCachedRadarCsfdFresh, isDetailedTitleMatch, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "../radar-csfd";
+import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "../radar-csfd";
 import type { RadarItem } from "../radar-refresh";
 
 const match: RadarCsfdMatch = {
@@ -49,6 +49,24 @@ describe("Radar CSFD cache", () => {
       "Testovací titul",
       "Test Title",
     ]);
+  });
+
+  it("adds an explicit title suffix for primary CSFD streaming seeds", () => {
+    expect(formatPrimaryStreamingTitle("X-Men '97", null, "Série 2")).toBe("X-Men '97 - Série 2");
+    expect(formatPrimaryStreamingTitle("Avatar - Série 2", null, "Série 2")).toBe("Avatar - Série 2");
+  });
+
+  it("normalizes season wording to Czech", () => {
+    expect(normalizeSeasonTitle("Lioness - Season 3")).toBe("Lioness - Série 3");
+    expect(normalizeSeasonTitle("Lioness - Serie 3")).toBe("Lioness - Série 3");
+    expect(normalizeSeasonTitle("Lioness - Série 3")).toBe("Lioness - Série 3");
+  });
+
+  it("extracts the root CSFD series URL from a season URL", () => {
+    const seasonUrl = "https://www.csfd.cz/film/785031-rod-draka/1552381-serie-3/prehled/";
+
+    expect(extractRootCsfdFilmId(seasonUrl)).toBe(785031);
+    expect(createRootCsfdUrl(seasonUrl)).toBe("https://www.csfd.cz/film/785031-rod-draka/prehled/");
   });
 
   it("matches a localized CSFD title through its original alternative title", () => {

@@ -27,6 +27,7 @@ export type RadarCsfdVodPremiere = {
 export type CsfdPrimaryStreamingSeed = {
   csfdId: number;
   mediaType: RadarMediaType;
+  titleSuffix?: string;
 };
 
 export type CachedRadarCsfd =
@@ -70,14 +71,15 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
   const items = await mapConcurrent<CsfdPrimaryStreamingSeed, RadarItem | null>(seeds, LOOKUP_CONCURRENCY, async (seed) => {
     const details = await withTimeout(csfd.movie(seed.csfdId), LOOKUP_TIMEOUT_MS, null);
     if (!details?.url || !details?.title) return null;
+    const ratingDetails = await loadSeriesRatingDetails(details, seed.mediaType);
 
-    const title = formatSeasonTitle(details.title, details.seasonName);
+    const title = formatPrimaryStreamingTitle(details.title, details.seasonName, seed.titleSuffix);
     const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" });
     const csfdMatch: RadarCsfdMatch = {
       title,
-      rating: numberOrNull(details.rating),
-      ratingCount: numberOrNull(details.ratingCount),
-      url: details.url,
+      rating: numberOrNull(ratingDetails.rating),
+      ratingCount: numberOrNull(ratingDetails.ratingCount),
+      url: ratingDetails.url,
       releaseDate: vodPremieres[0]?.date ?? null,
       vodPremieres,
     };
@@ -102,6 +104,39 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
   });
 
   return items.filter((item): item is RadarItem => item !== null);
+}
+
+export function formatPrimaryStreamingTitle(title: string, seasonName: string | null | undefined, titleSuffix?: string) {
+  if (titleSuffix && !title.toLocaleLowerCase("cs-CZ").endsWith(titleSuffix.toLocaleLowerCase("cs-CZ"))) {
+    return `${title} - ${titleSuffix}`;
+  }
+  return formatSeasonTitle(title, seasonName);
+}
+
+async function loadSeriesRatingDetails(details: CSFDMovie, mediaType: RadarMediaType) {
+  if (mediaType !== "series") {
+    return {
+      url: details.url,
+      rating: details.rating,
+      ratingCount: details.ratingCount,
+    };
+  }
+
+  const rootId = extractRootCsfdFilmId(details.url);
+  if (!rootId) {
+    return {
+      url: details.url,
+      rating: details.rating,
+      ratingCount: details.ratingCount,
+    };
+  }
+
+  const rootDetails = await withTimeout(csfd.movie(rootId), LOOKUP_TIMEOUT_MS, null);
+  return {
+    url: rootDetails?.url ?? createRootCsfdUrl(details.url),
+    rating: rootDetails?.rating ?? details.rating,
+    ratingCount: rootDetails?.ratingCount ?? details.ratingCount,
+  };
 }
 
 async function loadMatch(item: RadarItem) {
@@ -140,16 +175,19 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
       for (const match of selectCandidates(candidates, item, query)) {
         const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
         if (!isDetailedTitleMatch(match, details, query)) continue;
-        const url = details?.url ?? match.url;
+        const ratingDetails = details
+          ? await loadSeriesRatingDetails(details, item.mediaType)
+          : null;
+        const url = ratingDetails?.url ?? match.url;
         if (!url) continue;
-        const title = details ? formatSeasonTitle(details.title, details.seasonName) : match.title;
+        const title = details ? formatSeasonTitle(details.title, details.seasonName) : normalizeSeasonTitle(match.title);
 
         return {
           status: "matched",
           match: {
             title,
-            rating: numberOrNull(details?.rating),
-            ratingCount: numberOrNull(details?.ratingCount),
+            rating: numberOrNull(ratingDetails?.rating ?? details?.rating),
+            ratingCount: numberOrNull(ratingDetails?.ratingCount ?? details?.ratingCount),
             url,
             releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
             vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
@@ -269,7 +307,22 @@ function stripSeasonSuffix(value: string | null) {
 }
 
 function formatSeasonTitle(title: string, seasonName?: string | null) {
-  return seasonName ? `${title} - ${seasonName}` : title;
+  return seasonName ? `${title} - ${normalizeSeasonTitle(seasonName)}` : normalizeSeasonTitle(title);
+}
+
+export function normalizeSeasonTitle(value: string) {
+  return value.replace(/\b(?:season|serie|série)\s+(\d+)\b/giu, "Série $1");
+}
+
+export function extractRootCsfdFilmId(url: string | null | undefined) {
+  if (!url) return null;
+  const match = url.match(/\/film\/(\d+)(?:[-/]|$)/);
+  return match ? Number(match[1]) : null;
+}
+
+export function createRootCsfdUrl(url: string) {
+  const match = url.match(/^(https?:\/\/www\.csfd\.cz\/film\/\d+(?:-[^/]+)?\/)/);
+  return match ? `${match[1]}prehled/` : url;
 }
 
 function optimizeCsfdPoster(url: string | null) {
