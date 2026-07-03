@@ -12,7 +12,7 @@ import type { ScheduleResponse } from "./schedule-scraper";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
 const MAX_PAGES = 5;
-const MAX_SERIES_CANDIDATES = 100;
+const MAX_SERIES_CANDIDATES = 120;
 const PRECOMPUTE_PAST_WEEKS = 5;
 const PRECOMPUTE_FUTURE_WEEKS = 12;
 const WEEK_REFRESH_CONCURRENCY = 2;
@@ -365,10 +365,7 @@ async function discoverSeries(token: string, start: string, end: string): Promis
     include_null_first_air_dates: "false",
   });
 
-  const dateFilters = [
-    ["first_air_date.gte", "first_air_date.lte"],
-    ["air_date.gte", "air_date.lte"],
-  ] as const;
+  const dateFilters = getSeriesDiscoveryDateFilters();
   const results = await Promise.allSettled(dateFilters.flatMap(([gteKey, lteKey]) => (
     ["popularity.desc", "vote_count.desc"].map(async (sort) => {
     const params = new URLSearchParams(baseParams);
@@ -390,6 +387,11 @@ async function discoverSeries(token: string, start: string, end: string): Promis
   }
   return { items: [...unique.values()], succeeded: true };
 }
+
+export const getSeriesDiscoveryDateFilters = () => [
+  ["air_date.gte", "air_date.lte"],
+  ["first_air_date.gte", "first_air_date.lte"],
+] as const;
 
 async function resolveSeriesPremieres(
   token: string,

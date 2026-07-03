@@ -2,8 +2,8 @@ import { getStore } from "@netlify/blobs";
 import type { RadarSnapshot } from "./radar-refresh";
 
 export const RADAR_CACHE_STORE = "radar-cache";
-export const RADAR_CACHE_KEY = "current-v22";
-export const RADAR_WEEK_CACHE_VERSION = "week-v21";
+export const RADAR_CACHE_KEY = "current-v23";
+export const RADAR_WEEK_CACHE_VERSION = "week-v22";
 
 export const getRadarStore = () => getStore(RADAR_CACHE_STORE, { consistency: "strong" });
 
