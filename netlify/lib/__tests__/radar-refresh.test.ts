@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { getRadarPrecomputeWeekStarts, getSeriesDiscoveryDateFilters, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, seedItemsWithKnownCsfd, type RadarItem, type RadarSnapshot } from "../radar-refresh";
+import { getActiveManualRadarOverrides, getRadarPrecomputeWeekStarts, getSeriesDiscoveryDateFilters, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, seedItemsWithKnownCsfd, type RadarItem, type RadarSnapshot } from "../radar-refresh";
+import { decideRadarItemsForSnapshot } from "../radar-decision";
 import { getProviderLink, isAllowedProvider } from "../radar-providers";
 import type { ScheduleResponse } from "../schedule-scraper";
 
@@ -54,6 +55,10 @@ describe("Radar integration", () => {
 
   it("prioritizes episode air-date discovery so continuing seasons are not cut off", () => {
     expect(getSeriesDiscoveryDateFilters()[0]).toEqual(["air_date.gte", "air_date.lte"]);
+  });
+
+  it("allows an empty manual override list", () => {
+    expect(getActiveManualRadarOverrides([], "2026-07-01")).toEqual([]);
   });
 
   it("links an exact CSFD URL and calculates future screenings", () => {
@@ -291,6 +296,59 @@ describe("Radar integration", () => {
     expect(item.providers.map((provider) => provider.name)).toEqual(["Disney Plus"]);
   });
 
+  it("publishes Silo season 3 from the Czech CSFD VOD date", () => {
+    const silo: RadarItem = {
+      ...baseItem,
+      id: "series-125988-streaming-2026-07-02",
+      tmdbId: 125988,
+      mediaType: "series",
+      channel: "streaming",
+      title: "Silo - Série 3",
+      originalTitle: "Silo - Season 3",
+      releaseDate: "2026-07-02",
+      providers: [],
+      csfd: {
+        title: "Silo - Série 3",
+        rating: 83,
+        ratingCount: 6348,
+        url: "https://www.csfd.cz/film/1324435/prehled/",
+        releaseDate: "2026-07-03",
+        vodPremieres: [{ date: "2026-07-03", provider: "Apple TV+" }],
+      },
+    };
+
+    const decision = decideRadarItemsForSnapshot([silo], "2026-06-29", "2026-07-05");
+
+    expect(decision.items[0]).toMatchObject({
+      title: "Silo - Série 3",
+      releaseDate: "2026-07-03",
+    });
+    expect(decision.items[0].providers.map((provider) => provider.name)).toEqual(["Apple TV Plus"]);
+    expect(decision.diagnostics.rejectedByReason).toEqual({});
+  });
+
+  it("rejects standalone episode CSFD links in the decision engine", () => {
+    const episode: RadarItem = {
+      ...baseItem,
+      mediaType: "series",
+      channel: "streaming",
+      releaseDate: "2026-07-13",
+      csfd: {
+        title: "Epizoda 22",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1-serial/22-episode-22/prehled/",
+        releaseDate: "2026-07-13",
+        vodPremieres: [{ date: "2026-07-13", provider: "Netflix" }],
+      },
+    };
+
+    const decision = decideRadarItemsForSnapshot([episode], "2026-07-13", "2026-07-19");
+
+    expect(decision.items).toEqual([]);
+    expect(decision.diagnostics.rejectedByReason).toMatchObject({ episode_match: 1 });
+  });
+
   it("prefers CSFD VOD providers over TMDb providers", () => {
     const item: RadarItem = {
       ...baseItem,
@@ -377,7 +435,7 @@ describe("Radar integration", () => {
     expect(result[0].csfd?.url).toBe("https://www.csfd.cz/film/1857608/prehled/");
   });
 
-  it("falls back to TMDb providers when CSFD has no VOD provider", () => {
+  it("removes streaming items without a whitelisted CSFD VOD premiere", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,
       mediaType: "series",
@@ -398,8 +456,8 @@ describe("Radar integration", () => {
       },
     };
 
-    expect(prepareRadarItemsForSnapshot([withoutCsfd], "2026-06-29", "2026-07-05")).toEqual([withoutCsfd]);
-    expect(prepareRadarItemsForSnapshot([withoutVodProvider], "2026-06-29", "2026-07-05")[0].providers.map((provider) => provider.name)).toEqual(["Netflix"]);
+    expect(prepareRadarItemsForSnapshot([withoutCsfd], "2026-06-29", "2026-07-05")).toEqual([]);
+    expect(prepareRadarItemsForSnapshot([withoutVodProvider], "2026-06-29", "2026-07-05")).toEqual([]);
   });
 
   it("removes streaming items without CSFD VOD or TMDb providers", () => {
@@ -461,10 +519,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v23",
-      "week-v22/2026-06-15",
-      "week-v22/2026-06-22",
-      "week-v21/2026-06-22",
+      "current-v25",
+      "week-v24/2026-06-15",
+      "week-v24/2026-06-22",
+      "week-v23/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -472,13 +530,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v22/not-a-date",
+      "week-v24/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v22/2026-06-15",
-      "week-v21/2026-06-22",
+      "week-v24/2026-06-15",
+      "week-v23/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

@@ -2,8 +2,11 @@ import { getStore } from "@netlify/blobs";
 import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, fetchCsfdSeriesStreamingItemsFromCandidates, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
 import { cleanupRadarWeekCache, getRadarStore, getStaleRadarWeekKeys, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION, readRadarSnapshot } from "./radar-cache";
 import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
-import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
-import { fetchDiscoverPages, TMDB_IMAGE_BASE, tmdbFetch, type TmdbDiscoverItem, type TmdbProvider, type TmdbTvDetails, type TmdbWatchResponse } from "./radar-tmdb";
+import { decideRadarItemsForSnapshot, prepareRadarItemsForSnapshot, type RadarDecisionDiagnostics } from "./radar-decision";
+import { deduplicateRadarItems, normalizeRadarTitle } from "./radar-deduplication";
+import { discoverMovies, discoverSeries, getSeriesDiscoveryDateFilters, isHiddenProvider } from "./radar-discovery";
+import { getProviderLink, type ProviderLinkType } from "./radar-providers";
+import { TMDB_IMAGE_BASE, tmdbFetch, type TmdbDiscoverItem, type TmdbProvider, type TmdbTvDetails, type TmdbWatchResponse } from "./radar-tmdb";
 import { mapConcurrent } from "./shared/concurrency";
 import { addDaysISO, getPragueNow, getPragueTodayISO, startOfISOWeek } from "./shared/date";
 import { decodeHtmlEntities } from "./text";
@@ -11,14 +14,19 @@ import type { ScheduleResponse } from "./schedule-scraper";
 
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
-const MAX_PAGES = 5;
 const MAX_SERIES_CANDIDATES = 120;
 const PRECOMPUTE_PAST_WEEKS = 5;
 const PRECOMPUTE_FUTURE_WEEKS = 12;
 const WEEK_REFRESH_CONCURRENCY = 2;
 const PROVIDER_CONCURRENCY = 6;
 const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
-const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
+
+type ManualRadarOverride = CsfdPrimaryStreamingSeed & {
+  reason?: string;
+  expiresOn?: string;
+};
+
+const MANUAL_RADAR_OVERRIDES: ManualRadarOverride[] = [
   { csfdId: 1684377, mediaType: "series" },
   { csfdId: 1654643, mediaType: "series" },
   { csfdId: 1494570, mediaType: "series" },
@@ -26,6 +34,14 @@ const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1140499, mediaType: "series", titleSuffix: "Série 2" },
   { csfdId: 1184280, mediaType: "series", titleSuffix: "Série 5" },
 ];
+
+export const getActiveManualRadarOverrides = (
+  overrides: ManualRadarOverride[] = MANUAL_RADAR_OVERRIDES,
+  today = getPragueTodayISO(),
+): CsfdPrimaryStreamingSeed[] =>
+  overrides
+    .filter((override) => !override.expiresOn || override.expiresOn >= today)
+    .map(({ csfdId, mediaType, titleSuffix }) => ({ csfdId, mediaType, titleSuffix }));
 
 export type RadarMediaType = "movie" | "series";
 export type RadarChannel = "cinema" | "streaming";
@@ -78,9 +94,9 @@ export type RadarSource = "cinemaMovies" | "streamingMovies" | "streamingSeries"
 export type RadarSourceState = {
   status: "fresh" | "carried" | "failed";
   fetchedAt: string | null;
+  diagnostics?: RadarDecisionDiagnostics;
 };
 
-type DiscoverResult = { items: TmdbDiscoverItem[]; succeeded: boolean };
 export type ItemSourceResult = { items: RadarItem[]; succeeded: boolean };
 
 export async function hasRadarCache() {
@@ -140,7 +156,7 @@ async function buildRadarSnapshot(
     discoverMovies(token, rangeStart, rangeEnd, "2|3"),
     discoverMovies(token, streamingRangeStart, streamingRangeEnd, "4"),
     discoverSeries(token, streamingRangeStart, streamingRangeEnd),
-    fetchCsfdPrimaryStreamingItems(CSFD_PRIMARY_STREAMING_SEEDS),
+    fetchCsfdPrimaryStreamingItems(getActiveManualRadarOverrides()),
     readScheduleCache()
   ]);
   const discoveryMs = performance.now() - discoveryStarted;
@@ -171,24 +187,29 @@ async function buildRadarSnapshot(
   const cinema = resolveSource("cinemaMovies", cinemaSource, previous, rangeStart, rangeEnd, builtAt);
   const movies = resolveSource("streamingMovies", movieStreamingSource, previous, rangeStart, rangeEnd, builtAt);
   const series = resolveSource("streamingSeries", seriesStreamingSource, previous, rangeStart, rangeEnd, builtAt);
-  const sources = {
+  const sources: RadarSnapshot["sources"] = {
     cinemaMovies: cinema.state,
     streamingMovies: movies.state,
     streamingSeries: series.state,
-  } satisfies RadarSnapshot["sources"];
+  };
 
   if (Object.values(sources).every((source) => source.status === "failed")) {
     throw new Error("TMDb discovery is temporarily unavailable");
   }
 
   const csfdStarted = performance.now();
-  const discoveredItems = deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming, ...csfdDiscoveredSeries]);
+  const discoveredItems = [...cinema.items, ...movies.items, ...series.items, ...csfdStreaming, ...csfdDiscoveredSeries];
   const seededItems = seedItemsWithKnownCsfd(discoveredItems, previous, schedule);
   const enrichedItems = await enrichRadarItemsWithCsfd(seededItems);
   const csfdMs = performance.now() - csfdStarted;
   const linkingStarted = performance.now();
+  const decision = decideRadarItemsForSnapshot(enrichedItems, rangeStart, rangeEnd);
+  sources.streamingSeries = {
+    ...sources.streamingSeries,
+    diagnostics: decision.diagnostics,
+  };
   const items = (await patchItemsWithFreshCsfdRatings(
-    linkProgramMatches(prepareRadarItemsForSnapshot(enrichedItems, rangeStart, rangeEnd), schedule)
+    linkProgramMatches(decision.items, schedule)
   )).sort(compareItems);
   const linkingMs = performance.now() - linkingStarted;
   const csfdMatches = items.filter((item) => item.csfd?.url).length;
@@ -202,6 +223,7 @@ async function buildRadarSnapshot(
     programMatches,
     scheduleCacheHit: Boolean(schedule),
     sources,
+    decision: decision.diagnostics,
     timingsMs: {
       discovery: Math.round(discoveryMs),
       providers: Math.round(providersMs),
@@ -219,7 +241,7 @@ async function buildRadarSnapshot(
   } satisfies RadarSnapshot;
 }
 
-export { getStaleRadarWeekKeys };
+export { getSeriesDiscoveryDateFilters, getStaleRadarWeekKeys, isHiddenProvider, prepareRadarItemsForSnapshot };
 
 export function resolveSource(
   source: RadarSource,
@@ -266,6 +288,7 @@ function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
     return [source, {
       status: failed.length === ordered.length ? "failed" : "fresh",
       fetchedAt: latest?.fetchedAt ?? null,
+      diagnostics: combineDiagnostics(ordered.map((snapshot) => snapshot.sources[source].diagnostics)),
     } satisfies RadarSourceState];
   })) as Record<RadarSource, RadarSourceState>;
 
@@ -277,121 +300,20 @@ function aggregateWeekSnapshots(snapshots: RadarSnapshot[]): RadarSnapshot {
   };
 }
 
-export function prepareRadarItemsForSnapshot(items: RadarItem[], rangeStart: string, rangeEnd: string) {
-  return deduplicatePreparedRadarItems(applyCsfdStreamingProviders(items, rangeStart, rangeEnd)
-    .filter((item) => item.releaseDate >= rangeStart && item.releaseDate <= rangeEnd)
-    .filter((item) => item.channel !== "streaming" || item.providers.length > 0));
-}
-
-function applyCsfdStreamingProviders(items: RadarItem[], rangeStart: string, rangeEnd: string) {
-  return items.map((item) => {
-    if (item.channel !== "streaming") return item;
-    const vodPremieres = item.csfd?.vodPremieres ?? [];
-    if (vodPremieres.length === 0) {
-      return item;
+const combineDiagnostics = (items: Array<RadarDecisionDiagnostics | undefined>) => {
+  const diagnostics = items.filter((item): item is RadarDecisionDiagnostics => Boolean(item));
+  if (diagnostics.length === 0) return undefined;
+  return diagnostics.reduce<RadarDecisionDiagnostics>((total, item) => {
+    total.discovered += item.discovered;
+    total.resolved += item.resolved;
+    total.published += item.published;
+    for (const [reason, count] of Object.entries(item.rejectedByReason)) {
+      const key = reason as keyof RadarDecisionDiagnostics["rejectedByReason"];
+      total.rejectedByReason[key] = (total.rejectedByReason[key] ?? 0) + (count ?? 0);
     }
-
-    const premieresInRange = vodPremieres.filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
-    if (premieresInRange.length === 0) {
-      return {
-        ...item,
-        providers: [],
-      };
-    }
-
-    const releaseDate = premieresInRange[0].date;
-    const providers = createProvidersFromCsfdPremieres(premieresInRange, item.title);
-    return {
-      ...item,
-      id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
-      releaseDate,
-      providers,
-    };
-  });
-}
-
-function createProvidersFromCsfdPremieres(premieres: NonNullable<RadarCsfdMatch["vodPremieres"]>, title: string) {
-  const unique = new Map<number, RadarProvider>();
-  for (const premiere of premieres) {
-    const metadata = getProviderMetadata(premiere.provider);
-    if (!metadata) continue;
-    unique.set(metadata.id, {
-      id: metadata.id,
-      name: metadata.name,
-      logoUrl: `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}`,
-      ...getProviderLink(metadata.name, title),
-    });
-  }
-  return [...unique.values()];
-}
-
-function deduplicatePreparedRadarItems(items: RadarItem[]) {
-  return deduplicateRadarItems(items);
-}
-
-function shouldReplacePreparedItem(existing: RadarItem, candidate: RadarItem) {
-  if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
-  if (existing.csfd?.url && !candidate.csfd?.url) return false;
-  if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
-  if (!hasLocalizedTitle(existing) && hasLocalizedTitle(candidate)) return true;
-  if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
-  return false;
-}
-
-async function discoverMovies(token: string, start: string, end: string, releaseType: string): Promise<DiscoverResult> {
-  const params = new URLSearchParams({
-    language: "cs-CZ",
-    region: "CZ",
-    sort_by: "release_date.asc",
-    "release_date.gte": start,
-    "release_date.lte": end,
-    with_release_type: releaseType,
-    include_adult: "false",
-    include_video: "false"
-  });
-
-  try {
-    return { items: await fetchDiscoverPages(token, "/discover/movie", params, MAX_PAGES), succeeded: true };
-  } catch (error) {
-    console.warn(`TMDb ${releaseType === "4" ? "digital" : "regional cinema"} discovery failed for ${start} to ${end}`, error);
-    return { items: [], succeeded: false };
-  }
-}
-
-async function discoverSeries(token: string, start: string, end: string): Promise<DiscoverResult> {
-  const baseParams = new URLSearchParams({
-    language: "cs-CZ",
-    include_adult: "false",
-    include_null_first_air_dates: "false",
-  });
-
-  const dateFilters = getSeriesDiscoveryDateFilters();
-  const results = await Promise.allSettled(dateFilters.flatMap(([gteKey, lteKey]) => (
-    ["popularity.desc", "vote_count.desc"].map(async (sort) => {
-    const params = new URLSearchParams(baseParams);
-    params.set(gteKey, start);
-    params.set(lteKey, end);
-    params.set("sort_by", sort);
-    return fetchDiscoverPages(token, "/discover/tv", params, MAX_PAGES);
-    })
-  )));
-  const fulfilled = results.filter((result): result is PromiseFulfilledResult<TmdbDiscoverItem[]> => result.status === "fulfilled");
-  if (fulfilled.length === 0) {
-    console.warn(`TMDb series discovery failed for ${start} to ${end}`, results.map((result) => result.status === "rejected" ? result.reason : null));
-    return { items: [], succeeded: false };
-  }
-
-  const unique = new Map<number, TmdbDiscoverItem>();
-  for (const result of fulfilled) {
-    for (const item of result.value) unique.set(item.id, item);
-  }
-  return { items: [...unique.values()], succeeded: true };
-}
-
-export const getSeriesDiscoveryDateFilters = () => [
-  ["air_date.gte", "air_date.lte"],
-  ["first_air_date.gte", "first_air_date.lte"],
-] as const;
+    return total;
+  }, { discovered: 0, resolved: 0, published: 0, rejectedByReason: {} });
+};
 
 async function resolveSeriesPremieres(
   token: string,
@@ -653,12 +575,8 @@ function normalizeCsfdPath(value: string) {
   return match ? `/film/${match[1]}` : path;
 }
 
-function normalizePosterUrl(value: string) {
-  return value.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/");
-}
-
 function normalizeMatchTitle(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return normalizeRadarTitle(value);
 }
 
 function deduplicateProviders(providers: TmdbProvider[], title?: string) {
@@ -678,73 +596,8 @@ function deduplicateProviders(providers: TmdbProvider[], title?: string) {
     }));
 }
 
-export function isHiddenProvider(name: string) {
-  return !isAllowedProvider(name);
-}
-
 function deduplicateItems(items: RadarItem[]) {
   return deduplicateRadarItems(items);
-}
-
-function deduplicateRadarItems(items: RadarItem[]) {
-  const byKey = new Map<string, RadarItem>();
-  const selected = new Set<RadarItem>();
-  for (const item of items) {
-    const keys = getRadarDeduplicationKeys(item);
-    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
-    const selectedItem = existing && !shouldReplacePreparedItem(existing, item) ? existing : item;
-
-    if (existing && selectedItem !== existing) {
-      selected.delete(existing);
-    }
-    selected.add(selectedItem);
-    for (const key of keys) {
-      byKey.set(key, selectedItem);
-    }
-  }
-  return [...selected.values()];
-}
-
-function getRadarDeduplicationKeys(item: RadarItem) {
-  const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
-  keys.push(...getCinemaTitleDeduplicationKeys(item));
-  const streamingKey = getStreamingDeduplicationKey(item);
-  if (streamingKey) keys.push(streamingKey);
-  const titleKeys = getStreamingTitleDeduplicationKeys(item);
-  keys.push(...titleKeys);
-  keys.push(`item:${item.id}`);
-  return keys;
-}
-
-function getCinemaTitleDeduplicationKeys(item: RadarItem) {
-  if (item.channel !== "cinema") return [];
-  return getComparableTitles(item)
-    .map((title) => `cinema-title:${item.mediaType}:${item.releaseDate}:${title}`);
-}
-
-function getStreamingDeduplicationKey(item: RadarItem) {
-  if (item.channel !== "streaming" || !item.posterUrl || item.providers.length === 0) return null;
-  const poster = normalizePosterUrl(item.posterUrl);
-  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
-  return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
-}
-
-function getStreamingTitleDeduplicationKeys(item: RadarItem) {
-  if (item.channel !== "streaming" || item.providers.length === 0) return [];
-  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
-  return getComparableTitles(item)
-    .map((title) => `streaming-title:${item.mediaType}:${item.releaseDate}:${providers}:${title}`);
-}
-
-function getComparableTitles(item: Pick<RadarItem, "title" | "originalTitle" | "csfd">) {
-  return [...new Set([item.title, item.originalTitle, item.csfd?.title]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeMatchTitle)
-    .filter(Boolean))];
-}
-
-function hasLocalizedTitle(item: Pick<RadarItem, "title" | "originalTitle">) {
-  return Boolean(item.originalTitle && normalizeMatchTitle(item.title) !== normalizeMatchTitle(item.originalTitle));
 }
 
 function compareItems(left: RadarItem, right: RadarItem) {

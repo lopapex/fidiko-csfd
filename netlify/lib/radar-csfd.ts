@@ -4,7 +4,7 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v12";
+const CACHE_VERSION = "v13";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -385,11 +385,19 @@ export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem,
   const year = Number(item.releaseDate.slice(0, 4));
 
   return candidates
+    .filter((candidate) => isAllowedCandidateType(candidate, item.mediaType))
     .map((candidate) => ({ candidate, score: scoreCandidate(candidate, normalizedQuery, year, item.mediaType) }))
     .filter(({ score }) => score >= 55)
     .sort((left, right) => right.score - left.score)
     .slice(0, 5)
     .map(({ candidate }) => candidate);
+}
+
+function isAllowedCandidateType(candidate: CSFDSearchMovie, mediaType: RadarMediaType) {
+  if (mediaType === "series") {
+    return candidate.type === "series" || candidate.type === "tv-show" || candidate.type === "season";
+  }
+  return candidate.type !== "episode" && candidate.type !== "season";
 }
 
 export function selectRootSeriesCandidate(candidates: CSFDSearchMovie[], title: string) {

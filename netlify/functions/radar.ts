@@ -1,11 +1,12 @@
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getRadarStore, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION } from "../lib/radar-cache";
+import { deduplicateRadarItems, normalizeRadarTitle } from "../lib/radar-deduplication";
 import { getProviderLink, isAllowedProvider } from "../lib/radar-providers";
 import { addDaysISO, getPragueTodayISO, isISOWeekStart, startOfISOWeek } from "../lib/shared/date";
 import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
-const LEGACY_RADAR_CACHE_KEYS = ["current-v22", "current-v21", "current-v20", "current-v19", "current-v18", "current-v17", "current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
-const LEGACY_WEEK_CACHE_VERSIONS = ["week-v21", "week-v20", "week-v19", "week-v18", "week-v17", "week-v16", "week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
+const LEGACY_RADAR_CACHE_KEYS = ["current-v24", "current-v23", "current-v22", "current-v21", "current-v20", "current-v19", "current-v18", "current-v17", "current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
+const LEGACY_WEEK_CACHE_VERSIONS = ["week-v23", "week-v22", "week-v21", "week-v20", "week-v19", "week-v18", "week-v17", "week-v16", "week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
 const FUTURE_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 const PRECOMPUTE_PAST_WEEKS = 5;
@@ -291,86 +292,8 @@ function normalizeSeriesCsfdUrl(url: string) {
   return match ? `${match[1]}prehled/` : url;
 }
 
-function deduplicateRadarItems(items: RadarSnapshot["items"]) {
-  const byKey = new Map<string, RadarSnapshot["items"][number]>();
-  const selected = new Set<RadarSnapshot["items"][number]>();
-  for (const item of items) {
-    const keys = getRadarDeduplicationKeys(item);
-    const existing = keys.map((key) => byKey.get(key)).find(Boolean);
-    const selectedItem = existing && !shouldReplaceRadarItem(existing, item) ? existing : item;
-    if (existing && selectedItem !== existing) selected.delete(existing);
-    selected.add(selectedItem);
-    for (const key of keys) byKey.set(key, selectedItem);
-  }
-  return [...selected.values()];
-}
-
-function getRadarDeduplicationKeys(item: RadarSnapshot["items"][number]) {
-  const keys = item.csfd?.url ? [`csfd:${normalizeCsfdUrl(item.csfd.url)}`] : [];
-  keys.push(...getCinemaTitleDeduplicationKeys(item));
-  const streamingKey = getStreamingDeduplicationKey(item);
-  if (streamingKey) keys.push(streamingKey);
-  keys.push(...getStreamingTitleDeduplicationKeys(item));
-  keys.push(`item:${item.id}`);
-  return keys;
-}
-
-function getCinemaTitleDeduplicationKeys(item: RadarSnapshot["items"][number]) {
-  if (item.channel !== "cinema") return [];
-  return getComparableTitles(item)
-    .map((title) => `cinema-title:${item.mediaType}:${item.releaseDate}:${title}`);
-}
-
-function getStreamingDeduplicationKey(item: RadarSnapshot["items"][number]) {
-  if (item.channel !== "streaming" || !item.posterUrl || item.providers.length === 0) return null;
-  const poster = item.posterUrl.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/");
-  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
-  return `streaming:${item.mediaType}:${item.releaseDate}:${poster}:${providers}`;
-}
-
-function getStreamingTitleDeduplicationKeys(item: RadarSnapshot["items"][number]) {
-  if (item.channel !== "streaming" || item.providers.length === 0) return [];
-  const providers = item.providers.map((provider) => provider.id).sort((left, right) => left - right).join(",");
-  return getComparableTitles(item)
-    .map((title) => `streaming-title:${item.mediaType}:${item.releaseDate}:${providers}:${title}`);
-}
-
-function getComparableTitles(item: Pick<RadarSnapshot["items"][number], "title" | "originalTitle" | "csfd">) {
-  return [...new Set([item.title, item.originalTitle, item.csfd?.title]
-    .filter((value): value is string => Boolean(value))
-    .map(normalizeTitle)
-    .filter(Boolean))];
-}
-
-function shouldReplaceRadarItem(existing: RadarSnapshot["items"][number], candidate: RadarSnapshot["items"][number]) {
-  if (!existing.csfd?.url && Boolean(candidate.csfd?.url)) return true;
-  if (existing.csfd?.url && !candidate.csfd?.url) return false;
-  if (existing.tmdbId < 0 && candidate.tmdbId > 0) return true;
-  if (!hasLocalizedTitle(existing) && hasLocalizedTitle(candidate)) return true;
-  if (!existing.posterUrl && Boolean(candidate.posterUrl)) return true;
-  return false;
-}
-
-function hasLocalizedTitle(item: Pick<RadarSnapshot["items"][number], "title" | "originalTitle">) {
-  return Boolean(item.originalTitle && normalizeTitle(item.title) !== normalizeTitle(item.originalTitle));
-}
-
-function normalizeCsfdUrl(value: string) {
-  try {
-    return normalizeCsfdPath(new URL(value).pathname);
-  } catch {
-    return normalizeCsfdPath(value.replace(/[?#].*$/, ""));
-  }
-}
-
-function normalizeCsfdPath(value: string) {
-  const path = value.replace(/\/$/, "");
-  const match = path.match(/\/film\/(\d+)/);
-  return match ? `/film/${match[1]}` : path;
-}
-
 function normalizeTitle(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  return normalizeRadarTitle(value);
 }
 
 export default handler;

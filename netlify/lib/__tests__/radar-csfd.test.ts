@@ -104,6 +104,21 @@ describe("Radar CSFD cache", () => {
     expect(selectRootSeriesCandidate(candidates, "Lioness")?.id).toBe(924250);
   });
 
+  it("never accepts standalone episodes as Radar series matches", () => {
+    const item = {
+      mediaType: "series",
+      channel: "streaming",
+      title: "Testovac\u00ed epizoda",
+      originalTitle: null,
+      releaseDate: "2026-07-13",
+    } as RadarItem;
+    const candidates = [
+      { id: 22, title: "Testovac\u00ed epizoda", year: 2026, url: "https://www.csfd.cz/film/1-serial/22-epizoda/prehled/", type: "episode" },
+    ] as Parameters<typeof selectCandidates>[0];
+
+    expect(selectCandidates(candidates, item, "Testovac\u00ed epizoda")).toEqual([]);
+  });
+
   it("matches a localized CSFD title through its original alternative title", () => {
     const item = {
       mediaType: "movie",

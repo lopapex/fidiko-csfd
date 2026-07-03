@@ -86,6 +86,7 @@ describe("Radar reader", () => {
         {
           ...snapshot.items[1],
           id: "avatar",
+          tmdbId: 3,
           title: "Avatar: Legenda o Aangovi - Série 2",
           posterUrl: "https://image.test/avatar.jpg",
           csfd: {
