@@ -45,6 +45,64 @@ describe("Radar reader", () => {
     expect(providers[0].linkType).toBe("search");
   });
 
+  it("normalizes season wording from older snapshots", () => {
+    const seasonSnapshot: RadarSnapshot = {
+      ...snapshot,
+      items: [{
+        ...snapshot.items[1],
+        title: "Lioness - Season 3",
+        originalTitle: "Lioness - Season 3",
+        csfd: {
+          ...snapshot.items[1].csfd!,
+          title: "Lioness - Season 3",
+          url: "https://www.csfd.cz/film/785031-rod-draka/1552381-serie-3/prehled/",
+        },
+      }],
+    };
+    const [item] = filterRadarItems(seasonSnapshot, "2026-06-15", "2026-06-28", "series");
+
+    expect(item.title).toBe("Lioness - Série 3");
+    expect(item.originalTitle).toBe("Lioness - Série 3");
+    expect(item.csfd?.title).toBe("Lioness - Série 3");
+    expect(item.csfd?.url).toBe("https://www.csfd.cz/film/785031-rod-draka/prehled/");
+    expect(item.providers[0].url).toBe("https://www.netflix.com/search?q=Lioness");
+  });
+
+  it("normalizes nested CSFD season links to the root series page", () => {
+    const seasonSnapshot: RadarSnapshot = {
+      ...snapshot,
+      items: [
+        {
+          ...snapshot.items[1],
+          id: "rod-draka",
+          title: "Rod draka - Série 3",
+          posterUrl: "https://image.test/rod-draka.jpg",
+          csfd: {
+            ...snapshot.items[1].csfd!,
+            title: "Rod draka - Série 3",
+            url: "https://www.csfd.cz/film/785031-rod-draka/1552381-serie-3/prehled/",
+          },
+        },
+        {
+          ...snapshot.items[1],
+          id: "avatar",
+          title: "Avatar: Legenda o Aangovi - Série 2",
+          posterUrl: "https://image.test/avatar.jpg",
+          csfd: {
+            ...snapshot.items[1].csfd!,
+            title: "Avatar: Legenda o Aangovi - Série 2",
+            url: "https://www.csfd.cz/film/1377663-avatar-legenda-o-aangovi/1494570-serie-2/prehled/",
+          },
+        },
+      ],
+    };
+
+    expect(filterRadarItems(seasonSnapshot, "2026-06-15", "2026-06-28", "series").map(item => item.csfd?.url)).toEqual([
+      "https://www.csfd.cz/film/785031-rod-draka/prehled/",
+      "https://www.csfd.cz/film/1377663-avatar-legenda-o-aangovi/prehled/",
+    ]);
+  });
+
   it("prefers a newer week snapshot over an older range snapshot", () => {
     const newerWeek = {
       ...snapshot,

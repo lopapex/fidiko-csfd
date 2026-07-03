@@ -260,17 +260,35 @@ export function filterRadarItems(snapshot: RadarSnapshot, start: string, end: st
     .filter((item) => item.releaseDate >= start && item.releaseDate <= end && (type === "all" || item.mediaType === type))
     .map((item) => ({
       ...item,
+      title: normalizeSeasonTitle(item.title),
+      originalTitle: item.originalTitle ? normalizeSeasonTitle(item.originalTitle) : null,
+      csfd: item.csfd
+        ? {
+          ...item.csfd,
+          title: normalizeSeasonTitle(item.csfd.title),
+          url: item.mediaType === "series" ? normalizeSeriesCsfdUrl(item.csfd.url) : item.csfd.url,
+        }
+        : null,
       providers: item.providers
         .filter((provider) => isAllowedProvider(provider.name))
         .map((provider) => ({
           ...provider,
-          ...getProviderLink(provider.name, item.title),
+          ...getProviderLink(provider.name, normalizeSeasonTitle(item.title)),
         }))
     }))
     .filter((item) => (
       item.channel !== "streaming"
       || item.providers.length > 0
     )));
+}
+
+function normalizeSeasonTitle(value: string) {
+  return value.replace(/\b(?:season|serie|série)\s+(\d+)\b/giu, "Série $1");
+}
+
+function normalizeSeriesCsfdUrl(url: string) {
+  const match = url.match(/^(https?:\/\/www\.csfd\.cz\/film\/\d+(?:-[^/]+)?\/)/);
+  return match ? `${match[1]}prehled/` : url;
 }
 
 function deduplicateRadarItems(items: RadarSnapshot["items"]) {

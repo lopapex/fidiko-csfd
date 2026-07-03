@@ -413,7 +413,7 @@ async function resolveSeriesPremieres(
         items: seasons.map((season) => ({
           ...candidate,
           name: `${details.name ?? candidate.name} - Série ${season.season_number}`,
-          original_name: `${details.original_name ?? candidate.original_name ?? candidate.name} - Season ${season.season_number}`,
+          original_name: `${details.original_name ?? candidate.original_name ?? candidate.name} - Série ${season.season_number}`,
           overview: details.overview ?? candidate.overview,
           poster_path: season.poster_path ?? details.poster_path ?? candidate.poster_path,
           first_air_date: season.air_date ?? undefined
