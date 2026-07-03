@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, type RadarCsfdMatch } from "../radar-csfd";
+import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
 import type { RadarItem } from "../radar-refresh";
 
 const match: RadarCsfdMatch = {
@@ -67,6 +67,21 @@ describe("Radar CSFD cache", () => {
 
     expect(extractRootCsfdFilmId(seasonUrl)).toBe(785031);
     expect(createRootCsfdUrl(seasonUrl)).toBe("https://www.csfd.cz/film/785031-rod-draka/prehled/");
+  });
+
+  it("does not reuse nested season CSFD matches for series", () => {
+    expect(shouldReuseRadarCsfdMatch({
+      mediaType: "series",
+      csfd: { ...match, url: "https://www.csfd.cz/film/785031-rod-draka/1552381-serie-3/prehled/" },
+    })).toBe(false);
+    expect(shouldReuseRadarCsfdMatch({
+      mediaType: "series",
+      csfd: { ...match, url: "https://www.csfd.cz/film/785031-rod-draka/prehled/" },
+    })).toBe(true);
+    expect(shouldReuseRadarCsfdMatch({
+      mediaType: "movie",
+      csfd: { ...match, url: "https://www.csfd.cz/film/1-film/2-edice/prehled/" },
+    })).toBe(true);
   });
 
   it("matches a localized CSFD title through its original alternative title", () => {

@@ -4,7 +4,7 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v10";
+const CACHE_VERSION = "v11";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -48,7 +48,7 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
   const entries = [...unique.entries()];
   const matches = await mapConcurrent(entries, LOOKUP_CONCURRENCY, async ([key, item]) => [
     key,
-    item.csfd ?? await loadMatch(item)
+    shouldReuseRadarCsfdMatch(item) ? item.csfd : await loadMatch(item)
   ] as const);
   const byItem = new Map(matches);
 
@@ -145,7 +145,7 @@ async function loadMatch(item: RadarItem) {
 
   try {
     const cached = await store.get(key, { type: "json" }) as CachedRadarCsfd | null;
-    if (cached && isCachedRadarCsfdFresh(cached)) {
+    if (cached && isCachedRadarCsfdFresh(cached) && shouldReuseCachedRadarCsfd(item, cached)) {
       return cached.match;
     }
   } catch (error) {
@@ -224,6 +224,18 @@ export function createCachedRadarCsfd(
   return result.status === "matched"
     ? { status: "matched", checkedAt, match: result.match }
     : { status: "not_found", checkedAt, match: null };
+}
+
+export function shouldReuseRadarCsfdMatch(item: Pick<RadarItem, "mediaType" | "csfd">) {
+  return Boolean(item.csfd && shouldReuseCsfdUrl(item.mediaType, item.csfd.url));
+}
+
+function shouldReuseCachedRadarCsfd(item: Pick<RadarItem, "mediaType">, cached: CachedRadarCsfd) {
+  return !cached.match || shouldReuseCsfdUrl(item.mediaType, cached.match.url);
+}
+
+function shouldReuseCsfdUrl(mediaType: RadarMediaType, url: string) {
+  return mediaType !== "series" || !isNestedCsfdSeasonUrl(url);
 }
 
 function selectCzechStreamingDate(
@@ -323,6 +335,10 @@ export function extractRootCsfdFilmId(url: string | null | undefined) {
 export function createRootCsfdUrl(url: string) {
   const match = url.match(/^(https?:\/\/www\.csfd\.cz\/film\/\d+(?:-[^/]+)?\/)/);
   return match ? `${match[1]}prehled/` : url;
+}
+
+function isNestedCsfdSeasonUrl(url: string) {
+  return /\/film\/\d+(?:-[^/]+)?\/\d+(?:-[^/]+)?\//.test(url);
 }
 
 function optimizeCsfdPoster(url: string | null) {
