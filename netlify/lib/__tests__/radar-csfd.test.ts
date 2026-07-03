@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, selectRootSeriesCandidate, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
+import { buildLookupQueries, buildRootSeriesQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, selectRootSeriesCandidate, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
 import type { RadarItem } from "../radar-refresh";
 
 const match: RadarCsfdMatch = {
@@ -48,6 +48,16 @@ describe("Radar CSFD cache", () => {
       "Test Title - Season 3",
       "Testovací titul",
       "Test Title",
+    ]);
+  });
+
+  it("builds root series queries from localized and original season titles", () => {
+    expect(buildRootSeriesQueries({
+      title: "Medv\u011bd - S\u00e9rie 5",
+      originalTitle: "The Bear - Season 5",
+    })).toEqual([
+      "Medv\u011bd",
+      "The Bear",
     ]);
   });
 

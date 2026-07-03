@@ -106,6 +106,63 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
   return items.filter((item): item is RadarItem => item !== null);
 }
 
+export async function fetchCsfdSeriesStreamingItemsFromCandidates(
+  candidates: RadarItem[],
+  rangeStart: string,
+  rangeEnd: string,
+) {
+  const seriesCandidates = new Map<string, RadarItem>();
+  for (const candidate of candidates) {
+    if (candidate.mediaType !== "series" || candidate.channel !== "streaming") continue;
+    const key = `${candidate.tmdbId}-${stripAnySeasonSuffix(candidate.title) ?? candidate.title}`;
+    if (!seriesCandidates.has(key)) seriesCandidates.set(key, candidate);
+  }
+
+  const items = await mapConcurrent<RadarItem, RadarItem | null>(
+    [...seriesCandidates.values()],
+    LOOKUP_CONCURRENCY,
+    async (candidate) => {
+      const root = await findRootSeriesCandidateFromQueries(buildRootSeriesQueries(candidate));
+      if (!root) return null;
+
+      const details = await withTimeout(csfd.movie(root.id), LOOKUP_TIMEOUT_MS, null);
+      if (!details?.url || !details.title) return null;
+
+      const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" })
+        .filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
+      if (vodPremieres.length === 0) return null;
+
+      const titleSuffix = extractSeasonSuffix(candidate.title) ?? extractSeasonSuffix(candidate.originalTitle);
+      const title = formatPrimaryStreamingTitle(details.title, details.seasonName, titleSuffix ?? undefined);
+      const ratingDetails = await loadSeriesRatingDetails(details, "series");
+      const releaseDate = vodPremieres[0].date;
+      const csfdMatch: RadarCsfdMatch = {
+        title,
+        rating: numberOrNull(ratingDetails.rating),
+        ratingCount: numberOrNull(ratingDetails.ratingCount),
+        url: ratingDetails.url,
+        releaseDate,
+        vodPremieres,
+      };
+
+      return {
+        ...candidate,
+        id: `series-${candidate.tmdbId}-csfd-root-streaming-${releaseDate}`,
+        title,
+        originalTitle: stripAnySeasonSuffix(candidate.originalTitle),
+        releaseDate,
+        posterUrl: candidate.posterUrl ?? optimizeCsfdPoster(details.poster ?? null),
+        overview: candidate.overview || details.descriptions?.[0] || "",
+        providers: [],
+        watchUrl: null,
+        csfd: csfdMatch,
+      } satisfies RadarItem;
+    },
+  );
+
+  return items.filter((item): item is RadarItem => item !== null);
+}
+
 export function formatPrimaryStreamingTitle(title: string, seasonName: string | null | undefined, titleSuffix?: string) {
   if (titleSuffix && !title.toLocaleLowerCase("cs-CZ").endsWith(titleSuffix.toLocaleLowerCase("cs-CZ"))) {
     return `${title} - ${titleSuffix}`;
@@ -159,13 +216,32 @@ async function loadSeriesRatingDetails(details: CSFDMovie, mediaType: RadarMedia
 }
 
 async function findRootSeriesCandidate(title: string) {
+  return findRootSeriesCandidateFromQueries([title]);
+}
+
+async function findRootSeriesCandidateFromQueries(queries: string[]) {
   try {
-    const result = await csfd.search(title);
-    return selectRootSeriesCandidate(result.tvSeries ?? [], title);
+    for (const query of queries) {
+      const result = await csfd.search(query);
+      const rootCandidates = (result.tvSeries ?? []).filter(isRootSeriesSearchResult);
+      const exactCandidate = selectRootSeriesCandidate(rootCandidates, query);
+      if (exactCandidate) return exactCandidate;
+      const detailedCandidate = await selectRootSeriesCandidateByDetails(rootCandidates, query);
+      if (detailedCandidate) return detailedCandidate;
+    }
+    return null;
   } catch (error) {
-    console.warn(`Radar CSFD root series lookup failed for "${title}"`, error);
+    console.warn(`Radar CSFD root series lookup failed for "${queries.join(", ")}"`, error);
     return null;
   }
+}
+
+async function selectRootSeriesCandidateByDetails(candidates: CSFDSearchMovie[], query: string) {
+  for (const candidate of candidates.slice(0, 5)) {
+    const details = await withTimeout(csfd.movie(candidate.id), LOOKUP_TIMEOUT_MS, null);
+    if (isDetailedTitleMatch(candidate, details, query)) return candidate;
+  }
+  return null;
 }
 
 async function loadMatch(item: RadarItem) {
@@ -233,8 +309,16 @@ async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
 
 export function buildLookupQueries(item: Pick<RadarItem, "mediaType" | "title" | "originalTitle">) {
   const queries = item.mediaType === "series"
-    ? [item.title, item.originalTitle, stripSeasonSuffix(item.title), stripSeasonSuffix(item.originalTitle)]
+    ? [item.title, item.originalTitle, stripAnySeasonSuffix(item.title), stripAnySeasonSuffix(item.originalTitle)]
     : [item.title, item.originalTitle];
+  return queries.filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
+}
+
+export function buildRootSeriesQueries(item: Pick<RadarItem, "title" | "originalTitle">) {
+  const queries = [
+    stripAnySeasonSuffix(item.title) ?? item.title,
+    stripAnySeasonSuffix(item.originalTitle) ?? item.originalTitle,
+  ];
   return queries.filter((value, index, values): value is string => Boolean(value) && values.indexOf(value) === index);
 }
 
@@ -311,11 +395,12 @@ export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem,
 export function selectRootSeriesCandidate(candidates: CSFDSearchMovie[], title: string) {
   const normalizedTitle = comparableTitle(title);
   return candidates
-    .filter((candidate) => (
-      (candidate.type === "series" || candidate.type === "tv-show")
-      && comparableTitle(candidate.title) === normalizedTitle
-    ))
+    .filter((candidate) => isRootSeriesSearchResult(candidate) && comparableTitle(candidate.title) === normalizedTitle)
     .sort((left, right) => right.year - left.year)[0] ?? null;
+}
+
+function isRootSeriesSearchResult(candidate: CSFDSearchMovie) {
+  return candidate.type === "series" || candidate.type === "tv-show";
 }
 
 function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number, mediaType: RadarMediaType) {
@@ -355,6 +440,15 @@ function comparableTitle(value: string) {
 
 function stripSeasonSuffix(value: string | null) {
   return value?.replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "").trim() || null;
+}
+
+function stripAnySeasonSuffix(value: string | null) {
+  return value?.replace(/\s*-\s*(?:s(?:\u00e9|e|\u00c3\u00a9)rie|serie|season)\s+\d+\s*$/iu, "").trim() || null;
+}
+
+function extractSeasonSuffix(value: string | null) {
+  const match = value?.match(/(?:s(?:\u00e9|e|\u00c3\u00a9)rie|serie|season)\s+(\d+)/iu);
+  return match ? `S\u00e9rie ${match[1]}` : null;
 }
 
 function formatSeasonTitle(title: string, seasonName?: string | null) {

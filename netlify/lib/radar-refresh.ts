@@ -1,5 +1,5 @@
 import { getStore } from "@netlify/blobs";
-import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
+import { enrichRadarItemsWithCsfd, fetchCsfdPrimaryStreamingItems, fetchCsfdSeriesStreamingItemsFromCandidates, type CsfdPrimaryStreamingSeed, type RadarCsfdMatch } from "./radar-csfd";
 import { cleanupRadarWeekCache, getRadarStore, getStaleRadarWeekKeys, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION, readRadarSnapshot } from "./radar-cache";
 import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
 import { getProviderLink, getProviderMetadata, isAllowedProvider, type ProviderLinkType } from "./radar-providers";
@@ -24,6 +24,7 @@ const CSFD_PRIMARY_STREAMING_SEEDS: CsfdPrimaryStreamingSeed[] = [
   { csfdId: 1494570, mediaType: "series" },
   { csfdId: 1552381, mediaType: "series" },
   { csfdId: 1140499, mediaType: "series", titleSuffix: "Série 2" },
+  { csfdId: 1184280, mediaType: "series", titleSuffix: "Série 5" },
 ];
 
 export type RadarMediaType = "movie" | "series";
@@ -160,6 +161,12 @@ async function buildRadarSnapshot(
     : { items: [], succeeded: false };
   const providersMs = performance.now() - providersStarted;
 
+  const csfdDiscoveryStarted = performance.now();
+  const csfdDiscoveredSeries = seriesStreamingSource.succeeded
+    ? await fetchCsfdSeriesStreamingItemsFromCandidates(seriesStreamingSource.items, rangeStart, rangeEnd)
+    : [];
+  const csfdDiscoveryMs = performance.now() - csfdDiscoveryStarted;
+
   const builtAt = new Date().toISOString();
   const cinema = resolveSource("cinemaMovies", cinemaSource, previous, rangeStart, rangeEnd, builtAt);
   const movies = resolveSource("streamingMovies", movieStreamingSource, previous, rangeStart, rangeEnd, builtAt);
@@ -175,7 +182,7 @@ async function buildRadarSnapshot(
   }
 
   const csfdStarted = performance.now();
-  const discoveredItems = deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming]);
+  const discoveredItems = deduplicateItems([...cinema.items, ...movies.items, ...series.items, ...csfdStreaming, ...csfdDiscoveredSeries]);
   const seededItems = seedItemsWithKnownCsfd(discoveredItems, previous, schedule);
   const enrichedItems = await enrichRadarItemsWithCsfd(seededItems);
   const csfdMs = performance.now() - csfdStarted;
@@ -198,6 +205,7 @@ async function buildRadarSnapshot(
     timingsMs: {
       discovery: Math.round(discoveryMs),
       providers: Math.round(providersMs),
+      csfdDiscovery: Math.round(csfdDiscoveryMs),
       csfd: Math.round(csfdMs),
       linking: Math.round(linkingMs),
       total: Math.round(performance.now() - totalStarted)

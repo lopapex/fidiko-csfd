@@ -255,6 +255,38 @@ describe("Radar integration", () => {
     expect(item.providers.map((provider) => provider.name)).toEqual(["Disney Plus"]);
   });
 
+  it("keeps The Bear season premiere from the CSFD root series VOD date", () => {
+    const bear: RadarItem = {
+      ...baseItem,
+      id: "series-csfd-1184280-streaming-2022-06-23",
+      tmdbId: -1184280,
+      mediaType: "series",
+      channel: "streaming",
+      title: "Medvěd - Série 5",
+      releaseDate: "2022-06-23",
+      providers: [],
+      csfd: {
+        title: "Medvěd - Série 5",
+        rating: 84,
+        ratingCount: 4888,
+        url: "https://www.csfd.cz/film/1184280/prehled/",
+        releaseDate: "2022-06-23",
+        vodPremieres: [
+          { date: "2022-06-23", provider: "Disney+" },
+          { date: "2023-06-22", provider: "Disney+" },
+          { date: "2024-06-27", provider: "Disney+" },
+          { date: "2025-06-25", provider: "Disney+" },
+          { date: "2026-06-25", provider: "Disney+" },
+        ],
+      },
+    };
+
+    const [item] = prepareRadarItemsForSnapshot([bear], "2026-06-22", "2026-06-28");
+
+    expect(item.releaseDate).toBe("2026-06-25");
+    expect(item.providers.map((provider) => provider.name)).toEqual(["Disney Plus"]);
+  });
+
   it("prefers CSFD VOD providers over TMDb providers", () => {
     const item: RadarItem = {
       ...baseItem,
@@ -425,10 +457,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v20",
-      "week-v19/2026-06-15",
-      "week-v19/2026-06-22",
-      "week-v18/2026-06-22",
+      "current-v22",
+      "week-v21/2026-06-15",
+      "week-v21/2026-06-22",
+      "week-v20/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -436,13 +468,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v19/not-a-date",
+      "week-v21/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v19/2026-06-15",
-      "week-v18/2026-06-22",
+      "week-v21/2026-06-15",
+      "week-v20/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
