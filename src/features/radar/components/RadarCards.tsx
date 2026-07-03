@@ -151,11 +151,19 @@ export function RadarReleaseCell({
                 aria-label={label}
                 key={provider.id}
               >
-                <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+                {provider.logoUrl ? (
+                  <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+                ) : (
+                  <span>{provider.name}</span>
+                )}
               </a>
             ) : (
               <span className={getProviderTileClassName(provider)} title={provider.name} key={provider.id}>
-                <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+                {provider.logoUrl ? (
+                  <img src={provider.logoUrl} alt="" width="28" height="28" loading="lazy" />
+                ) : (
+                  <span>{provider.name}</span>
+                )}
               </span>
             );
           })}
@@ -255,13 +263,15 @@ export function RadarCard({
                     aria-label={label}
                     key={provider.id}
                   >
-                    <img
-                      src={provider.logoUrl}
-                      alt=""
-                      width="32"
-                      height="32"
-                      loading="lazy"
-                    />
+                    {provider.logoUrl ? (
+                      <img
+                        src={provider.logoUrl}
+                        alt=""
+                        width="32"
+                        height="32"
+                        loading="lazy"
+                      />
+                    ) : null}
                     <span>{provider.name}</span>
                   </a>
                 ) : (
@@ -270,13 +280,15 @@ export function RadarCard({
                     title={`${provider.name} nemá dostupný přímý odkaz`}
                     key={provider.id}
                   >
-                    <img
-                      src={provider.logoUrl}
-                      alt=""
-                      width="32"
-                      height="32"
-                      loading="lazy"
-                    />
+                    {provider.logoUrl ? (
+                      <img
+                        src={provider.logoUrl}
+                        alt=""
+                        width="32"
+                        height="32"
+                        loading="lazy"
+                      />
+                    ) : null}
                     <span>{provider.name}</span>
                   </span>
                 );

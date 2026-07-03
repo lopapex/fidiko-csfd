@@ -61,9 +61,9 @@ export type ScheduleResponse = {
 export type RadarProvider = {
   id: number;
   name: string;
-  logoUrl: string;
+  logoUrl: string | null;
   url: string | null;
-  linkType: "search" | "homepage";
+  linkType?: "search" | "homepage";
   mobileUrl?: string;
   mobileLinkType?: "search" | "homepage";
 };

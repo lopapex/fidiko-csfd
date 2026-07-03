@@ -123,8 +123,9 @@ describe("Radar integration", () => {
     expect(linkProgramMatches([baseItem], schedule, { dateISO: "2026-06-21", time: "21:00" })[0].program).toBeNull();
   });
 
-  it.each(["Lepší.TV", "CANAL+", "Canal Plus"])("hides provider %s", provider => {
-    expect(isHiddenProvider(provider)).toBe(true);
+  it.each(["Lepší.TV", "CANAL+", "Canal Plus", "MUBI", "Crunchyroll", "Rakuten TV", "Voyo"])("keeps provider %s visible", provider => {
+    expect(isHiddenProvider(provider)).toBe(false);
+    expect(isAllowedProvider(provider)).toBe(true);
   });
 
   it.each([
@@ -138,10 +139,6 @@ describe("Radar integration", () => {
     "Netflix",
   ])("allows provider %s", provider => {
     expect(isAllowedProvider(provider)).toBe(true);
-  });
-
-  it.each(["MUBI", "Crunchyroll", "Rakuten TV", "Voyo"])("rejects provider %s", provider => {
-    expect(isAllowedProvider(provider)).toBe(false);
   });
 
   it.each([
@@ -435,7 +432,36 @@ describe("Radar integration", () => {
     expect(result[0].csfd?.url).toBe("https://www.csfd.cz/film/1857608/prehled/");
   });
 
-  it("removes streaming items without a whitelisted CSFD VOD premiere", () => {
+  it("keeps streaming items with an unknown CSFD VOD provider", () => {
+    const withUnknownVodProvider: RadarItem = {
+      ...baseItem,
+      mediaType: "series",
+      channel: "streaming",
+      releaseDate: "2026-07-01",
+      providers: [],
+      csfd: {
+        title: "Test",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1/prehled/",
+        releaseDate: "2026-07-01",
+        vodPremieres: [{ date: "2026-07-01", provider: "MUBI" }],
+      },
+    };
+
+    const [item] = prepareRadarItemsForSnapshot([withUnknownVodProvider], "2026-06-29", "2026-07-05");
+
+    expect(item.providers).toEqual([{
+      id: expect.any(Number),
+      name: "MUBI",
+      logoUrl: null,
+      url: null,
+      linkType: undefined,
+    }]);
+    expect(item.providers[0].id).toBeLessThan(0);
+  });
+
+  it("removes streaming items without a CSFD VOD premiere", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,
       mediaType: "series",
@@ -519,10 +545,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v25",
-      "week-v24/2026-06-15",
+      "current-v26",
+      "week-v25/2026-06-15",
+      "week-v25/2026-06-22",
       "week-v24/2026-06-22",
-      "week-v23/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -530,13 +556,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v24/not-a-date",
+      "week-v25/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v24/2026-06-15",
-      "week-v23/2026-06-22",
+      "week-v25/2026-06-15",
+      "week-v24/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

@@ -84,7 +84,7 @@ const PROVIDERS: ProviderDefinition[] = [
 ];
 
 export function isAllowedProvider(name: string) {
-  return Boolean(findProvider(name));
+  return Boolean(normalizeProviderName(name));
 }
 
 export function getProviderLink(name: string, title?: string) {
@@ -111,7 +111,15 @@ export function getProviderLink(name: string, title?: string) {
 
 export function getProviderMetadata(name: string) {
   const provider = findProvider(name);
-  if (!provider) return null;
+  if (!provider) {
+    const normalized = normalizeProviderName(name);
+    if (!normalized) return null;
+    return {
+      id: createFallbackProviderId(normalized),
+      name: name.trim(),
+      logoPath: null,
+    };
+  }
   return {
     id: provider.id,
     name: provider.name,
@@ -138,3 +146,11 @@ function normalizeProviderName(name: string) {
     .replace(/[^a-z0-9]+/g, " ")
     .trim();
 }
+
+const createFallbackProviderId = (normalized: string) => {
+  let hash = 0;
+  for (let index = 0; index < normalized.length; index += 1) {
+    hash = (hash * 31 + normalized.charCodeAt(index)) >>> 0;
+  }
+  return -Math.max(1, hash);
+};

@@ -49,7 +49,7 @@ export type RadarChannel = "cinema" | "streaming";
 export type RadarProvider = {
   id: number;
   name: string;
-  logoUrl: string;
+  logoUrl: string | null;
   url: string | null;
   linkType?: ProviderLinkType;
   mobileUrl?: string;

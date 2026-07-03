@@ -267,6 +267,15 @@
   box-shadow: 0 1px 3px rgb(0 0 0 / 0.18);
 }
 
+.provider-list > .provider-tile-text {
+  width: auto;
+  max-width: 120px;
+  padding: 4px 7px;
+  background: #f4f4f4;
+  line-height: 1.05;
+  text-align: center;
+}
+
 .provider-list > a:hover {
   background: transparent;
   filter: brightness(1.08);
@@ -276,6 +285,13 @@
 .provider-list > a span,
 .provider-list > span span {
   display: none;
+}
+
+.provider-list > .provider-tile-text span {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .provider-list > .provider-csfd-link {

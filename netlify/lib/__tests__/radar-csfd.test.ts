@@ -28,13 +28,14 @@ describe("Radar CSFD cache", () => {
     expect(createCachedRadarCsfd({ status: "error" }, checkedAt)).toBeNull();
   });
 
-  it("extracts only whitelisted VOD premieres and normalizes dates", () => {
+  it("extracts all VOD premieres and normalizes dates", () => {
     expect(selectCzechVodPremieres([
       { format: "Na VOD", date: "01.07.2026", company: "Prime Video" },
       { format: "Na VOD", date: "2026-07-02", company: "MUBI" },
       { format: "V kinech", date: "2026-07-03", company: "Netflix" },
     ], { channel: "streaming" })).toEqual([
       { date: "2026-07-01", provider: "Prime Video" },
+      { date: "2026-07-02", provider: "MUBI" },
     ]);
   });
 

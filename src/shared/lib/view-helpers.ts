@@ -116,7 +116,7 @@ export const getProviderHref = (provider: RadarProvider, preferMobile: boolean) 
 }
 
 export const getProviderTileClassName = (provider: RadarProvider) => {
-  return "provider-tile";
+  return provider.logoUrl ? "provider-tile" : "provider-tile provider-tile-text";
 }
 
 export const isHboMaxProvider = (provider: RadarProvider) => {

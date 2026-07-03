@@ -8,7 +8,7 @@ export type RadarCandidateStage = "discover" | "resolve" | "enrich" | "decide" |
 export type RadarRejectReason =
   | "no_csfd_match"
   | "episode_match"
-  | "no_whitelisted_vod"
+  | "no_csfd_vod"
   | "outside_week"
   | "duplicate";
 
@@ -84,7 +84,7 @@ const decideCandidate = (candidate: RadarCandidate, rangeStart: string, rangeEnd
   const published = applyCsfdStreamingProvider(item, rangeStart, rangeEnd);
   if (!published) {
     const hasVodInRange = (item.csfd.vodPremieres ?? []).some((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
-    return reject(candidate, hasVodInRange ? "no_whitelisted_vod" : "outside_week");
+    return reject(candidate, hasVodInRange ? "no_csfd_vod" : "outside_week");
   }
 
   return publish({ ...candidate, item: published, evidence: [...candidate.evidence, "csfd_vod"] });
@@ -113,7 +113,7 @@ const createProvidersFromCsfdPremieres = (premieres: RadarCsfdMatch["vodPremiere
     unique.set(metadata.id, {
       id: metadata.id,
       name: metadata.name,
-      logoUrl: `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}`,
+      logoUrl: metadata.logoPath ? `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}` : null,
       ...getProviderLink(metadata.name, title),
     });
   }
