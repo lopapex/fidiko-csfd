@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
+import { buildLookupQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, selectRootSeriesCandidate, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
 import type { RadarItem } from "../radar-refresh";
 
 const match: RadarCsfdMatch = {
@@ -82,6 +82,16 @@ describe("Radar CSFD cache", () => {
       mediaType: "movie",
       csfd: { ...match, url: "https://www.csfd.cz/film/1-film/2-edice/prehled/" },
     })).toBe(true);
+  });
+
+  it("selects the root series candidate instead of season or episode matches", () => {
+    const candidates = [
+      { id: 1742524, title: "Lioness - Season 3", year: 2026, url: "https://www.csfd.cz/film/1742524/prehled/", type: "season" },
+      { id: 1742531, title: "Lioness - Episode 7", year: 2026, url: "https://www.csfd.cz/film/924250-lioness/1742531-episode-7/prehled/", type: "episode" },
+      { id: 924250, title: "Lioness", year: 2023, url: "https://www.csfd.cz/film/924250-lioness/prehled/", type: "series" },
+    ] as Parameters<typeof selectRootSeriesCandidate>[0];
+
+    expect(selectRootSeriesCandidate(candidates, "Lioness")?.id).toBe(924250);
   });
 
   it("matches a localized CSFD title through its original alternative title", () => {

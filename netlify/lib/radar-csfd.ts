@@ -4,7 +4,7 @@ import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v11";
+const CACHE_VERSION = "v12";
 const LOOKUP_CONCURRENCY = 8;
 const LOOKUP_TIMEOUT_MS = 5000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
@@ -122,21 +122,50 @@ async function loadSeriesRatingDetails(details: CSFDMovie, mediaType: RadarMedia
     };
   }
 
-  const rootId = extractRootCsfdFilmId(details.url);
-  if (!rootId) {
-    return {
-      url: details.url,
-      rating: details.rating,
-      ratingCount: details.ratingCount,
-    };
+  const rootId = isNestedCsfdSeasonUrl(details.url)
+    ? extractRootCsfdFilmId(details.url)
+    : null;
+
+  if (rootId) {
+    const rootDetails = await withTimeout(csfd.movie(rootId), LOOKUP_TIMEOUT_MS, null);
+    if (rootDetails?.url) {
+      return {
+        url: rootDetails.url,
+        rating: rootDetails.rating,
+        ratingCount: rootDetails.ratingCount,
+      };
+    }
   }
 
-  const rootDetails = await withTimeout(csfd.movie(rootId), LOOKUP_TIMEOUT_MS, null);
+  if (details.seasonName) {
+    const rootCandidate = await findRootSeriesCandidate(details.title);
+    const fallbackRoot = rootCandidate
+      ? await withTimeout(csfd.movie(rootCandidate.id), LOOKUP_TIMEOUT_MS, null)
+      : null;
+    if (fallbackRoot?.url) {
+      return {
+        url: fallbackRoot.url,
+        rating: fallbackRoot.rating,
+        ratingCount: fallbackRoot.ratingCount,
+      };
+    }
+  }
+
   return {
-    url: rootDetails?.url ?? createRootCsfdUrl(details.url),
-    rating: rootDetails?.rating ?? details.rating,
-    ratingCount: rootDetails?.ratingCount ?? details.ratingCount,
+    url: createRootCsfdUrl(details.url),
+    rating: details.rating,
+    ratingCount: details.ratingCount,
   };
+}
+
+async function findRootSeriesCandidate(title: string) {
+  try {
+    const result = await csfd.search(title);
+    return selectRootSeriesCandidate(result.tvSeries ?? [], title);
+  } catch (error) {
+    console.warn(`Radar CSFD root series lookup failed for "${title}"`, error);
+    return null;
+  }
 }
 
 async function loadMatch(item: RadarItem) {
@@ -277,6 +306,16 @@ export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem,
     .sort((left, right) => right.score - left.score)
     .slice(0, 5)
     .map(({ candidate }) => candidate);
+}
+
+export function selectRootSeriesCandidate(candidates: CSFDSearchMovie[], title: string) {
+  const normalizedTitle = comparableTitle(title);
+  return candidates
+    .filter((candidate) => (
+      (candidate.type === "series" || candidate.type === "tv-show")
+      && comparableTitle(candidate.title) === normalizedTitle
+    ))
+    .sort((left, right) => right.year - left.year)[0] ?? null;
 }
 
 function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number, mediaType: RadarMediaType) {
