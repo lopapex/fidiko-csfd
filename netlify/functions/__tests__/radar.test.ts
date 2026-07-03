@@ -121,13 +121,13 @@ describe("Radar reader", () => {
       ...snapshot,
       items: [{
         ...snapshot.items[1],
-        providers: [{ id: -1, name: "MUBI", logoUrl: null, url: null }],
+        providers: [{ id: -1, name: "Tiny Streamer", logoUrl: null, url: null }],
         csfd: { title: "Seriál", rating: null, ratingCount: null, url: "https://www.csfd.cz/film/1/prehled/", releaseDate: "2026-06-22", vodPremieres: [{ date: "2026-06-22", provider: "Netflix" }] }
       }],
     };
     const items = filterRadarItems(providerSnapshot, "2026-06-15", "2026-06-28", "all");
     expect(items).toHaveLength(1);
-    expect(items[0].providers[0]).toMatchObject({ name: "MUBI", logoUrl: null, url: null });
+    expect(items[0].providers[0]).toMatchObject({ name: "Tiny Streamer", logoUrl: null, url: null });
   });
 
   it("removes a streaming series without providers or CSFD fallback", () => {

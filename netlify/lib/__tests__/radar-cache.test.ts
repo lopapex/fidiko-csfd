@@ -4,17 +4,17 @@ import { getStaleRadarWeekKeys } from "../radar-cache";
 describe("Radar cache helpers", () => {
   it("removes weekly snapshots outside retained weeks and older versions", () => {
     const keys = [
-      "current-v26",
+      "current-v27",
+      "week-v26/2026-06-29",
+      "week-v26/2026-07-06",
       "week-v25/2026-06-29",
-      "week-v25/2026-07-06",
-      "week-v24/2026-06-29",
       "week-v99/not-a-date",
       "other/2026-06-29",
     ];
 
     expect(getStaleRadarWeekKeys(keys, new Set(["2026-06-29"]))).toEqual([
-      "week-v25/2026-07-06",
-      "week-v24/2026-06-29",
+      "week-v26/2026-07-06",
+      "week-v25/2026-06-29",
     ]);
   });
 });

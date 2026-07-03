@@ -221,11 +221,16 @@ async function findRootSeriesCandidate(title: string) {
 
 async function findRootSeriesCandidateFromQueries(queries: string[]) {
   try {
+    const searched = [];
     for (const query of queries) {
       const result = await csfd.search(query);
       const rootCandidates = (result.tvSeries ?? []).filter(isRootSeriesSearchResult);
+      searched.push({ query, rootCandidates });
       const exactCandidate = selectRootSeriesCandidate(rootCandidates, query);
       if (exactCandidate) return exactCandidate;
+    }
+
+    for (const { query, rootCandidates } of searched) {
       const detailedCandidate = await selectRootSeriesCandidateByDetails(rootCandidates, query);
       if (detailedCandidate) return detailedCandidate;
     }
@@ -489,10 +494,14 @@ function optimizeCsfdPoster(url: string | null) {
 
 function isPlausibleTitleMatch(candidate: string, query: string) {
   if (!candidate || !query) return false;
-  if (candidate === query || candidate.includes(query) || query.includes(candidate)) return true;
+  if (candidate === query) return true;
+  const queryWordList = query.split(" ").filter((word) => word.length > 2);
+  if (queryWordList.length === 1) {
+    return candidate === `the ${query}` || candidate === `a ${query}` || candidate === `an ${query}`;
+  }
+  if (candidate.includes(query) || query.includes(candidate)) return true;
   const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
-  const queryWords = query.split(" ").filter((word) => word.length > 2);
-  return queryWords.length > 0 && queryWords.filter((word) => candidateWords.has(word)).length / queryWords.length >= 0.75;
+  return queryWordList.length > 0 && queryWordList.filter((word) => candidateWords.has(word)).length / queryWordList.length >= 0.75;
 }
 
 function slugify(value: string) {

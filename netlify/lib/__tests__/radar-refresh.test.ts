@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { getActiveManualRadarOverrides, getRadarPrecomputeWeekStarts, getSeriesDiscoveryDateFilters, getStaleRadarWeekKeys, isHiddenProvider, linkProgramMatches, prepareRadarItemsForSnapshot, resolveSource, seedItemsWithKnownCsfd, type RadarItem, type RadarSnapshot } from "../radar-refresh";
 import { decideRadarItemsForSnapshot } from "../radar-decision";
-import { getProviderLink, isAllowedProvider } from "../radar-providers";
+import { getProviderLink, getProviderMetadata, isAllowedProvider } from "../radar-providers";
 import type { ScheduleResponse } from "../schedule-scraper";
 
 const baseItem: RadarItem = {
@@ -181,6 +181,17 @@ describe("Radar integration", () => {
       linkType: "homepage",
       mobileUrl: expected,
       mobileLinkType: "homepage",
+    });
+  });
+
+  it.each(["Hulu", "Paramount+", "Peacock", "AMC+", "MGM+", "Starz"])("keeps a disabled icon provider for non-CZ service %s", provider => {
+    expect(getProviderMetadata(provider)).toMatchObject({
+      id: expect.any(Number),
+      logoPath: expect.stringMatching(/^\//),
+    });
+    expect(getProviderLink(provider, "Duna")).toEqual({
+      url: null,
+      linkType: undefined,
     });
   });
 
@@ -445,7 +456,7 @@ describe("Radar integration", () => {
         ratingCount: null,
         url: "https://www.csfd.cz/film/1/prehled/",
         releaseDate: "2026-07-01",
-        vodPremieres: [{ date: "2026-07-01", provider: "MUBI" }],
+        vodPremieres: [{ date: "2026-07-01", provider: "Tiny Streamer" }],
       },
     };
 
@@ -453,7 +464,7 @@ describe("Radar integration", () => {
 
     expect(item.providers).toEqual([{
       id: expect.any(Number),
-      name: "MUBI",
+      name: "Tiny Streamer",
       logoUrl: null,
       url: null,
       linkType: undefined,
@@ -545,10 +556,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v26",
-      "week-v25/2026-06-15",
+      "current-v27",
+      "week-v26/2026-06-15",
+      "week-v26/2026-06-22",
       "week-v25/2026-06-22",
-      "week-v24/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -556,13 +567,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v25/not-a-date",
+      "week-v26/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v25/2026-06-15",
-      "week-v24/2026-06-22",
+      "week-v26/2026-06-15",
+      "week-v25/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

@@ -145,4 +145,32 @@ describe("Radar CSFD cache", () => {
     expect(selectCandidates([candidate], item, "The Death of Robin Hood")).toEqual([candidate]);
     expect(isDetailedTitleMatch(candidate, details, "The Death of Robin Hood")).toBe(true);
   });
+
+  it("prefers the exact original title and year for short series titles", () => {
+    const item = {
+      mediaType: "series",
+      channel: "streaming",
+      title: "Hawk",
+      originalTitle: "The Hawk",
+      releaseDate: "2026-07-16",
+    } as RadarItem;
+    const oldSeries = {
+      id: 71421,
+      title: "Inspektor Hawk",
+      year: 1966,
+      url: "https://www.csfd.cz/film/71421-inspektor-hawk/prehled/",
+      type: "series",
+    } as Parameters<typeof selectCandidates>[0][number];
+    const currentSeries = {
+      id: 1825747,
+      title: "The Hawk",
+      year: 2026,
+      url: "https://www.csfd.cz/film/1825747-the-hawk/prehled/",
+      type: "series",
+    } as Parameters<typeof selectCandidates>[0][number];
+
+    expect(selectCandidates([oldSeries, currentSeries], item, "Hawk")).toEqual([currentSeries]);
+    expect(isDetailedTitleMatch(oldSeries, { title: "Inspektor Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(false);
+    expect(isDetailedTitleMatch(currentSeries, { title: "The Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(true);
+  });
 });
