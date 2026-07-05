@@ -94,7 +94,10 @@ const applyCsfdStreamingProvider = (item: RadarItem, rangeStart: string, rangeEn
   const premieresInRange = (item.csfd?.vodPremieres ?? [])
     .filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
   if (premieresInRange.length === 0) return null;
-  const providers = createProvidersFromCsfdPremieres(premieresInRange, item.title);
+  const csfdProviders = createProvidersFromCsfdPremieres(premieresInRange, item.title);
+  const providers = hasAnyClickableProvider(csfdProviders)
+    ? csfdProviders
+    : mergeProviders(csfdProviders, item.providers.filter(hasClickableProvider));
   if (providers.length === 0) return null;
   const releaseDate = premieresInRange[0].date;
   return {
@@ -116,6 +119,18 @@ const createProvidersFromCsfdPremieres = (premieres: RadarCsfdMatch["vodPremiere
       logoUrl: metadata.logoPath ? `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}` : null,
       ...getProviderLink(metadata.name, title),
     });
+  }
+  return [...unique.values()];
+};
+
+const hasClickableProvider = (provider: RadarProvider) => Boolean(provider.url);
+
+const hasAnyClickableProvider = (providers: RadarProvider[]) => providers.some(hasClickableProvider);
+
+const mergeProviders = (primary: RadarProvider[], fallback: RadarProvider[]) => {
+  const unique = new Map<number, RadarProvider>();
+  for (const provider of [...primary, ...fallback]) {
+    unique.set(provider.id, provider);
   }
   return [...unique.values()];
 };

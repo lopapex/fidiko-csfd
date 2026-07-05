@@ -472,6 +472,39 @@ describe("Radar integration", () => {
     expect(item.providers[0].id).toBeLessThan(0);
   });
 
+  it("adds clickable TMDb CZ providers when CSFD VOD providers are disabled", () => {
+    const itemWithDisabledCsfdProvider: RadarItem = {
+      ...baseItem,
+      mediaType: "series",
+      channel: "streaming",
+      title: "Test",
+      releaseDate: "2026-07-01",
+      providers: [{
+        id: 337,
+        name: "Disney Plus",
+        logoUrl: "https://image.tmdb.org/t/p/w45/97yvRBw1GzX7fXprcF80er19ot.jpg",
+        url: "https://www.disneyplus.com/cs-cz",
+        linkType: "homepage",
+        mobileUrl: "https://www.disneyplus.com/cs-cz",
+        mobileLinkType: "homepage",
+      }],
+      csfd: {
+        title: "Test",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1/prehled/",
+        releaseDate: "2026-07-01",
+        vodPremieres: [{ date: "2026-07-01", provider: "Hulu" }],
+      },
+    };
+
+    const [item] = prepareRadarItemsForSnapshot([itemWithDisabledCsfdProvider], "2026-06-29", "2026-07-05");
+
+    expect(item.providers.map((provider) => provider.name)).toEqual(["Hulu", "Disney Plus"]);
+    expect(item.providers[0]).toMatchObject({ name: "Hulu", url: null });
+    expect(item.providers[1]).toMatchObject({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" });
+  });
+
   it("removes streaming items without a CSFD VOD premiere", () => {
     const withoutCsfd: RadarItem = {
       ...baseItem,
