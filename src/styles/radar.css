@@ -276,6 +276,14 @@
   text-align: center;
 }
 
+.provider-list > span.provider-tile:not(.provider-csfd-link) {
+  background: #eeeeee;
+  box-shadow: inset 0 0 0 1px #d1d1d1;
+  cursor: not-allowed;
+  filter: grayscale(1);
+  opacity: 0.58;
+}
+
 .provider-list > a:hover {
   background: transparent;
   filter: brightness(1.08);
@@ -292,6 +300,10 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.provider-list > span.provider-tile.provider-tile-text {
+  color: #707070;
 }
 
 .provider-list > .provider-csfd-link {
