@@ -543,6 +543,84 @@ describe("Radar integration", () => {
     expect(prepareRadarItemsForSnapshot([item], "2026-06-29", "2026-07-05")).toEqual([]);
   });
 
+  it("publishes Descendants through the narrow Disney TMDb fallback when CSFD has no VOD premiere yet", () => {
+    const descendants: RadarItem = {
+      ...baseItem,
+      mediaType: "movie",
+      channel: "streaming",
+      title: "Následníci: Zlověstná Říše divů",
+      originalTitle: "Descendants: Wicked Wonderland",
+      releaseDate: "2026-07-16",
+      providers: [],
+      csfd: {
+        title: "Následníci: Zlověstná Říše divů",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/1863881-naslednici-zlovestna-rise-divu/prehled/",
+        releaseDate: null,
+        vodPremieres: [],
+      },
+    };
+
+    const decision = decideRadarItemsForSnapshot([descendants], "2026-07-13", "2026-07-19");
+
+    expect(decision.items[0]).toMatchObject({
+      releaseDate: "2026-07-16",
+      providers: [expect.objectContaining({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" })],
+    });
+    expect(decision.diagnostics.rejectedByReason).toEqual({});
+  });
+
+  it("publishes Camp Rock 3 from a CSFD Disney Channel TV premiere", () => {
+    const campRock: RadarItem = {
+      ...baseItem,
+      mediaType: "movie",
+      channel: "streaming",
+      title: "Camp Rock 3",
+      originalTitle: "Camp Rock 3",
+      releaseDate: "2026-08-13",
+      providers: [],
+      csfd: {
+        title: "Camp Rock 3",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/559634-camp-rock-3/prehled/",
+        releaseDate: "2026-08-13",
+        vodPremieres: [],
+      },
+    };
+
+    const decision = decideRadarItemsForSnapshot([campRock], "2026-08-10", "2026-08-16");
+
+    expect(decision.items[0]).toMatchObject({
+      releaseDate: "2026-08-13",
+      providers: [expect.objectContaining({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" })],
+    });
+    expect(decision.diagnostics.rejectedByReason).toEqual({});
+  });
+
+  it("does not publish a non-Disney streaming item without CSFD VOD", () => {
+    const nonDisney: RadarItem = {
+      ...baseItem,
+      mediaType: "movie",
+      channel: "streaming",
+      title: "Ordinary Streaming Film",
+      originalTitle: "Ordinary Streaming Film",
+      releaseDate: "2026-07-16",
+      providers: [],
+      csfd: {
+        title: "Ordinary Streaming Film",
+        rating: null,
+        ratingCount: null,
+        url: "https://www.csfd.cz/film/999/prehled/",
+        releaseDate: null,
+        vodPremieres: [],
+      },
+    };
+
+    expect(prepareRadarItemsForSnapshot([nonDisney], "2026-07-13", "2026-07-19")).toEqual([]);
+  });
+
   it("moves a streaming item into the week using the CSFD Czech VOD date", () => {
     const shifted: RadarItem = {
       ...baseItem,
@@ -589,10 +667,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v27",
-      "week-v26/2026-06-15",
+      "current-v28",
+      "week-v27/2026-06-15",
+      "week-v27/2026-06-22",
       "week-v26/2026-06-22",
-      "week-v25/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -600,13 +678,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v26/not-a-date",
+      "week-v27/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v26/2026-06-15",
-      "week-v25/2026-06-22",
+      "week-v27/2026-06-15",
+      "week-v26/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

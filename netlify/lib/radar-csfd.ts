@@ -361,7 +361,9 @@ function selectCzechStreamingDate(
   item: RadarItem
 ) {
   if (item.channel !== "streaming") return null;
-  return selectCzechVodPremieres(premieres, item)[0]?.date ?? null;
+  return selectCzechVodPremieres(premieres, item)[0]?.date
+    ?? selectDisneyTvPremieres(premieres, item)[0]?.date
+    ?? null;
 }
 
 export function selectCzechVodPremieres(
@@ -383,6 +385,24 @@ export function selectCzechVodPremieres(
   return [...unique.values()].sort((left, right) => (
     left.date.localeCompare(right.date) || left.provider.localeCompare(right.provider, "cs-CZ")
   ));
+}
+
+function selectDisneyTvPremieres(
+  premieres: Array<{ format: string; date: string; company: string }>,
+  item: Pick<RadarItem, "channel">
+): RadarCsfdVodPremiere[] {
+  if (item.channel !== "streaming") return [];
+
+  const unique = new Map<string, RadarCsfdVodPremiere>();
+  for (const premiere of premieres) {
+    if (!comparableTitle(premiere.format).includes("v tv")) continue;
+    if (!comparableTitle(premiere.company).includes("disney channel")) continue;
+    const date = normalizePremiereDate(premiere.date);
+    if (!date) continue;
+    unique.set(`${date}-disney-channel`, { date, provider: "Disney Channel" });
+  }
+
+  return [...unique.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
 export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {

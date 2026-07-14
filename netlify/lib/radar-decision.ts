@@ -36,6 +36,11 @@ export type RadarDecisionResult = {
   diagnostics: RadarDecisionDiagnostics;
 };
 
+type StreamingProviderApplication = {
+  item: RadarItem;
+  evidence: "csfd_vod" | "disney_tv_fallback" | "disney_tmdb_fallback";
+};
+
 export const prepareRadarItemsForSnapshot = (
   items: RadarItem[],
   rangeStart: string,
@@ -87,25 +92,25 @@ const decideCandidate = (candidate: RadarCandidate, rangeStart: string, rangeEnd
     return reject(candidate, hasVodInRange ? "no_csfd_vod" : "outside_week");
   }
 
-  return publish({ ...candidate, item: published, evidence: [...candidate.evidence, "csfd_vod"] });
+  return publish({ ...candidate, item: published.item, evidence: [...candidate.evidence, published.evidence] });
 };
 
-const applyCsfdStreamingProvider = (item: RadarItem, rangeStart: string, rangeEnd: string) => {
+const applyCsfdStreamingProvider = (item: RadarItem, rangeStart: string, rangeEnd: string): StreamingProviderApplication | null => {
   const premieresInRange = (item.csfd?.vodPremieres ?? [])
     .filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
-  if (premieresInRange.length === 0) return null;
-  const csfdProviders = createProvidersFromCsfdPremieres(premieresInRange, item.title);
-  const providers = hasAnyClickableProvider(csfdProviders)
-    ? csfdProviders
-    : mergeProviders(csfdProviders, item.providers.filter(hasClickableProvider));
-  if (providers.length === 0) return null;
-  const releaseDate = premieresInRange[0].date;
-  return {
-    ...item,
-    id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
-    releaseDate,
-    providers,
-  } satisfies RadarItem;
+  if (premieresInRange.length > 0) {
+    const csfdProviders = createProvidersFromCsfdPremieres(premieresInRange, item.title);
+    const providers = hasAnyClickableProvider(csfdProviders)
+      ? csfdProviders
+      : mergeProviders(csfdProviders, item.providers.filter(hasClickableProvider));
+    if (providers.length === 0) return null;
+    return {
+      item: createStreamingItemWithProviders(item, premieresInRange[0].date, providers),
+      evidence: "csfd_vod",
+    };
+  }
+
+  return applyDisneyStreamingFallback(item, rangeStart, rangeEnd);
 };
 
 const createProvidersFromCsfdPremieres = (premieres: RadarCsfdMatch["vodPremieres"], title: string) => {
@@ -133,6 +138,49 @@ const mergeProviders = (primary: RadarProvider[], fallback: RadarProvider[]) => 
     unique.set(provider.id, provider);
   }
   return [...unique.values()];
+};
+
+const applyDisneyStreamingFallback = (
+  item: RadarItem,
+  rangeStart: string,
+  rangeEnd: string
+): StreamingProviderApplication | null => {
+  if (!isDisneyCandidate(item)) return null;
+  const releaseDate = item.csfd?.releaseDate && item.csfd.releaseDate >= rangeStart && item.csfd.releaseDate <= rangeEnd
+    ? item.csfd.releaseDate
+    : item.releaseDate;
+  if (releaseDate < rangeStart || releaseDate > rangeEnd) return null;
+  const provider = createDisneyPlusProvider(item.title);
+  if (!provider) return null;
+  return {
+    item: createStreamingItemWithProviders(item, releaseDate, [provider]),
+    evidence: item.csfd?.releaseDate === releaseDate ? "disney_tv_fallback" : "disney_tmdb_fallback",
+  };
+};
+
+const createStreamingItemWithProviders = (item: RadarItem, releaseDate: string, providers: RadarProvider[]) => ({
+  ...item,
+  id: `${item.mediaType}-${item.tmdbId}-${item.channel}-${releaseDate}`,
+  releaseDate,
+  providers,
+}) satisfies RadarItem;
+
+const createDisneyPlusProvider = (title: string): RadarProvider | null => {
+  const metadata = getProviderMetadata("Disney Plus");
+  if (!metadata?.logoPath) return null;
+  return {
+    id: metadata.id,
+    name: metadata.name,
+    logoUrl: `${TMDB_IMAGE_BASE}/w45${metadata.logoPath}`,
+    ...getProviderLink(metadata.name, title),
+  };
+};
+
+const isDisneyCandidate = (item: RadarItem) => {
+  if (item.providers.some((provider) => /disney/i.test(provider.name))) return true;
+  return [item.title, item.originalTitle, item.csfd?.title]
+    .filter((value): value is string => Boolean(value))
+    .some((value) => /\b(?:descendants|n[aá]sledn[ií]ci|camp rock|zombies|cheetah girls)\b/i.test(value));
 };
 
 const createCandidate = (item: RadarItem): RadarCandidate => ({
