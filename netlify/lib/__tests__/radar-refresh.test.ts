@@ -584,6 +584,38 @@ describe("Radar integration", () => {
     expect(decision.diagnostics.rejectedByReason).toEqual({});
   });
 
+  it("publishes Descendants from the temporary CSFD-backed fallback premiere", () => {
+    const descendants: RadarItem = {
+      ...baseItem,
+      tmdbId: -1863881,
+      mediaType: "movie",
+      channel: "streaming",
+      title: "N\u00e1sledn\u00edci: Zlov\u011bstn\u00e1 \u0158\u00ed\u0161e div\u016f",
+      originalTitle: null,
+      releaseDate: "2026-07-17",
+      providers: [],
+      csfd: {
+        title: "N\u00e1sledn\u00edci: Zlov\u011bstn\u00e1 \u0158\u00ed\u0161e div\u016f",
+        rating: null,
+        ratingCount: 2,
+        url: "https://www.csfd.cz/film/1863881-naslednici-zlovestna-rise-divu/prehled/",
+        releaseDate: "2026-07-17",
+        vodPremieres: [{ date: "2026-07-17", provider: "Disney Plus" }],
+      },
+    };
+
+    const decision = decideRadarItemsForSnapshot([descendants], "2026-07-13", "2026-07-19");
+
+    expect(decision.items).toHaveLength(1);
+    expect(decision.items[0]).toMatchObject({
+      title: "N\u00e1sledn\u00edci: Zlov\u011bstn\u00e1 \u0158\u00ed\u0161e div\u016f",
+      releaseDate: "2026-07-17",
+      providers: [expect.objectContaining({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" })],
+    });
+    expect(decision.diagnostics.rejectedByReason).toEqual({});
+  });
+
+
   it("publishes Camp Rock 3 from a CSFD Disney Channel TV premiere", () => {
     const campRock: RadarItem = {
       ...baseItem,
