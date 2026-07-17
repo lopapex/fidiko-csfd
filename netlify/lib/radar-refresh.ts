@@ -28,6 +28,8 @@ type ManualRadarOverride = CsfdPrimaryStreamingSeed & {
 
 const MANUAL_RADAR_OVERRIDES: ManualRadarOverride[] = [
   { csfdId: 1825747, mediaType: "series", reason: "CSFD VOD premiere is present but TMDb discovery can miss short title Hawk.", expiresOn: "2026-08-31" },
+  { csfdId: 1603572, mediaType: "series", reason: "CSFD VOD premiere is authoritative; keep Lucky stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
+  { csfdId: 1744657, mediaType: "series", reason: "CSFD VOD premiere is authoritative; keep Ride or Die stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
   {
     csfdId: 1863881,
     mediaType: "movie",

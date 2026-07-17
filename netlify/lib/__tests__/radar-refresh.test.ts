@@ -66,6 +66,8 @@ describe("Radar integration", () => {
 
     expect(overrides).toEqual(expect.arrayContaining([
       expect.objectContaining({ csfdId: 1825747, mediaType: "series" }),
+      expect.objectContaining({ csfdId: 1603572, mediaType: "series" }),
+      expect.objectContaining({ csfdId: 1744657, mediaType: "series" }),
       expect.objectContaining({
         csfdId: 1863881,
         mediaType: "movie",
@@ -712,10 +714,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v30",
-      "week-v29/2026-06-15",
-      "week-v29/2026-06-22",
-      "week-v28/2026-06-22",
+      "current-v32",
+      "week-v31/2026-06-15",
+      "week-v31/2026-06-22",
+      "week-v30/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -723,13 +725,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v29/not-a-date",
+      "week-v31/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v29/2026-06-15",
-      "week-v28/2026-06-22",
+      "week-v31/2026-06-15",
+      "week-v30/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
