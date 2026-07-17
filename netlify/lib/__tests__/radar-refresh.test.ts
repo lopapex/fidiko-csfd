@@ -491,7 +491,7 @@ describe("Radar integration", () => {
     expect(item.providers[0].id).toBeLessThan(0);
   });
 
-  it("adds clickable TMDb CZ providers when CSFD VOD providers are disabled", () => {
+  it("uses clickable TMDb CZ providers instead of disabled CSFD VOD providers when available", () => {
     const itemWithDisabledCsfdProvider: RadarItem = {
       ...baseItem,
       mediaType: "series",
@@ -519,9 +519,8 @@ describe("Radar integration", () => {
 
     const [item] = prepareRadarItemsForSnapshot([itemWithDisabledCsfdProvider], "2026-06-29", "2026-07-05");
 
-    expect(item.providers.map((provider) => provider.name)).toEqual(["Hulu", "Disney Plus"]);
-    expect(item.providers[0]).toMatchObject({ name: "Hulu", url: null });
-    expect(item.providers[1]).toMatchObject({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" });
+    expect(item.providers.map((provider) => provider.name)).toEqual(["Disney Plus"]);
+    expect(item.providers[0]).toMatchObject({ name: "Disney Plus", url: "https://www.disneyplus.com/cs-cz" });
   });
 
   it("removes streaming items without a CSFD VOD premiere", () => {
@@ -718,10 +717,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v33",
-      "week-v32/2026-06-15",
+      "current-v34",
+      "week-v33/2026-06-15",
+      "week-v33/2026-06-22",
       "week-v32/2026-06-22",
-      "week-v31/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -729,13 +728,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v32/not-a-date",
+      "week-v33/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v32/2026-06-15",
-      "week-v31/2026-06-22",
+      "week-v33/2026-06-15",
+      "week-v32/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

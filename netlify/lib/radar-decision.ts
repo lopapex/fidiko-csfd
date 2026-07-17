@@ -100,9 +100,9 @@ const applyCsfdStreamingProvider = (item: RadarItem, rangeStart: string, rangeEn
     .filter((premiere) => premiere.date >= rangeStart && premiere.date <= rangeEnd);
   if (premieresInRange.length > 0) {
     const csfdProviders = createProvidersFromCsfdPremieres(premieresInRange, item.title);
-    const providers = hasAnyClickableProvider(csfdProviders)
+    const providers = filterDisabledProvidersWhenClickable(hasAnyClickableProvider(csfdProviders)
       ? csfdProviders
-      : mergeProviders(csfdProviders, item.providers.filter(hasClickableProvider));
+      : mergeProviders(csfdProviders, item.providers.filter(hasClickableProvider)));
     if (providers.length === 0) return null;
     return {
       item: createStreamingItemWithProviders(item, premieresInRange[0].date, providers),
@@ -131,6 +131,9 @@ const createProvidersFromCsfdPremieres = (premieres: RadarCsfdMatch["vodPremiere
 const hasClickableProvider = (provider: RadarProvider) => Boolean(provider.url);
 
 const hasAnyClickableProvider = (providers: RadarProvider[]) => providers.some(hasClickableProvider);
+
+const filterDisabledProvidersWhenClickable = (providers: RadarProvider[]) =>
+  hasAnyClickableProvider(providers) ? providers.filter(hasClickableProvider) : providers;
 
 const mergeProviders = (primary: RadarProvider[], fallback: RadarProvider[]) => {
   const unique = new Map<number, RadarProvider>();

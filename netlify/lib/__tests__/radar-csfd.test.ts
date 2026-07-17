@@ -146,6 +146,32 @@ describe("Radar CSFD cache", () => {
     expect(isDetailedTitleMatch(candidate, details, "The Death of Robin Hood")).toBe(true);
   });
 
+  it("matches The Crystal Planet through the CSFD alternative title", () => {
+    const item = {
+      mediaType: "movie",
+      channel: "cinema",
+      title: "The Crystal Planet",
+      originalTitle: null,
+      releaseDate: "2026-08-13",
+    } as RadarItem;
+    const candidate = {
+      id: 1837165,
+      title: "Tajemstv\u00ed K\u0159i\u0161\u0165\u00e1lov\u00e9 planety",
+      year: 2026,
+      url: "https://www.csfd.cz/film/1837165-tajemstvi-kristalove-planety/prehled/",
+      type: "film",
+    } as Parameters<typeof selectCandidates>[0][number];
+    const details = {
+      title: "Tajemstv\u00ed K\u0159i\u0161\u0165\u00e1lov\u00e9 planety",
+      titlesOther: [
+        { country: "angli\u010dtina", title: "The Crystal Planet" },
+      ],
+    } as Parameters<typeof isDetailedTitleMatch>[1];
+
+    expect(selectCandidates([candidate], item, "The Crystal Planet")).toEqual([candidate]);
+    expect(isDetailedTitleMatch(candidate, details, "The Crystal Planet")).toBe(true);
+  });
+
   it("prefers the exact original title and year for short series titles", () => {
     const item = {
       mediaType: "series",
