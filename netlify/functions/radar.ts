@@ -5,8 +5,8 @@ import { getProviderLink } from "../lib/radar-providers";
 import { addDaysISO, getPragueTodayISO, isISOWeekStart, startOfISOWeek } from "../lib/shared/date";
 import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
-const LEGACY_RADAR_CACHE_KEYS = ["current-v28", "current-v27", "current-v26", "current-v25", "current-v24", "current-v23", "current-v22", "current-v21", "current-v20", "current-v19", "current-v18", "current-v17", "current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
-const LEGACY_WEEK_CACHE_VERSIONS = ["week-v27", "week-v26", "week-v25", "week-v24", "week-v23", "week-v22", "week-v21", "week-v20", "week-v19", "week-v18", "week-v17", "week-v16", "week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
+const LEGACY_RADAR_CACHE_KEYS = ["current-v29", "current-v28", "current-v27", "current-v26", "current-v25", "current-v24", "current-v23", "current-v22", "current-v21", "current-v20", "current-v19", "current-v18", "current-v17", "current-v16", "current-v15", "current-v14", "current-v13", "current-v12", "current-v11", "current-v10", "current-v9", "current-v8", "current-v7", "current-v6", "current-v5", "current-v4", "current-v3", "current-v2"];
+const LEGACY_WEEK_CACHE_VERSIONS = ["week-v28", "week-v27", "week-v26", "week-v25", "week-v24", "week-v23", "week-v22", "week-v21", "week-v20", "week-v19", "week-v18", "week-v17", "week-v16", "week-v15", "week-v14", "week-v13", "week-v12", "week-v11", "week-v10", "week-v9", "week-v8", "week-v7", "week-v6", "week-v5", "week-v4", "week-v3", "week-v2", "week-v1"];
 const CACHE_MAX_AGE_SECONDS = 300;
 const FUTURE_SNAPSHOT_MAX_AGE_MS = 86_400_000;
 const PRECOMPUTE_PAST_WEEKS = 5;

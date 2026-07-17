@@ -61,6 +61,19 @@ describe("Radar integration", () => {
     expect(getActiveManualRadarOverrides([], "2026-07-01")).toEqual([]);
   });
 
+  it("keeps temporary CSFD-backed overrides for titles TMDb discovery can miss", () => {
+    const overrides = getActiveManualRadarOverrides(undefined, "2026-07-17");
+
+    expect(overrides).toEqual(expect.arrayContaining([
+      expect.objectContaining({ csfdId: 1825747, mediaType: "series" }),
+      expect.objectContaining({
+        csfdId: 1863881,
+        mediaType: "movie",
+        fallbackPremiere: { date: "2026-07-17", provider: "Disney Plus" },
+      }),
+    ]));
+  });
+
   it("links an exact CSFD URL and calculates future screenings", () => {
     const program = linkProgramMatches([baseItem], schedule, now)[0].program;
     expect(program).toMatchObject({
@@ -667,10 +680,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v29",
-      "week-v28/2026-06-15",
+      "current-v30",
+      "week-v29/2026-06-15",
+      "week-v29/2026-06-22",
       "week-v28/2026-06-22",
-      "week-v27/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -678,13 +691,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v28/not-a-date",
+      "week-v29/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v28/2026-06-15",
-      "week-v27/2026-06-22",
+      "week-v29/2026-06-15",
+      "week-v28/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",

@@ -27,6 +27,14 @@ type ManualRadarOverride = CsfdPrimaryStreamingSeed & {
 };
 
 const MANUAL_RADAR_OVERRIDES: ManualRadarOverride[] = [
+  { csfdId: 1825747, mediaType: "series", reason: "CSFD VOD premiere is present but TMDb discovery can miss short title Hawk.", expiresOn: "2026-08-31" },
+  {
+    csfdId: 1863881,
+    mediaType: "movie",
+    fallbackPremiere: { date: "2026-07-17", provider: "Disney Plus" },
+    reason: "Official Disney+ July 2026 listing has Descendants: Wicked Wonderland on Disney+ one day after Disney Channel.",
+    expiresOn: "2026-08-31",
+  },
   { csfdId: 1684377, mediaType: "series" },
   { csfdId: 1654643, mediaType: "series" },
   { csfdId: 1494570, mediaType: "series" },
@@ -41,7 +49,7 @@ export const getActiveManualRadarOverrides = (
 ): CsfdPrimaryStreamingSeed[] =>
   overrides
     .filter((override) => !override.expiresOn || override.expiresOn >= today)
-    .map(({ csfdId, mediaType, titleSuffix }) => ({ csfdId, mediaType, titleSuffix }));
+    .map(({ csfdId, mediaType, titleSuffix, fallbackPremiere }) => ({ csfdId, mediaType, titleSuffix, fallbackPremiere }));
 
 export type RadarMediaType = "movie" | "series";
 export type RadarChannel = "cinema" | "streaming";

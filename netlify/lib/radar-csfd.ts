@@ -28,6 +28,7 @@ export type CsfdPrimaryStreamingSeed = {
   csfdId: number;
   mediaType: RadarMediaType;
   titleSuffix?: string;
+  fallbackPremiere?: RadarCsfdVodPremiere;
 };
 
 export type CachedRadarCsfd =
@@ -75,13 +76,16 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
 
     const title = formatPrimaryStreamingTitle(details.title, details.seasonName, seed.titleSuffix);
     const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" });
+    const effectiveVodPremieres = vodPremieres.length > 0
+      ? vodPremieres
+      : seed.fallbackPremiere ? [seed.fallbackPremiere] : [];
     const csfdMatch: RadarCsfdMatch = {
       title,
       rating: numberOrNull(ratingDetails.rating),
       ratingCount: numberOrNull(ratingDetails.ratingCount),
       url: ratingDetails.url,
-      releaseDate: vodPremieres[0]?.date ?? null,
-      vodPremieres,
+      releaseDate: effectiveVodPremieres[0]?.date ?? null,
+      vodPremieres: effectiveVodPremieres,
     };
     if (!csfdMatch.releaseDate || csfdMatch.vodPremieres.length === 0) return null;
 
