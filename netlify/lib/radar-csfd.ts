@@ -29,6 +29,9 @@ export type CsfdPrimaryStreamingSeed = {
   mediaType: RadarMediaType;
   titleSuffix?: string;
   fallbackPremiere?: RadarCsfdVodPremiere;
+  fallbackTitle?: string;
+  fallbackUrl?: string;
+  fallbackPosterUrl?: string | null;
 };
 
 export type CachedRadarCsfd =
@@ -69,13 +72,21 @@ export async function enrichRadarItemsWithCsfd(items: RadarItem[]) {
 }
 
 export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreamingSeed[]) {
-  const items = await mapConcurrent<CsfdPrimaryStreamingSeed, RadarItem | null>(seeds, LOOKUP_CONCURRENCY, async (seed) => {
-    const details = await withTimeout(csfd.movie(seed.csfdId), LOOKUP_TIMEOUT_MS, null);
-    if (!details?.url || !details?.title) return null;
-    const ratingDetails = await loadSeriesRatingDetails(details, seed.mediaType);
+  const items = await mapConcurrent<CsfdPrimaryStreamingSeed, RadarItem | null>(seeds, 2, async (seed) => {
+    const details = await loadSeedDetails(seed.csfdId);
+    if ((!details?.url || !details?.title) && (!seed.fallbackTitle || !seed.fallbackUrl || !seed.fallbackPremiere)) return null;
+    const ratingDetails = details
+      ? await loadSeriesRatingDetails(details, seed.mediaType)
+      : {
+        url: seed.fallbackUrl!,
+        rating: null,
+        ratingCount: null,
+      };
 
-    const title = formatPrimaryStreamingTitle(details.title, details.seasonName, seed.titleSuffix);
-    const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" });
+    const title = details
+      ? formatPrimaryStreamingTitle(details.title, details.seasonName, seed.titleSuffix)
+      : formatPrimaryStreamingTitle(seed.fallbackTitle!, null, seed.titleSuffix);
+    const vodPremieres = selectCzechVodPremieres(details?.premieres ?? [], { channel: "streaming" });
     const effectiveVodPremieres = vodPremieres.length > 0
       ? vodPremieres
       : seed.fallbackPremiere ? [seed.fallbackPremiere] : [];
@@ -96,8 +107,8 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
       channel: "streaming",
       title,
       originalTitle: null,
-      overview: details.descriptions?.[0] ?? "",
-      posterUrl: optimizeCsfdPoster(details.poster ?? null),
+      overview: details?.descriptions?.[0] ?? "",
+      posterUrl: optimizeCsfdPoster(details?.poster ?? seed.fallbackPosterUrl ?? null),
       releaseDate: csfdMatch.releaseDate,
       providers: [],
       watchUrl: null,
@@ -108,6 +119,14 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
   });
 
   return items.filter((item): item is RadarItem => item !== null);
+}
+
+async function loadSeedDetails(csfdId: number) {
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const details = await withTimeout(csfd.movie(csfdId), LOOKUP_TIMEOUT_MS * 2, null);
+    if (details?.url && details.title) return details;
+  }
+  return null;
 }
 
 export async function fetchCsfdSeriesStreamingItemsFromCandidates(

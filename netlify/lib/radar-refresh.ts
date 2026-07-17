@@ -27,9 +27,9 @@ type ManualRadarOverride = CsfdPrimaryStreamingSeed & {
 };
 
 const MANUAL_RADAR_OVERRIDES: ManualRadarOverride[] = [
-  { csfdId: 1825747, mediaType: "series", reason: "CSFD VOD premiere is present but TMDb discovery can miss short title Hawk.", expiresOn: "2026-08-31" },
-  { csfdId: 1603572, mediaType: "series", reason: "CSFD VOD premiere is authoritative; keep Lucky stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
-  { csfdId: 1744657, mediaType: "series", reason: "CSFD VOD premiere is authoritative; keep Ride or Die stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
+  { csfdId: 1825747, mediaType: "series", fallbackTitle: "Hawk", fallbackUrl: "https://www.csfd.cz/film/1825747/prehled/", fallbackPremiere: { date: "2026-07-16", provider: "Netflix" }, reason: "CSFD VOD premiere is present but TMDb discovery can miss short title Hawk.", expiresOn: "2026-08-31" },
+  { csfdId: 1603572, mediaType: "series", fallbackTitle: "Lucky", fallbackUrl: "https://www.csfd.cz/film/1603572/prehled/", fallbackPremiere: { date: "2026-07-15", provider: "Apple TV Plus" }, reason: "CSFD VOD premiere is authoritative; keep Lucky stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
+  { csfdId: 1744657, mediaType: "series", fallbackTitle: "Jízda o život", fallbackUrl: "https://www.csfd.cz/film/1744657/prehled/", fallbackPremiere: { date: "2026-07-15", provider: "Prime Video" }, reason: "CSFD VOD premiere is authoritative; keep Ride or Die stable when TMDb series discovery is incomplete.", expiresOn: "2026-08-31" },
   {
     csfdId: 1863881,
     mediaType: "movie",
@@ -51,7 +51,7 @@ export const getActiveManualRadarOverrides = (
 ): CsfdPrimaryStreamingSeed[] =>
   overrides
     .filter((override) => !override.expiresOn || override.expiresOn >= today)
-    .map(({ csfdId, mediaType, titleSuffix, fallbackPremiere }) => ({ csfdId, mediaType, titleSuffix, fallbackPremiere }));
+    .map(({ csfdId, mediaType, titleSuffix, fallbackPremiere, fallbackTitle, fallbackUrl, fallbackPosterUrl }) => ({ csfdId, mediaType, titleSuffix, fallbackPremiere, fallbackTitle, fallbackUrl, fallbackPosterUrl }));
 
 export type RadarMediaType = "movie" | "series";
 export type RadarChannel = "cinema" | "streaming";
