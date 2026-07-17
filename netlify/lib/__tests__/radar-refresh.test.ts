@@ -667,10 +667,10 @@ describe("Radar integration", () => {
 
   it("selects only stale weekly radar cache entries for cleanup", () => {
     const stale = getStaleRadarWeekKeys([
-      "current-v28",
-      "week-v27/2026-06-15",
+      "current-v29",
+      "week-v28/2026-06-15",
+      "week-v28/2026-06-22",
       "week-v27/2026-06-22",
-      "week-v26/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
@@ -678,13 +678,13 @@ describe("Radar integration", () => {
       "week-v11/2026-06-22",
       "week-v10/2026-06-22",
       "week-v9/2026-06-22",
-      "week-v27/not-a-date",
+      "week-v28/not-a-date",
       "other/2026-06-22",
     ], new Set(["2026-06-22"]));
 
     expect(stale).toEqual([
-      "week-v27/2026-06-15",
-      "week-v26/2026-06-22",
+      "week-v28/2026-06-15",
+      "week-v27/2026-06-22",
       "week-v15/2026-06-22",
       "week-v14/2026-06-22",
       "week-v13/2026-06-22",
