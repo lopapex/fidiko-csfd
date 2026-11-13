@@ -268,7 +268,7 @@ async function groupScreenings(screenings: RawScreening[], pruneCache: boolean) 
 
   const entries = [...map.entries()];
   const activeCsfdKeys = new Set(entries.map(([title, items]) => createCsfdCacheKey(title, getScreeningHints(items))));
-  const groups = await mapConcurrent(entries, CSFD_CONCURRENCY, async ([title, items]) => {
+  const groups: FilmGroup[] = await mapConcurrent(entries, CSFD_CONCURRENCY, async ([title, items]) => {
       const sortedScreenings = items.sort(compareScreenings);
       const csfdMatch = await getCsfdMatch(title, sortedScreenings);
 
@@ -282,6 +282,16 @@ async function groupScreenings(screenings: RawScreening[], pruneCache: boolean) 
         screenings: sortedScreenings
       } satisfies FilmGroup;
     });
+
+  // A miss is often just a slow or throttled CSFD response during the parallel pass.
+  // Ask again, one film at a time, before publishing a film without a rating.
+  for (const group of groups) {
+    if (group.csfd) continue;
+    const csfdMatch = await getCsfdMatch(group.title, group.screenings);
+    if (!csfdMatch) continue;
+    group.csfd = csfdMatch;
+    group.posterUrl = optimizeCsfdPoster(csfdMatch.poster) ?? group.posterUrl;
+  }
 
   if (pruneCache) {
     await pruneCsfdCache(activeCsfdKeys);
@@ -315,6 +325,10 @@ function getCsfdMatch(query: string, screenings: RawScreening[]) {
 
   const promise = loadOrLookupCsfd(query, hints);
   csfdCache.set(cacheKey, promise);
+  // Only matches are remembered; a miss is looked up again next time.
+  void promise.then((match) => {
+    if (!match && csfdCache.get(cacheKey) === promise) csfdCache.delete(cacheKey);
+  });
   return promise;
 }
 

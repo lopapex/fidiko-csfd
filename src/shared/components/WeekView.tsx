@@ -17,6 +17,8 @@ type Props = {
   title: string;
   today: string;
   selectedDay: string | null;
+  /** Land on the selected day when the view first opens (app start); otherwise it opens at the top. */
+  landOnSelectedDay?: boolean;
   current: WeekContent;
   /** Neighbour weeks shown while swiping; `null` = the week exists but is not loaded yet. */
   previous: WeekContent | null;
@@ -29,7 +31,7 @@ type Props = {
 };
 
 const SWIPE_COMMIT_RATIO = 0.25;
-const SWIPE_COMMIT_VELOCITY = 0.5; // px per ms
+const SWIPE_COMMIT_VELOCITY = 0.3; // px per ms: a short flick is enough
 const TURN_MS = 260;
 const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
 
@@ -37,7 +39,7 @@ const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
  * A week change in flight. Module-level so it survives the remount that
  * happens when the next week first shows a loading skeleton.
  */
-let pendingSwap: { alignToStrip: boolean } | null = null;
+let pendingSwap: { alignToStrip: boolean; scrollY: number } | null = null;
 
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -50,6 +52,7 @@ export function WeekView({
   title,
   today,
   selectedDay,
+  landOnSelectedDay = true,
   current,
   previous,
   next,
@@ -83,6 +86,15 @@ export function WeekView({
     return Math.max(0, strip.getBoundingClientRect().bottom - viewport.getBoundingClientRect().top);
   };
 
+  /** Scroll the page so a day starts right under the pinned strip (measured, the strip height varies). */
+  const scrollToDay = (day: string, behavior: ScrollBehavior) => {
+    const section = document.getElementById(dayId(day));
+    const strip = stripRef.current;
+    if (!section || !strip) return;
+    const top = section.getBoundingClientRect().top + window.scrollY - strip.offsetHeight;
+    window.scrollTo({ top: Math.max(0, top), behavior });
+  };
+
   const setTrack = (offsetPx: number, ms = 0) => {
     const track = trackRef.current;
     if (!track) return;
@@ -99,7 +111,7 @@ export function WeekView({
     track.style.setProperty("--peek-offset", `${peek}px`);
     const width = track.clientWidth;
     const finish = () => {
-      pendingSwap = { alignToStrip: peek > 0 };
+      pendingSwap = { alignToStrip: peek > 0, scrollY: window.scrollY };
       nav.current.onNavigate(target);
       window.setTimeout(() => {
         animating.current = false;
@@ -125,12 +137,21 @@ export function WeekView({
     trackRef.current?.style.removeProperty("--peek-offset");
     const viewport = viewportRef.current;
     const strip = stripRef.current;
-    if (swap.alignToStrip && viewport && strip) {
-      // The neighbour was shown starting right under the pinned strip. Compensate in the same
-      // frame (before paint), so the week stays exactly where it was on screen: no visible scroll.
-      const delta = viewport.getBoundingClientRect().top - strip.offsetHeight;
-      if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: "instant" });
+    if (!viewport || !strip) return;
+    viewport.style.removeProperty("--week-min-height");
+    // Where the page has to be scrolled so nothing moves on screen. Scrolled into the week, the
+    // neighbour was shown starting right under the pinned strip, so the new week starts there;
+    // otherwise the page stays where it was. Done in this frame (before paint): no visible scroll.
+    const target = swap.alignToStrip
+      ? viewport.getBoundingClientRect().top + window.scrollY - strip.offsetHeight
+      : swap.scrollY;
+    // A short week gets just enough height for that scroll position to exist. It is released
+    // again once the page is back at the top (see the scroll handler).
+    const missing = target - (document.documentElement.scrollHeight - window.innerHeight);
+    if (missing > 0) {
+      viewport.style.setProperty("--week-min-height", `${Math.ceil(viewport.offsetHeight + missing)}px`);
     }
+    if (Math.abs(window.scrollY - target) > 1) window.scrollTo({ top: target, behavior: "instant" });
     animating.current = false;
   }, [weekKey]);
 
@@ -138,11 +159,11 @@ export function WeekView({
   useEffect(() => {
     if (!selectedDay || !days.includes(selectedDay) || scrolledWeek.current === weekKey) return;
     scrolledWeek.current = weekKey;
+    if (!landOnSelectedDay || selectedDay === days[0]) return;
     setActiveDay(selectedDay);
-    if (selectedDay === days[0]) return;
     const frame = window.requestAnimationFrame(() => {
       spyLockedUntil.current = Date.now() + 400;
-      document.getElementById(dayId(selectedDay))?.scrollIntoView({ block: "start" });
+      scrollToDay(selectedDay, "instant");
     });
     return () => window.cancelAnimationFrame(frame);
     // `days` and `dayId` are fully determined by `weekKey` and `idPrefix`.
@@ -163,6 +184,8 @@ export function WeekView({
       setActiveDay(previousDay => (previousDay === currentDay ? previousDay : currentDay));
     };
     const onScroll = () => {
+      // Back at the top: drop the height a week change reserved, so a short week ends where it ends.
+      if (window.scrollY <= 0) viewportRef.current?.style.removeProperty("--week-min-height");
       if (!frame) frame = window.requestAnimationFrame(update);
     };
     window.addEventListener("scroll", onScroll, { passive: true });
@@ -219,7 +242,7 @@ export function WeekView({
       const direction: Direction = offset < 0 ? "next" : "previous";
       start = null;
       const committed =
-        (Math.abs(offset) > width * SWIPE_COMMIT_RATIO || (velocity > SWIPE_COMMIT_VELOCITY && Math.abs(offset) > 40)) &&
+        (Math.abs(offset) > width * SWIPE_COMMIT_RATIO || (velocity > SWIPE_COMMIT_VELOCITY && Math.abs(offset) > 24)) &&
         turnTo(direction);
       if (!committed) setTrack(0, 200);
     };
@@ -240,10 +263,7 @@ export function WeekView({
     setActiveDay(day);
     onDayChange?.(day);
     spyLockedUntil.current = Date.now() + 900;
-    document.getElementById(dayId(day))?.scrollIntoView({
-      block: "start",
-      behavior: prefersReducedMotion() ? "auto" : "smooth",
-    });
+    scrollToDay(day, prefersReducedMotion() ? "instant" : "smooth");
   };
 
   return (
@@ -404,7 +424,7 @@ export function WeekViewSkeleton({ days, label }: { days: string[]; label: strin
         </div>
         <span className="week-arrow" />
       </div>
-      <div className="agenda-viewport">
+      <div className="agenda-viewport loading">
         <WeekListSkeleton days={days} />
       </div>
     </section>

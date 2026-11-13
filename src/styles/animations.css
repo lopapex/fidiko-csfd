@@ -4,12 +4,61 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* --- View transitions: section changes crossfade (weeks animate in WeekView) */
+/* --- View transitions: sections turn like the weeks do ----------------------
+   Phones: the page slides sideways in tab order, same distance, duration and curve
+   as a week change, while the bottom bar stays put. Wider screens crossfade. */
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
   animation-duration: 200ms;
   animation-timing-function: ease;
+}
+
+@media (max-width: 760px) {
+  .bottom-nav {
+    view-transition-name: bottom-nav;
+  }
+
+  :root[data-nav-direction="forward"]::view-transition-old(root),
+  :root[data-nav-direction="back"]::view-transition-old(root),
+  :root[data-nav-direction="forward"]::view-transition-new(root),
+  :root[data-nav-direction="back"]::view-transition-new(root) {
+    animation-duration: 260ms;
+    animation-timing-function: var(--ease-out);
+    mix-blend-mode: normal;
+  }
+
+  :root[data-nav-direction="forward"]::view-transition-old(root) {
+    animation-name: page-out-left;
+  }
+
+  :root[data-nav-direction="forward"]::view-transition-new(root) {
+    animation-name: page-in-right;
+  }
+
+  :root[data-nav-direction="back"]::view-transition-old(root) {
+    animation-name: page-out-right;
+  }
+
+  :root[data-nav-direction="back"]::view-transition-new(root) {
+    animation-name: page-in-left;
+  }
+}
+
+@keyframes page-out-left {
+  to { transform: translateX(-100%); }
+}
+
+@keyframes page-in-right {
+  from { transform: translateX(100%); }
+}
+
+@keyframes page-out-right {
+  to { transform: translateX(100%); }
+}
+
+@keyframes page-in-left {
+  from { transform: translateX(-100%); }
 }
 
 /* Posters fade in once loaded (data-loaded is set by a capture listener in main.tsx). */

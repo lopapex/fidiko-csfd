@@ -9,6 +9,7 @@ export function RadarWeeklySchedule({
   items,
   getWeekItems,
   selectedDay,
+  landOnSelectedDay,
   onNavigate,
   onDayChange,
   onSelectProgramFilm,
@@ -18,6 +19,7 @@ export function RadarWeeklySchedule({
   /** Items of another week if already loaded (cache), for the neighbours revealed while swiping. */
   getWeekItems: (weekStart: string) => RadarItem[] | null;
   selectedDay: string | null;
+  landOnSelectedDay: boolean;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
   onSelectProgramFilm: (id: string) => void;
@@ -57,6 +59,7 @@ export function RadarWeeklySchedule({
         title="Premiéry na týden"
         today={getPragueTodayISO()}
         selectedDay={selectedDay}
+        landOnSelectedDay={landOnSelectedDay}
         current={toContent(start, missing ? [] : items, true)}
         previous={neighbour(previousWeekStart)}
         next={neighbour(nextWeekStart)}

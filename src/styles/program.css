@@ -135,9 +135,11 @@
   cursor: pointer;
 }
 
-.search-clear-button:hover {
-  background: var(--surface-3);
-  color: var(--text);
+@media (hover: hover) and (pointer: fine) {
+  .search-clear-button:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
 }
 
 .filter-button {

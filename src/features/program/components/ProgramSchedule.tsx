@@ -53,6 +53,7 @@ export function WeeklySchedule({
   films,
   getWeekFilms,
   selectedDay,
+  landOnSelectedDay,
   onNavigate,
   onDayChange,
   onSelectFilm,
@@ -62,6 +63,7 @@ export function WeeklySchedule({
   /** Films of another week, for the neighbours revealed while swiping. */
   getWeekFilms: (weekStart: string) => FilmGroup[] | null;
   selectedDay: string | null;
+  landOnSelectedDay: boolean;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
   onSelectFilm: (id: string) => void;
@@ -107,6 +109,7 @@ export function WeeklySchedule({
       title="Program na týden"
       today={getPragueTodayISO()}
       selectedDay={selectedDay}
+      landOnSelectedDay={landOnSelectedDay}
       current={toContent(byDay, true)}
       previous={previousByDay ? toContent(previousByDay, false) : null}
       next={nextByDay ? toContent(nextByDay, false) : null}

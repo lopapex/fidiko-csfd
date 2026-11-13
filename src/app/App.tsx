@@ -1,4 +1,5 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { RefreshCw } from "lucide-react";
 import { ProgramView } from "../features/program/ProgramView";
 import { FilmRow } from "../features/program/components/ProgramCards";
@@ -32,9 +33,17 @@ const getRadarUrl = (page: Pick<PageState, "radarWeek">) => {
   return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
 };
 
-/** Section changes crossfade; week changes animate inside WeekView (card swipe). */
-const getNavDirection = (current: PageState, next: PageState): NavDirection | null =>
-  current.mode !== next.mode || current.view !== next.view ? "none" : null;
+const getSection = (page: Pick<PageState, "mode" | "view">): AppSection =>
+  page.mode === "radar" ? "radar" : page.view === "all" ? "films" : "program";
+
+const SECTION_ORDER: AppSection[] = ["program", "films", "radar"];
+
+/** Sections turn like pages, in the order of the tabs; week changes animate inside WeekView. */
+const getNavDirection = (current: PageState, next: PageState): NavDirection | null => {
+  const from = SECTION_ORDER.indexOf(getSection(current));
+  const to = SECTION_ORDER.indexOf(getSection(next));
+  return from === to ? null : to > from ? "forward" : "back";
+};
 
 const whenIdle = (callback: () => void) => {
   if (typeof window.requestIdleCallback === "function") {
@@ -48,6 +57,10 @@ const whenIdle = (callback: () => void) => {
 export const App = () => {
   const [page, setPage] = useState<PageState>(readPageState);
   const pageRef = useRef(page);
+  // Opening the app lands on today; switching sections always starts at the top.
+  const landOnDay = useRef(true);
+  // A film to bring into view in "Filmy" (deep link, or a title tapped in Program/Radar).
+  const pendingFilmScroll = useRef<string | null>(page.filmId);
   const [scheduleRetry, setScheduleRetry] = useState(0);
   const [radarRetry, setRadarRetry] = useState(0);
   const [offline, setOffline] = useOnlineStatus();
@@ -97,12 +110,7 @@ export const App = () => {
     const days = getWeekDays(radarLoad.data.period.weekStart);
     if (page.radarDay && days.includes(page.radarDay)) return;
     const today = getPragueTodayISO();
-    const nextDay = days.includes(today)
-      ? today
-      : (days.find(day =>
-          radarLoad.data!.items.some(item => item.releaseDate === day),
-        ) ?? days[0]);
-    changePage({ radarDay: nextDay }, "replace");
+    changePage({ radarDay: days.includes(today) ? today : days[0] }, "replace");
   }, [page.mode, page.radarDay, radarLoad.data]);
 
   useEffect(() => {
@@ -117,14 +125,7 @@ export const App = () => {
     if (page.day && days.includes(page.day)) return;
 
     const today = getPragueTodayISO();
-    const nextDay = days.includes(today)
-      ? today
-      : (days.find(day =>
-          scheduleData.films.some(film =>
-            film.screenings.some(screening => screening.dateISO === day),
-          ),
-        ) ?? days[0]);
-    changePage({ day: nextDay }, "replace");
+    changePage({ day: days.includes(today) ? today : days[0] }, "replace");
   }, [scheduleData, page.day, page.mode, page.view]);
 
   useEffect(() => storeViewMode(page.view), [page.view]);
@@ -174,28 +175,20 @@ export const App = () => {
     document.head.append(link);
   }, [page.mode]);
 
+  /** Bring a film card to the top of the screen; false while it is not rendered yet. */
+  const showFilm = (id: string) => {
+    const target = document.getElementById(id);
+    if (!target) return false;
+    target.scrollIntoView({ block: "start", behavior: "instant" });
+    target.focus({ preventScroll: true });
+    return true;
+  };
+
+  // Deep link to a film, or a film tapped before the program finished loading.
   useEffect(() => {
-    if (
-      !page.filmId ||
-      page.mode !== "program" ||
-      page.view !== "all" ||
-      load.status !== "ready" ||
-      !load.data ||
-      load.data.period.mode !== "all"
-    )
-      return;
-    const animationFrame = window.requestAnimationFrame(() => {
-      const target = document.getElementById(page.filmId!);
-      target?.scrollIntoView({
-        behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
-          ? "auto"
-          : "smooth",
-        block: "start",
-      });
-      target?.focus({ preventScroll: true });
-    });
-    return () => window.cancelAnimationFrame(animationFrame);
-  }, [load, page.filmId, page.mode, page.view]);
+    const id = pendingFilmScroll.current;
+    if (id && page.mode === "program" && page.view === "all" && showFilm(id)) pendingFilmScroll.current = null;
+  }, [load.data, page.filmId, page.mode, page.view]);
 
   const filteredFilms = useMemo(() => {
     if (!scheduleData) return [];
@@ -243,13 +236,22 @@ export const App = () => {
 
     const direction = getNavDirection(current, next);
     if (direction) {
-      runViewTransition(() => setPage(next), direction);
+      landOnDay.current = false;
+      pendingFilmScroll.current = null;
+      // The new section is rendered and scrolled into place inside the transition,
+      // so it slides in already where it will stay.
+      runViewTransition(() => {
+        flushSync(() => setPage(next));
+        if (next.filmId && showFilm(next.filmId)) return;
+        window.scrollTo({ top: 0, behavior: "instant" });
+        pendingFilmScroll.current = next.filmId; // not rendered yet: the effect above picks it up
+      }, direction);
     } else {
       setPage(next);
     }
   }
 
-  const section: AppSection = page.mode === "radar" ? "radar" : page.view === "all" ? "films" : "program";
+  const section = getSection(page);
 
   function changeSection(next: AppSection) {
     if (next === section) return;
@@ -315,6 +317,7 @@ export const App = () => {
               items={radarItems}
               getWeekItems={getRadarWeekItems}
               selectedDay={page.radarDay}
+              landOnSelectedDay={landOnDay.current}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
               onDayChange={day => changePage({ radarDay: day }, "replace")}
               onSelectProgramFilm={showFilmInAll}
@@ -337,6 +340,7 @@ export const App = () => {
               films={films}
               getWeekFilms={getProgramWeekFilms}
               selectedDay={page.day}
+              landOnSelectedDay={landOnDay.current}
               onNavigate={week => changePage({ week, day: null })}
               onDayChange={day => changePage({ day }, "replace")}
               onSelectFilm={showFilmInAll}
