@@ -101,10 +101,10 @@
   top: 0;
   z-index: 5;
   display: grid;
-  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  grid-template-columns: 32px minmax(0, 1fr) 32px;
   align-items: center;
-  gap: 2px;
-  padding: 4px;
+  gap: 4px;
+  padding: 4px 6px;
   border: 1px solid var(--line);
   border-radius: 8px 8px 0 0;
   background: var(--surface);
@@ -114,12 +114,13 @@
 .week-strip-days {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
 }
 
 .week-strip-day {
   min-width: 0;
-  min-height: 50px;
-  padding: 5px 0 6px;
+  min-height: 54px;
+  padding: 6px 0 7px;
   display: grid;
   justify-items: center;
   align-content: center;
@@ -140,7 +141,7 @@
 }
 
 .week-strip-day strong {
-  font-size: 14px;
+  font-size: 17px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
@@ -182,7 +183,7 @@
 }
 
 .week-arrow {
-  width: 36px;
+  width: 32px;
   height: 44px;
   padding: 0;
   display: grid;
@@ -205,6 +206,32 @@
 }
 
 /* --- Agenda ---------------------------------------------------------------- */
+
+/* Weeks as pages: neighbours sit left/right of the current week and follow the finger. */
+.agenda-viewport {
+  position: relative;
+  overflow: hidden;
+}
+
+.agenda-track {
+  position: relative;
+  touch-action: pan-y;
+  will-change: transform;
+}
+
+.agenda-neighbor {
+  position: absolute;
+  top: var(--peek-offset, 0px);
+  width: 100%;
+}
+
+.agenda-neighbor.previous {
+  right: 100%;
+}
+
+.agenda-neighbor.next {
+  left: 100%;
+}
 
 .agenda {
   border: 1px solid var(--line);
@@ -704,6 +731,13 @@ a.rating:focus-visible {
     border-radius: 0;
   }
 
+  /* Even a short week fills the screen, so after a week swipe the day strip
+     stays pinned in the same place instead of the header popping back in. */
+  .agenda-viewport,
+  .agenda-track > .agenda {
+    min-height: calc(100dvh - 64px);
+  }
+
   .program-list {
     margin-top: 0;
     gap: 0;
@@ -729,3 +763,4 @@ a.rating:focus-visible {
 .bottom-nav-radar {
   border-left: 1px solid var(--line);
 }
+

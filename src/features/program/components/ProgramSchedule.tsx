@@ -3,7 +3,7 @@ import { Search, X } from "lucide-react";
 import type { FilmGroup, PageState, ScheduleResponse, Screening } from "../../../types";
 import { getPragueTodayISO, startOfWeek } from "../../../shared/state/page-state";
 import { getScreeningSortMinutes, getWeekDays } from "../../../shared/lib/view-helpers";
-import { WeekView, WeekViewSkeleton } from "../../../shared/components/WeekView";
+import { WeekView, WeekViewSkeleton, type WeekContent } from "../../../shared/components/WeekView";
 import { ProgramAgendaItem } from "./ProgramCards";
 
 export function FilterToolbar({
@@ -51,6 +51,7 @@ export function FilterToolbar({
 export function WeeklySchedule({
   data,
   films,
+  getWeekFilms,
   selectedDay,
   onNavigate,
   onDayChange,
@@ -58,47 +59,68 @@ export function WeeklySchedule({
 }: {
   data: ScheduleResponse;
   films: FilmGroup[];
+  /** Films of another week, for the neighbours revealed while swiping. */
+  getWeekFilms: (weekStart: string) => FilmGroup[] | null;
   selectedDay: string | null;
   onNavigate: (week: string) => void;
   onDayChange: (day: string) => void;
   onSelectFilm: (id: string) => void;
 }) {
   const { period } = data;
-  const days = period.weekStart ? getWeekDays(period.weekStart) : [];
-  const daysKey = days.join();
-  // Films per day, each with that day's screenings sorted by time.
-  const filmsByDay = useMemo(
-    () => new Map(days.map(day => [day, getFilmsForDay(films, day)])),
-    // `days` is rebuilt every render, so memoize on its content.
-    [films, daysKey],
-  );
+  const weekStart = period.weekStart ?? "";
+  const { previousWeekStart, nextWeekStart } = period;
+
+  // Films per day for this week and both neighbours (all derived locally, no network).
+  const byDay = useMemo(() => getFilmsByDay(films, weekStart), [films, weekStart]);
+  const previousByDay = useMemo(() => {
+    const weekFilms = previousWeekStart ? getWeekFilms(previousWeekStart) : null;
+    return previousWeekStart && weekFilms ? getFilmsByDay(weekFilms, previousWeekStart) : null;
+  }, [getWeekFilms, previousWeekStart]);
+  const nextByDay = useMemo(() => {
+    const weekFilms = nextWeekStart ? getWeekFilms(nextWeekStart) : null;
+    return nextWeekStart && weekFilms ? getFilmsByDay(weekFilms, nextWeekStart) : null;
+  }, [getWeekFilms, nextWeekStart]);
+
+  const toContent = (filmsByDay: Map<string, FilmGroup[]>, interactive: boolean): WeekContent => ({
+    days: [...filmsByDay.keys()],
+    getDayMeta: day => {
+      const dayFilms = filmsByDay.get(day) ?? [];
+      return {
+        empty: dayFilms.length === 0,
+        hasSubtitles: dayFilms.some(film => film.screenings.some(screening => screening.hasSubtitles)),
+      };
+    },
+    renderDay: day =>
+      (filmsByDay.get(day) ?? []).map((film, index) => (
+        <ProgramAgendaItem
+          film={film}
+          priority={interactive && index === 0}
+          onSelectFilm={onSelectFilm}
+          key={film.id}
+        />
+      )),
+  });
 
   return (
     <WeekView
       idPrefix="program"
       title="Program na týden"
-      days={days}
       today={getPragueTodayISO()}
       selectedDay={selectedDay}
-      previousWeekStart={period.previousWeekStart}
-      nextWeekStart={period.nextWeekStart}
+      current={toContent(byDay, true)}
+      previous={previousByDay ? toContent(previousByDay, false) : null}
+      next={nextByDay ? toContent(nextByDay, false) : null}
+      previousWeekStart={previousWeekStart}
+      nextWeekStart={nextWeekStart}
       onNavigate={onNavigate}
       onDayChange={onDayChange}
       emptyDayText="Bez projekce"
-      getDayMeta={day => {
-        const dayFilms = filmsByDay.get(day) ?? [];
-        return {
-          empty: dayFilms.length === 0,
-          hasSubtitles: dayFilms.some(film => film.screenings.some(screening => screening.hasSubtitles)),
-        };
-      }}
-      renderDay={day =>
-        (filmsByDay.get(day) ?? []).map((film, index) => (
-          <ProgramAgendaItem film={film} priority={index === 0} onSelectFilm={onSelectFilm} key={film.id} />
-        ))
-      }
     />
   );
+}
+
+function getFilmsByDay(films: FilmGroup[], weekStart: string) {
+  return new Map(getWeekDays(weekStart).map(day => [day, getFilmsForDay(films, day)]));
 }
 
 function getFilmsForDay(films: FilmGroup[], day: string) {

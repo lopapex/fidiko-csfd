@@ -4,7 +4,7 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
-/* --- View transitions (mode / view crossfade, week slide) --------------- */
+/* --- View transitions: section changes crossfade (weeks animate in WeekView) */
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -12,58 +12,14 @@
   animation-timing-function: ease;
 }
 
-.weekly-mobile,
-.app-shell > .program-list {
-  view-transition-name: page-body;
+/* Posters fade in once loaded (data-loaded is set by a capture listener in main.tsx). */
+.poster img {
+  opacity: 0;
+  transition: opacity 240ms ease;
 }
 
-::view-transition-group(page-body) {
-  animation-duration: 260ms;
-  animation-timing-function: var(--ease-out);
-}
-
-html[data-nav-direction="forward"]::view-transition-old(page-body) {
-  animation: 220ms ease both vt-out-left;
-}
-
-html[data-nav-direction="forward"]::view-transition-new(page-body) {
-  animation: 260ms var(--ease-out) both vt-in-right;
-}
-
-html[data-nav-direction="back"]::view-transition-old(page-body) {
-  animation: 220ms ease both vt-out-right;
-}
-
-html[data-nav-direction="back"]::view-transition-new(page-body) {
-  animation: 260ms var(--ease-out) both vt-in-left;
-}
-
-@keyframes vt-out-left {
-  to {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-}
-
-@keyframes vt-out-right {
-  to {
-    opacity: 0;
-    transform: translateX(40px);
-  }
-}
-
-@keyframes vt-in-right {
-  from {
-    opacity: 0;
-    transform: translateX(40px);
-  }
-}
-
-@keyframes vt-in-left {
-  from {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
+.poster img[data-loaded] {
+  opacity: 1;
 }
 
 /* --- Segmented switches: sliding white pill ----------------------------- */

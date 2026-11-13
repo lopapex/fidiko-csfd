@@ -1,4 +1,4 @@
-﻿import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { ProgramView } from "../features/program/ProgramView";
 import { FilmRow } from "../features/program/components/ProgramCards";
@@ -32,20 +32,9 @@ const getRadarUrl = (page: Pick<PageState, "radarWeek">) => {
   return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
 };
 
-/** Which page changes animate: mode / view crossfade, week changes slide in their direction. */
-const getNavDirection = (
-  current: PageState,
-  next: PageState,
-  shownWeek: string | null,
-): NavDirection | null => {
-  if (current.mode !== next.mode || current.view !== next.view) return "none";
-  const nextWeek = next.mode === "radar" ? next.radarWeek : next.week;
-  const currentWeek = current.mode === "radar" ? current.radarWeek : current.week;
-  if (!nextWeek || nextWeek === currentWeek) return null;
-  const from = shownWeek ?? currentWeek;
-  if (!from || from === nextWeek) return null;
-  return nextWeek > from ? "forward" : "back";
-};
+/** Section changes crossfade; week changes animate inside WeekView (card swipe). */
+const getNavDirection = (current: PageState, next: PageState): NavDirection | null =>
+  current.mode !== next.mode || current.view !== next.view ? "none" : null;
 
 const whenIdle = (callback: () => void) => {
   if (typeof window.requestIdleCallback === "function") {
@@ -140,20 +129,40 @@ export const App = () => {
 
   useEffect(() => storeViewMode(page.view), [page.view]);
 
-  // Warm the next radar week so the "next" arrow opens without a skeleton.
-  const nextRadarWeek = page.mode === "radar" && radarLoad.status === "ready"
-    ? radarLoad.data?.period.nextWeekStart ?? null
-    : null;
+  // Warm both neighbouring radar weeks: swiping reveals their real content and opens them without a skeleton.
+  const [radarPrefetchTick, setRadarPrefetchTick] = useState(0);
+  const radarReady = page.mode === "radar" && radarLoad.status === "ready";
+  const nextRadarWeek = radarReady ? radarLoad.data?.period.nextWeekStart ?? null : null;
+  const previousRadarWeek = radarReady ? radarLoad.data?.period.previousWeekStart ?? null : null;
   useEffect(() => {
-    if (!nextRadarWeek || offline) return;
-    const url = getRadarUrl({ radarWeek: nextRadarWeek });
-    if (getCachedApi(url)?.fresh) return;
+    if (offline) return;
+    const urls = [nextRadarWeek, previousRadarWeek]
+      .filter((week): week is string => Boolean(week))
+      .map(week => getRadarUrl({ radarWeek: week }))
+      .filter(url => !getCachedApi(url)?.fresh);
+    if (!urls.length) return;
     return whenIdle(() => {
-      void fetchJson(url).catch(() => {
-        // Prefetch is best effort; the real navigation will retry and show errors.
+      void Promise.allSettled(urls.map(url => fetchJson(url))).then(() => {
+        // Prefetch is best effort; re-render so the swipe neighbours pick up the cached weeks.
+        setRadarPrefetchTick(value => value + 1);
       });
     });
-  }, [nextRadarWeek, offline]);
+  }, [nextRadarWeek, previousRadarWeek, offline]);
+
+  const getRadarWeekItems = useCallback(
+    (week: string) => {
+      const cached = getCachedApi<RadarResponse>(getRadarUrl({ radarWeek: week }));
+      if (!cached) return null;
+      return cached.data.status === "missing" ? [] : cached.data.items;
+    },
+    // Re-read the cache after a prefetch lands.
+    [radarPrefetchTick],
+  );
+
+  const getProgramWeekFilms = useCallback(
+    (week: string) => (load.data ? createWeeklySchedule(load.data, week).films : null),
+    [load.data],
+  );
 
   useEffect(() => {
     if (page.mode !== "radar" || document.getElementById("tmdb-image-preconnect")) return;
@@ -232,10 +241,7 @@ export const App = () => {
     pageRef.current = next;
     writePageState(next, mode);
 
-    const shownWeek = current.mode === "radar"
-      ? radarLoad.data?.period.weekStart ?? current.radarWeek
-      : scheduleData?.period.weekStart ?? current.week;
-    const direction = getNavDirection(current, next, shownWeek ?? null);
+    const direction = getNavDirection(current, next);
     if (direction) {
       runViewTransition(() => setPage(next), direction);
     } else {
@@ -307,6 +313,7 @@ export const App = () => {
             <RadarWeeklySchedule
               data={data}
               items={radarItems}
+              getWeekItems={getRadarWeekItems}
               selectedDay={page.radarDay}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
               onDayChange={day => changePage({ radarDay: day }, "replace")}
@@ -328,6 +335,7 @@ export const App = () => {
             <WeeklySchedule
               data={data}
               films={films}
+              getWeekFilms={getProgramWeekFilms}
               selectedDay={page.day}
               onNavigate={week => changePage({ week, day: null })}
               onDayChange={day => changePage({ day }, "replace")}
