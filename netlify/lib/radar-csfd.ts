@@ -494,10 +494,6 @@ function comparableTitle(value: string) {
   return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
-function stripSeasonSuffix(value: string | null) {
-  return value?.replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "").trim() || null;
-}
-
 function stripAnySeasonSuffix(value: string | null) {
   return value?.replace(/\s*-\s*(?:s(?:\u00e9|e|\u00c3\u00a9)rie|serie|season)\s+\d+\s*$/iu, "").trim() || null;
 }

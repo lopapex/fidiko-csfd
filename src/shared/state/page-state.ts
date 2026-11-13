@@ -77,9 +77,9 @@ const readStoredViewMode = (): ViewMode => {
     localStorage.removeItem("nzfd-view-mode");
     sessionStorage.removeItem("nzfd-view-mode");
     const stored = sessionStorage.getItem(VIEW_MODE_KEY);
-    return stored === "all" || stored === "week" ? stored : "all";
+    return stored === "all" || stored === "week" ? stored : "week";
   } catch {
-    return "all";
+    return "week";
   }
 };
 

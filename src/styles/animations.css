@@ -1,0 +1,97 @@
+/* Motion layer. Everything here is disabled by the prefers-reduced-motion block in responsive.css. */
+
+:root {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* --- View transitions (mode / view crossfade, week slide) --------------- */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 200ms;
+  animation-timing-function: ease;
+}
+
+.weekly-mobile,
+.app-shell > .program-list {
+  view-transition-name: page-body;
+}
+
+::view-transition-group(page-body) {
+  animation-duration: 260ms;
+  animation-timing-function: var(--ease-out);
+}
+
+html[data-nav-direction="forward"]::view-transition-old(page-body) {
+  animation: 220ms ease both vt-out-left;
+}
+
+html[data-nav-direction="forward"]::view-transition-new(page-body) {
+  animation: 260ms var(--ease-out) both vt-in-right;
+}
+
+html[data-nav-direction="back"]::view-transition-old(page-body) {
+  animation: 220ms ease both vt-out-right;
+}
+
+html[data-nav-direction="back"]::view-transition-new(page-body) {
+  animation: 260ms var(--ease-out) both vt-in-left;
+}
+
+@keyframes vt-out-left {
+  to {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+
+@keyframes vt-out-right {
+  to {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+@keyframes vt-in-right {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+
+@keyframes vt-in-left {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+
+/* --- Segmented switches: sliding white pill ----------------------------- */
+
+.segmented {
+  --seg-pad: 3px;
+  --seg-gap: 0px;
+  position: relative;
+  isolation: isolate;
+}
+
+.segmented::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: var(--seg-pad);
+  bottom: var(--seg-pad);
+  left: var(--seg-pad);
+  width: calc((100% - 2 * var(--seg-pad) - (var(--seg-count, 2) - 1) * var(--seg-gap)) / var(--seg-count, 2));
+  border-radius: 6px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(91 7 13 / 0.25);
+  transform: translateX(calc(var(--active, 0) * (100% + var(--seg-gap))));
+  transition: transform 240ms var(--ease-out);
+}
+
+@media (max-width: 520px) {
+  .segmented {
+    --seg-pad: 2px;
+  }
+}

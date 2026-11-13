@@ -1,6 +1,6 @@
 import type { RadarMediaType, RadarSnapshot } from "../lib/radar-refresh";
 import { getRadarStore, RADAR_CACHE_KEY, RADAR_WEEK_CACHE_VERSION } from "../lib/radar-cache";
-import { deduplicateRadarItems, normalizeRadarTitle } from "../lib/radar-deduplication";
+import { deduplicateRadarItems } from "../lib/radar-deduplication";
 import { getProviderLink } from "../lib/radar-providers";
 import { addDaysISO, getPragueTodayISO, isISOWeekStart, startOfISOWeek } from "../lib/shared/date";
 import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
@@ -45,11 +45,13 @@ const handler = async (request: Request) => {
     const end = weekEnd;
     const blobStarted = performance.now();
     const cacheKey = `${RADAR_WEEK_CACHE_VERSION}/${requestedWeek}`;
-    const currentSnapshot = await readRadarCache(RADAR_CACHE_KEY);
+    const [currentSnapshot, weekSnapshot] = await Promise.all([
+      readRadarCache(RADAR_CACHE_KEY),
+      readRadarCache(cacheKey),
+    ]);
     const rangeSnapshot = currentSnapshot && start >= currentSnapshot.range.start && end <= currentSnapshot.range.end
       ? currentSnapshot
       : null;
-    const weekSnapshot = await readRadarCache(cacheKey);
     let snapshot = chooseNewestSnapshot(rangeSnapshot, weekSnapshot);
     let staleSnapshot: RadarSnapshot | null = null;
     const blobDuration = performance.now() - blobStarted;
@@ -91,6 +93,7 @@ const handler = async (request: Request) => {
 
     if (!snapshot) {
       return missingResponse(createBody({
+        currentWeekStart,
         fetchedAt: new Date().toISOString(),
         start,
         end,
@@ -107,7 +110,7 @@ const handler = async (request: Request) => {
 
     const filterStarted = performance.now();
     const items = filterRadarItems(snapshot, start, end, type);
-    const body = createBody({ fetchedAt: snapshot.fetchedAt, start, end, items, status: "ready" });
+    const body = createBody({ currentWeekStart, fetchedAt: snapshot.fetchedAt, start, end, items, status: "ready" });
     const filterDuration = performance.now() - filterStarted;
 
     return successResponse(body, cacheStatus, {
@@ -123,6 +126,7 @@ const handler = async (request: Request) => {
 }
 
 function createBody({
+  currentWeekStart,
   fetchedAt,
   start,
   end,
@@ -130,6 +134,7 @@ function createBody({
   status,
   detail,
 }: {
+  currentWeekStart: string;
   fetchedAt: string;
   start: string;
   end: string;
@@ -147,8 +152,9 @@ function createBody({
       end,
       weekStart: start,
       weekEnd: end,
-      previousWeekStart: addDaysISO(start, -7),
-      nextWeekStart: addDaysISO(start, 7)
+      // Only link weeks the refresh job precomputes, so the arrows stop where data ends.
+      previousWeekStart: getNeighbourWeek(start, -7, currentWeekStart),
+      nextWeekStart: getNeighbourWeek(start, 7, currentWeekStart)
     },
     items
   };
@@ -245,6 +251,11 @@ function errorResponse(body: unknown, status: number, extraHeaders: Record<strin
   return errorJsonResponse(body, status, extraHeaders);
 }
 
+export function getNeighbourWeek(weekStart: string, offsetDays: number, currentWeekStart: string) {
+  const neighbour = addDaysISO(weekStart, offsetDays);
+  return isInsidePrecomputeWindow(neighbour, currentWeekStart) ? neighbour : null;
+}
+
 function isInsidePrecomputeWindow(weekStart: string, currentWeekStart: string) {
   return weekStart >= addDaysISO(currentWeekStart, -PRECOMPUTE_PAST_WEEKS * 7)
     && weekStart <= addDaysISO(currentWeekStart, PRECOMPUTE_FUTURE_WEEKS * 7);
@@ -291,10 +302,6 @@ function normalizeSeasonTitle(value: string) {
 function normalizeSeriesCsfdUrl(url: string) {
   const match = url.match(/^(https?:\/\/www\.csfd\.cz\/film\/\d+(?:-[^/]+)?\/)/);
   return match ? `${match[1]}prehled/` : url;
-}
-
-function normalizeTitle(value: string) {
-  return normalizeRadarTitle(value);
 }
 
 export default handler;

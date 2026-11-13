@@ -2,16 +2,31 @@ const BUILD_ID = new URL(self.location.href).searchParams.get("v") || "dev";
 const APP_CACHE = `nzfd-app-${BUILD_ID}`;
 const DATA_CACHE = "nzfd-data-v1";
 const DATA_CACHE_LIMIT = 32;
-const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.png", "/pwa-icon-192.png"];
+const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.webp", "/pwa-icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(APP_CACHE)
-      .then((cache) => cache.addAll(APP_SHELL))
+      .then(async (cache) => {
+        await cache.addAll(APP_SHELL);
+        await precacheBuildAssets(cache);
+      })
       .then(() => self.skipWaiting())
   );
 });
+
+// Hashed JS/CSS referenced by index.html, so offline works even before a full first visit.
+async function precacheBuildAssets(cache) {
+  try {
+    const html = await (await cache.match("/"))?.text();
+    if (!html) return;
+    const assets = [...new Set(html.match(/\/assets\/[\w.-]+\.(?:js|css)/g) ?? [])];
+    await cache.addAll(assets);
+  } catch {
+    // Assets will still be cached on first use by the fetch handler.
+  }
+}
 
 self.addEventListener("activate", (event) => {
   event.waitUntil(

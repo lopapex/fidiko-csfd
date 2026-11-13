@@ -1,5 +1,11 @@
 const FRESH_MS = 300_000;
 const MAX_CACHE_ENTRIES = 24;
+// Last responses survive reloads so a cold start paints instantly and revalidates in the background.
+const PERSIST_PREFIX = "nzfd-api-v1:";
+const MAX_PERSISTED_ENTRIES = 6;
+const PERSIST_MAX_AGE_MS = 14 * 24 * 60 * 60 * 1000;
+// The full program is what the app opens on; radar weeks must never evict it.
+const PINNED_PERSIST_KEYS = new Set([`${PERSIST_PREFIX}/api/schedule`]);
 
 type CacheEntry<T> = {
   data: T;
@@ -12,8 +18,11 @@ export type ApiResult<T> = CacheEntry<T> & { fresh: boolean };
 const memoryCache = new Map<string, CacheEntry<unknown>>();
 
 export function getCachedApi<T>(url: string): ApiResult<T> | null {
-  const entry = memoryCache.get(url) as CacheEntry<T> | undefined;
-  if (!entry) return null;
+  let entry = memoryCache.get(url) as CacheEntry<T> | undefined;
+  if (!entry) {
+    entry = readPersistedApi<T>(url) ?? undefined;
+    if (!entry) return null;
+  }
   memoryCache.delete(url);
   memoryCache.set(url, entry);
   return { ...entry, fresh: Date.now() - entry.storedAt <= FRESH_MS };
@@ -93,6 +102,7 @@ function createNonJsonApiError(response: Response, url: string) {
 }
 
 function setCachedApi<T>(url: string, entry: CacheEntry<T>) {
+  persistApi(url, entry);
   memoryCache.delete(url);
   memoryCache.set(url, entry);
   while (memoryCache.size > MAX_CACHE_ENTRIES) {
@@ -108,4 +118,57 @@ export function getApiCacheSize() {
 
 export function clearApiCache() {
   memoryCache.clear();
+  try {
+    for (const key of getPersistedKeys()) localStorage.removeItem(key);
+  } catch {
+    // Persistence is optional.
+  }
+}
+
+function readPersistedApi<T>(url: string): CacheEntry<T> | null {
+  try {
+    const raw = localStorage.getItem(PERSIST_PREFIX + url);
+    if (!raw) return null;
+    const entry = JSON.parse(raw) as CacheEntry<T>;
+    if (typeof entry?.storedAt !== "number" || Date.now() - entry.storedAt > PERSIST_MAX_AGE_MS) {
+      localStorage.removeItem(PERSIST_PREFIX + url);
+      return null;
+    }
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+function persistApi<T>(url: string, entry: CacheEntry<T>) {
+  try {
+    localStorage.setItem(PERSIST_PREFIX + url, JSON.stringify(entry));
+    const keys = getPersistedKeys().filter(key => !PINNED_PERSIST_KEYS.has(key));
+    if (keys.length <= MAX_PERSISTED_ENTRIES) return;
+    const byAge = keys
+      .map(key => ({ key, storedAt: readStoredAt(key) }))
+      .sort((left, right) => left.storedAt - right.storedAt);
+    for (const { key } of byAge.slice(0, keys.length - MAX_PERSISTED_ENTRIES)) {
+      localStorage.removeItem(key);
+    }
+  } catch {
+    // Quota exceeded or storage blocked: the in-memory cache still works.
+  }
+}
+
+function getPersistedKeys() {
+  const keys: string[] = [];
+  for (let index = 0; index < localStorage.length; index += 1) {
+    const key = localStorage.key(index);
+    if (key?.startsWith(PERSIST_PREFIX)) keys.push(key);
+  }
+  return keys;
+}
+
+function readStoredAt(key: string) {
+  try {
+    return (JSON.parse(localStorage.getItem(key) ?? "{}") as { storedAt?: number }).storedAt ?? 0;
+  } catch {
+    return 0;
+  }
 }

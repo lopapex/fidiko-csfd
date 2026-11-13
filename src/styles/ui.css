@@ -1,0 +1,731 @@
+/*
+ * Simplified UI (phases 7–10): one navigation level, week agenda / columns,
+ * compact cards. Colour roles: red = brand, active, today; ČSFD colours only
+ * on ratings; teal only for "Titulky"; everything else neutral.
+ */
+
+/* --- Header ---------------------------------------------------------------- */
+
+.topbar {
+  gap: 12px;
+}
+
+/* Cinema (Program · Filmy) as one group, Radar on its own. */
+.topbar-nav {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.topbar-tabs {
+  --seg-count: 2;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  padding: 3px;
+  border: 1px solid rgb(255 255 255 / 0.4);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.14);
+}
+
+/* While in Radar, the cinema group shows no selection. */
+.topbar-tabs.idle::before {
+  opacity: 0;
+}
+
+.topbar-radar {
+  min-height: 44px;
+  padding: 0 16px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(255 255 255 / 0.4);
+  border-radius: 8px;
+  background: rgb(0 0 0 / 0.14);
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 200ms ease,
+    color 200ms ease;
+}
+
+.topbar-radar.active {
+  background: var(--surface);
+  color: var(--accent-text);
+}
+
+.topbar-radar:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+.topbar-tab {
+  min-height: 36px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: #ffffff;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: color 200ms ease;
+}
+
+.topbar-tab.active {
+  color: var(--accent-text);
+}
+
+.topbar-tab:focus-visible {
+  outline: 3px solid #ffffff;
+  outline-offset: 2px;
+}
+
+/* --- Week strip (agenda) --------------------------------------------------- */
+
+.week-view {
+  margin-top: 12px;
+}
+
+.week-strip {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 2px;
+  padding: 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px 8px 0 0;
+  background: var(--surface);
+  box-shadow: 0 6px 12px -10px rgb(0 0 0 / 0.35);
+}
+
+.week-strip-days {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+
+.week-strip-day {
+  min-width: 0;
+  min-height: 50px;
+  padding: 5px 0 6px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 1px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  transition: background 160ms ease;
+}
+
+.week-strip-day span {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.week-strip-day strong {
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-strip-day i {
+  width: 5px;
+  height: 5px;
+  margin-top: 2px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.week-strip-day.has-subtitles i {
+  background: var(--subtitle);
+}
+
+.week-strip-day.empty i {
+  background: transparent;
+}
+
+.week-strip-day.empty strong {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.week-strip-day.today strong,
+.week-strip-day.today span {
+  color: var(--accent-text);
+}
+
+.week-strip-day[aria-current="true"] {
+  background: var(--surface-3);
+}
+
+.week-strip-day:focus-visible,
+.week-arrow:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -3px;
+}
+
+.week-arrow {
+  width: 36px;
+  height: 44px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+
+.week-arrow:hover:not(:disabled) {
+  background: var(--surface-3);
+}
+
+.week-arrow:disabled {
+  color: var(--text-muted);
+  opacity: 0.35;
+  cursor: default;
+}
+
+/* --- Agenda ---------------------------------------------------------------- */
+
+.agenda {
+  border: 1px solid var(--line);
+  border-top: 0;
+  border-radius: 0 0 8px 8px;
+  background: var(--surface);
+}
+
+.agenda-day {
+  scroll-margin-top: 64px;
+}
+
+.agenda-day + .agenda-day {
+  border-top: 1px solid var(--line);
+}
+
+.agenda-day-title {
+  margin: 0;
+  padding: 12px 14px 6px;
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.agenda-day.today .agenda-day-title {
+  color: var(--text);
+}
+
+.agenda-day.empty .agenda-day-title {
+  padding-bottom: 12px;
+}
+
+.agenda-day-note {
+  font-weight: 400;
+}
+
+.today-label {
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.agenda-item {
+  padding: 6px 14px 14px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr) auto;
+  align-items: start;
+  gap: 12px;
+}
+
+.agenda-item + .agenda-item {
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.agenda-item-copy {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 5px;
+}
+
+.agenda-item-times {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+/* Radar: provider logo and calendar icon share one centre line. */
+.agenda-item-side {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+/* --- Shared text pieces ------------------------------------------------------ */
+
+.film-title-link,
+.film-title-text {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.25;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.film-title-link {
+  cursor: pointer;
+}
+
+.film-title-link:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.film-title-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.item-meta {
+  margin: 0;
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.format-tags {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 2px 6px;
+}
+
+.format-tag {
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.format-tag.subtitles {
+  color: var(--subtitle-text);
+}
+
+/* --- Time link (agenda + columns) ------------------------------------------ */
+
+.time-link {
+  min-width: 64px;
+  padding: 6px 8px;
+  display: grid;
+  justify-items: center;
+  gap: 1px;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  color: var(--text);
+  text-decoration: none;
+  transition: border-color 160ms ease;
+}
+
+.time-link strong {
+  font-size: 17px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.time-link:hover {
+  border-color: var(--text-muted);
+}
+
+.time-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Rating badge (ČSFD colours) ------------------------------------------- */
+
+.rating {
+  min-width: 42px;
+  height: 24px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+a.rating:hover {
+  filter: brightness(1.1);
+}
+
+a.rating:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.rating.rating-missing {
+  background: var(--surface-4);
+  color: var(--text-muted);
+}
+
+/* --- Wider screens: a day's items side by side as cards ------------------ */
+
+.agenda-day-items {
+  display: grid;
+}
+
+@media (min-width: 761px) {
+  .agenda-day-items {
+    padding: 2px 14px 14px;
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+    gap: 10px;
+  }
+
+  .agenda-day-items .agenda-item,
+  .agenda-day-items .agenda-item + .agenda-item {
+    padding: 12px;
+    grid-template-columns: 80px minmax(0, 1fr) auto;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+  }
+
+  .agenda-day-items .poster-agenda {
+    width: 80px;
+    height: 120px;
+  }
+
+  .agenda-day-items .skeleton-item {
+    padding: 0;
+  }
+
+  .agenda .film-title-link,
+  .agenda .film-title-text {
+    font-size: 17px;
+  }
+
+  .agenda-day-title {
+    padding: 14px 14px 8px;
+    font-size: 14px;
+  }
+}
+
+/* --- Filmy: film card with compact screening rows -------------------------- */
+
+.app-shell > .program-list > .film-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
+}
+
+.film-card {
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  align-items: start;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  scroll-margin-top: 12px;
+}
+
+.film-card:focus {
+  outline: none;
+}
+
+.film-card:focus-visible {
+  outline: 3px solid var(--accent);
+}
+
+.film-card-copy {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  justify-items: start;
+  gap: 6px;
+}
+
+.film-card-copy h2 {
+  margin: 0;
+  font-size: 19px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.screening-list {
+  grid-column: 1 / -1;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 6px;
+  list-style: none;
+}
+
+@media (min-width: 861px) {
+  .film-card {
+    grid-template-columns: 96px minmax(0, 0.9fr) minmax(0, 1.3fr);
+  }
+
+  .screening-list {
+    grid-column: auto;
+  }
+}
+
+.screening-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  transition: border-color 160ms ease;
+}
+
+.screening-row:hover {
+  border-color: var(--text-muted);
+}
+
+.screening-link {
+  min-height: 44px;
+  padding: 6px 4px 6px 10px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 8px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.screening-link:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 8px;
+}
+
+.screening-day {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.screening-time {
+  font-size: 16px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.calendar-button {
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.calendar-button:hover {
+  background: var(--surface-3);
+  color: var(--text);
+}
+
+.calendar-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* --- Posters ------------------------------------------------------------------ */
+
+.poster {
+  overflow: hidden;
+  border-radius: 6px;
+  background: var(--surface-4);
+}
+
+.poster img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+}
+
+.poster-full {
+  width: 96px;
+  aspect-ratio: 2 / 3;
+}
+
+.poster-agenda {
+  width: 64px;
+  height: 96px;
+}
+
+/* --- Radar ------------------------------------------------------------------- */
+
+.where-chip {
+  padding: 4px 9px;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.where-chip:hover {
+  border-color: var(--text-muted);
+}
+
+.provider-logos {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.provider-logo {
+  width: 28px;
+  height: 28px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  border-radius: 6px;
+  background: var(--surface-3);
+  color: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.provider-logo img {
+  width: 28px;
+  height: 28px;
+  display: block;
+}
+
+.provider-logo-text {
+  width: auto;
+  padding: 0 6px;
+}
+
+.provider-logo.unavailable {
+  opacity: 0.5;
+  filter: grayscale(1);
+}
+
+.provider-logo:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* --- Skeletons -------------------------------------------------------------- */
+
+.skeleton-item {
+  padding: 6px 14px 14px;
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 12px;
+}
+
+.skeleton-poster {
+  width: 64px;
+  height: 96px;
+  border-radius: 6px;
+}
+
+.skeleton-copy {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+}
+
+.film-card-skeleton .film-card-copy {
+  width: 100%;
+}
+
+/* --- Phones ---------------------------------------------------------------------- */
+
+@media (max-width: 520px) {
+  /* Sections live in the bottom bar on phones. */
+  .topbar-nav {
+    display: none;
+  }
+
+    .week-view {
+    margin-top: 0;
+  }
+
+  .agenda-day-title {
+    padding-top: 10px;
+  }
+
+  .week-strip,
+  .agenda {
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .program-list {
+    margin-top: 0;
+    gap: 0;
+  }
+
+  .film-card {
+    grid-template-columns: 72px minmax(0, 1fr);
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .film-card + .film-card {
+    border-top: 0;
+  }
+
+  .poster-full {
+    width: 72px;
+  }
+}
+
+/* Bottom bar: Radar sits apart from the cinema pair. */
+.bottom-nav-radar {
+  border-left: 1px solid var(--line);
+}

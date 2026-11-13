@@ -18,6 +18,7 @@ export const useApiResource = <T,>(
   onOfflineChange: (offline: boolean) => void,
 ) => {
   const requestId = useRef(0);
+  const lastRetryToken = useRef(retryToken);
   const [state, setState] = useState<ResourceState<T>>({
     ...loadingState<T>(url ?? ""),
     url,
@@ -42,6 +43,9 @@ export const useApiResource = <T,>(
     const controller = new AbortController();
     const currentRequest = ++requestId.current;
     const cached = getCachedApi<T>(url);
+    // A changed retry token (retry button, pull-to-refresh) always goes to the network.
+    const forced = lastRetryToken.current !== retryToken;
+    lastRetryToken.current = retryToken;
 
     if (cached) {
       setState({
@@ -49,15 +53,15 @@ export const useApiResource = <T,>(
         status: "ready",
         data: cached.data,
         error: null,
-        refreshing: !cached.fresh,
+        refreshing: forced || !cached.fresh,
       });
       onOfflineChange(cached.offline || !navigator.onLine);
-      if (cached.fresh) return () => controller.abort();
+      if (cached.fresh && !forced) return () => controller.abort();
     } else {
       setState(loadingState<T>(url));
     }
 
-    void fetchJson<T>(url, controller.signal)
+    void fetchJson<T>(url, controller.signal, forced ? { cache: "no-cache" } : {})
       .then((result) => {
         if (currentRequest !== requestId.current) return;
         onOfflineChange(result.offline || !navigator.onLine);

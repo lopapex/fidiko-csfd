@@ -1,49 +1,32 @@
-﻿import type { CsfdMatch, FilmGroup, Screening } from "../../../types";
+﻿import type { FilmGroup, Screening } from "../../../types";
 import {
   POSTER_PLACEHOLDER_SRC,
+  formatDayLabel,
   formatMobileFilmMetadata,
-  getCsfdStatusText,
+  getDistinctiveFormats,
   getPosterSources,
-  getRatingClass,
-  usePosterPlaceholder,
 } from "../../../shared/lib/view-helpers";
-function ProgramMiniRating({
-  title,
-  csfd,
-}: {
-  title: string;
-  csfd: CsfdMatch | null;
-}) {
-  const className = `weekly-rating ${csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating)}`;
-  const label =
-    csfd?.rating == null
-      ? `${title} na ČSFD, zatím bez hodnocení`
-      : `${title} na ČSFD, hodnocení ${csfd.rating} %`;
-  const badge = csfd?.url ? (
-    <a
-      className={className}
-      href={csfd.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={label}
-      title={label}
-    >
-      {csfd.rating == null ? "?" : `${csfd.rating}%`}
-    </a>
-  ) : (
-    <span className={className} aria-label={label} title={label}>
-      ?
-    </span>
-  );
+import { CalendarButton } from "../../../shared/components/FilmActions";
+import { RatingBadge } from "../../../shared/components/RatingBadge";
+
+const screeningUrl = (screening: Screening) => screening.ticketUrl ?? screening.fidikoUrl;
+
+function FormatTags({ formats }: { formats: string[] }) {
+  const tags = getDistinctiveFormats(formats);
+  if (!tags.length) return null;
   return (
-    <span className="weekly-rating-block">
-      {badge}
-      <span className="weekly-rating-copy">{getCsfdStatusText(csfd)}</span>
+    <span className="format-tags">
+      {tags.map(format => (
+        <span className={format === "Titulky" ? "format-tag subtitles" : "format-tag"} key={format}>
+          {format}
+        </span>
+      ))}
     </span>
   );
 }
 
-export function MobileProgramAgendaItem({
+/** Agenda row (phones/tablets): poster, title, rating and the day's times. */
+export function ProgramAgendaItem({
   film,
   priority,
   onSelectFilm,
@@ -53,149 +36,75 @@ export function MobileProgramAgendaItem({
   onSelectFilm: (id: string) => void;
 }) {
   return (
-    <article
-      className="mobile-program-item"
-      aria-labelledby={`mobile-film-title-${film.id}`}
-    >
-      <div className="mobile-program-main">
-        <Poster film={film} variant="mini" priority={priority} />
-        <div className="mobile-program-copy">
-          <button
-            className="weekly-film-title-button mobile-program-title"
-            type="button"
-            id={`mobile-film-title-${film.id}`}
-            onClick={() => onSelectFilm(film.id)}
-          >
-            {film.title}
-          </button>
-          {film.description ? (
-            <p className="mobile-program-meta">{formatMobileFilmMetadata(film.description)}</p>
-          ) : null}
-          <div className="weekly-film-meta">
-            <ProgramMiniRating title={film.title} csfd={film.csfd} />
-          </div>
-        </div>
+    <article className="agenda-item" aria-labelledby={`agenda-film-${film.id}`}>
+      <Poster film={film} variant="agenda" priority={priority} />
+      <div className="agenda-item-copy">
+        <button
+          className="film-title-link"
+          type="button"
+          id={`agenda-film-${film.id}`}
+          onClick={() => onSelectFilm(film.id)}
+        >
+          {film.title}
+        </button>
+        {film.description ? (
+          <p className="item-meta">{formatMobileFilmMetadata(film.description)}</p>
+        ) : null}
+        <RatingBadge title={film.title} csfd={film.csfd} />
       </div>
-      <div className="mobile-agenda-times">
+      <div className="agenda-item-times">
         {film.screenings.map(screening => (
-          <CompactScreening film={film} screening={screening} key={screening.id} />
+          <TimeLink film={film} screening={screening} key={screening.id} />
         ))}
       </div>
     </article>
   );
 }
 
-export function FilmMini({
-  film,
-  onSelectFilm,
-}: {
-  film: FilmGroup;
-  onSelectFilm: (id: string) => void;
-}) {
+/** Time + distinctive formats, linking to tickets (or the Fidiko detail). */
+function TimeLink({ film, screening }: { film: FilmGroup; screening: Screening }) {
   return (
-    <div className="weekly-film-summary">
-      <Poster film={film} variant="mini" />
-      <div className="weekly-film-copy">
-        <button
-          className="weekly-film-title-button"
-          type="button"
-          onClick={() => onSelectFilm(film.id)}
-        >
-          {film.title}
-        </button>
-        <p className="weekly-film-description">
-          {formatMobileFilmMetadata(film.description)}
-        </p>
-        <div className="weekly-film-meta">
-          <ProgramMiniRating title={film.title} csfd={film.csfd} />
-        </div>
-      </div>
-    </div>
+    <a
+      className="time-link"
+      href={screeningUrl(screening)}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={`${film.title}, ${formatDayLabel(screening.dateISO)} ${screening.time ?? ""}${screening.ticketUrl ? ", vstupenky" : ", detail"}`}
+    >
+      <strong>{screening.time ?? "Detail"}</strong>
+      <FormatTags formats={screening.formats} />
+    </a>
   );
 }
 
-export function FilmRow({
-  film,
-  priority,
-  onSelectFilm,
-}: {
-  film: FilmGroup;
-  priority: boolean;
-  onSelectFilm?: (id: string) => void;
-}) {
+/** "Filmy" card: one film with all its screenings as compact rows. */
+export function FilmRow({ film, priority }: { film: FilmGroup; priority: boolean }) {
   return (
-    <article
-      className={film.hasSubtitles ? "film-row film-row-subtitles" : "film-row"}
-      id={film.id}
-      tabIndex={-1}
-      aria-labelledby={`film-title-${film.id}`}
-    >
-      <div className="film-info">
-        <div className="poster-column">
-          <Poster film={film} priority={priority} />
-        </div>
-        <div className="film-copy">
-          <div className="title-line">
-            <h2 id={`film-title-${film.id}`}>
-              {onSelectFilm ? (
-                <button
-                  className="film-title-button"
-                  type="button"
-                  onClick={() => onSelectFilm(film.id)}
-                >
-                  {film.title}
-                </button>
-              ) : (
-                film.title
-              )}
-            </h2>
-          </div>
-          <p>{film.description}</p>
-          <div className="csfd-block">
-            <div className="csfd-line">
-              {film.csfd?.rating != null ? (
-                film.csfd.url ? (
-                  <a
-                    className={`rating-badge rating-link ${getRatingClass(film.csfd.rating)}`}
-                    href={film.csfd.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={`${film.title} na ČSFD, hodnocení ${film.csfd.rating} %`}
-                  >
-                    {film.csfd.rating}%
-                  </a>
-                ) : (
-                  <span
-                    className={`rating-badge ${getRatingClass(film.csfd.rating)}`}
-                  >
-                    {film.csfd.rating}%
-                  </span>
-                )
-              ) : film.csfd?.url ? (
-                <a
-                  className="rating-badge rating-link rating-missing"
-                  href={film.csfd.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  aria-label={`${film.title} na ČSFD, zatím bez hodnocení`}
-                >
-                  ?
-                </a>
-              ) : (
-                <span className="rating-badge rating-missing">?</span>
-              )}
-              <span className="rating-copy">
-                {getCsfdStatusText(film.csfd)}
-              </span>
-            </div>
-          </div>
-        </div>
+    <article className="film-card" id={film.id} tabIndex={-1} aria-labelledby={`film-title-${film.id}`}>
+      <Poster film={film} priority={priority} />
+      <div className="film-card-copy">
+        <h2 id={`film-title-${film.id}`}>{film.title}</h2>
+        {film.description ? <p className="item-meta">{film.description}</p> : null}
+        <RatingBadge title={film.title} csfd={film.csfd} />
       </div>
-      <div className="screening-grid">
+      <ul className="screening-list" aria-label={`Promítání: ${film.title}`}>
         {film.screenings.map(screening => (
-          <ScreeningCard film={film} screening={screening} key={screening.id} />
+          <li className="screening-row" key={screening.id}>
+            <a
+              className="screening-link"
+              href={screeningUrl(screening)}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label={`${film.title}, ${formatDayLabel(screening.dateISO)} ${screening.time ?? ""}${screening.ticketUrl ? ", vstupenky" : ", detail"}`}
+            >
+              <span className="screening-day">{formatDayLabel(screening.dateISO)}</span>
+              <strong className="screening-time">{screening.time ?? "Detail"}</strong>
+              <FormatTags formats={screening.formats} />
+            </a>
+            <CalendarButton screening={{ ...screening, title: film.title, description: film.description }} />
+          </li>
         ))}
-      </div>
+      </ul>
     </article>
   );
 }
@@ -206,34 +115,28 @@ function Poster({
   priority = false,
 }: {
   film: FilmGroup;
-  variant?: "full" | "mini";
+  variant?: "full" | "agenda";
   priority?: boolean;
 }) {
+  const width = variant === "agenda" ? 64 : 96;
+  const height = width * 1.5;
+  const className = `poster poster-${variant}`;
   if (!film.posterUrl) {
-    const className = variant === "mini" ? "weekly-poster" : "poster-frame";
     return (
       <div className={className}>
-        <img
-          src={POSTER_PLACEHOLDER_SRC}
-          alt=""
-          width={variant === "mini" ? 48 : 106}
-          height={variant === "mini" ? 72 : 159}
-          loading={priority ? "eager" : "lazy"}
-          fetchPriority={priority ? "high" : "auto"}
-        />
+        <img src={POSTER_PLACEHOLDER_SRC} alt="" width={width} height={height} loading={priority ? "eager" : "lazy"} />
       </div>
     );
   }
   const sources = getPosterSources(film.posterUrl);
-  const className = variant === "mini" ? "weekly-poster" : "poster-frame";
   return (
     <div className={className}>
       <img
         src={sources.medium}
         srcSet={`${sources.small} 180w, ${sources.medium} 360w`}
-        sizes={variant === "mini" ? "48px" : "(max-width: 720px) 88px, 106px"}
-        width={variant === "mini" ? 48 : 106}
-        height={variant === "mini" ? 72 : 159}
+        sizes={variant === "agenda" ? "(min-width: 761px) 80px, 64px" : `${width}px`}
+        width={width}
+        height={height}
         alt=""
         loading={priority ? "eager" : "lazy"}
         fetchPriority={priority ? "high" : "auto"}
@@ -252,88 +155,3 @@ function Poster({
     </div>
   );
 }
-
-function ScreeningCard({
-  film,
-  screening,
-}: {
-  film: FilmGroup;
-  screening: Screening;
-}) {
-  const targetUrl = screening.ticketUrl ?? screening.fidikoUrl;
-  return (
-    <a
-      className={
-        screening.hasSubtitles
-          ? "screening-button screening-subtitles"
-          : "screening-button"
-      }
-      href={targetUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`${film.title}, ${screening.dateLabel}, ${screening.time ?? "detail"}${screening.ticketUrl ? ", vstupenky" : ""}`}
-    >
-      <span className="screening-date">{screening.dateLabel}</span>
-      <span className="screening-time">
-        {screening.time ?? screening.weekday ?? "Detail"}
-      </span>
-      {screening.weekday && screening.time ? (
-        <span className="screening-weekday">{screening.weekday}</span>
-      ) : null}
-      <span className="format-row">
-        {screening.formats.length ? (
-          screening.formats.map(format => (
-            <span
-              className={
-                format === "Titulky"
-                  ? "format-badge format-subtitles"
-                  : "format-badge"
-              }
-              key={format}
-            >
-              {format}
-            </span>
-          ))
-        ) : (
-          <span className="format-badge format-muted">Info</span>
-        )}
-      </span>
-    </a>
-  );
-}
-
-export function CompactScreening({
-  film,
-  screening,
-}: {
-  film: FilmGroup;
-  screening: Screening;
-}) {
-  const targetUrl = screening.ticketUrl ?? screening.fidikoUrl;
-  return (
-    <a
-      className={
-        screening.hasSubtitles
-          ? "weekly-screening has-subtitles"
-          : "weekly-screening"
-      }
-      href={targetUrl}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={`${film.title}, ${screening.time ?? "detail"}${screening.ticketUrl ? ", vstupenky" : ""}`}
-    >
-      <strong>{screening.time ?? "Detail"}</strong>
-      <span className="weekly-screening-formats">
-        {screening.formats.length ? (
-          screening.formats.map(format => (
-            <span key={format}>{format}</span>
-          ))
-        ) : (
-          <span>Info</span>
-        )}
-      </span>
-    </a>
-  );
-}
-
-

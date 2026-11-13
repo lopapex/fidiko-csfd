@@ -44,5 +44,10 @@ describe("page dates", () => {
     writePageState(page, "push");
     expect(pushState).toHaveBeenCalledWith(null, "", "/?mode=program&view=all&film=po-vecerce");
   });
+  it("opens the day-by-day Program by default", () => {
+    vi.stubGlobal("localStorage", { removeItem: vi.fn() });
+    vi.stubGlobal("sessionStorage", { removeItem: vi.fn(), getItem: vi.fn(() => null) });
+    expect(readPageState({ search: "" } as Location).view).toBe("week");
+  });
 });
 

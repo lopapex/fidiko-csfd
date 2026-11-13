@@ -100,8 +100,8 @@ export type RadarResponse = {
     end: string;
     weekStart: string;
     weekEnd: string;
-    previousWeekStart: string;
-    nextWeekStart: string;
+    previousWeekStart: string | null;
+    nextWeekStart: string | null;
   };
   items: RadarItem[];
 };

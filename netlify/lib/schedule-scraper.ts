@@ -507,31 +507,6 @@ function parseISODate(value: string) {
   return Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value ? null : date;
 }
 
-function isMondayISODate(value: string) {
-  return parseISODate(value)?.getUTCDay() === 1;
-}
-
-function startOfISOWeek(value: string) {
-  const date = parseISODate(value);
-  if (!date) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-
-  const dayOffset = (date.getUTCDay() + 6) % 7;
-  date.setUTCDate(date.getUTCDate() - dayOffset);
-  return date.toISOString().slice(0, 10);
-}
-
-function addDaysISO(value: string, days: number) {
-  const date = parseISODate(value);
-  if (!date) {
-    throw new Error(`Invalid ISO date: ${value}`);
-  }
-
-  date.setUTCDate(date.getUTCDate() + days);
-  return date.toISOString().slice(0, 10);
-}
-
 function daysBetweenISO(earlier: string, later: string) {
   const earlierDate = parseISODate(earlier);
   const laterDate = parseISODate(later);

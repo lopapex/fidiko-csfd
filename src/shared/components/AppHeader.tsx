@@ -1,99 +1,109 @@
-import { Clapperboard, Download, Radar } from "lucide-react";
-import type { AppMode, ViewMode } from "../../types";
+import type { CSSProperties } from "react";
+import { CalendarDays, Clapperboard, Download, Radar, type LucideIcon } from "lucide-react";
 
+export type AppSection = "program" | "films" | "radar";
+
+const SECTIONS: { section: AppSection; label: string; Icon: LucideIcon }[] = [
+  { section: "program", label: "Program", Icon: CalendarDays },
+  { section: "films", label: "Filmy", Icon: Clapperboard },
+  { section: "radar", label: "Radar", Icon: Radar },
+];
+
+const CINEMA_SECTIONS = SECTIONS.filter(item => item.section !== "radar");
+const RADAR_SECTION = SECTIONS.find(item => item.section === "radar")!;
+
+
+/**
+ * One navigation level: Program (by day) · Filmy (by film) · Radar.
+ * Header tabs on wider screens, a bottom bar on phones.
+ */
 export const AppHeader = ({
-  mode,
-  view,
+  section,
   canInstall,
-  onModeChange,
-  onViewChange,
+  onSectionChange,
   onInstall,
 }: {
-  mode: AppMode;
-  view: ViewMode;
+  section: AppSection;
   canInstall: boolean;
-  onModeChange: (mode: AppMode) => void;
-  onViewChange: (view: ViewMode) => void;
+  onSectionChange: (section: AppSection) => void;
   onInstall: () => void;
 }) => {
+  const activeIndex = { "--active": SECTIONS.findIndex(item => item.section === section) } as CSSProperties;
+  const cinemaIndex = { "--active": Math.max(0, CINEMA_SECTIONS.findIndex(item => item.section === section)) } as CSSProperties;
+  const inCinema = section !== "radar";
+
   return (
-    <header className="topbar topbar-standalone">
-      <div className="brand-block">
+    <>
+      <header className="topbar">
         <img
           className="app-wordmark"
-          src="/nzfd-wordmark.png"
-          alt="NZFD"
+          src="/nzfd-wordmark.webp"
+          alt="NŽFD"
           width="430"
           height="48"
           fetchPriority="high"
         />
-      </div>
-      <div className="topbar-actions">
-        {mode === "program" ? (
-          <div className="view-switch" role="group" aria-label="Zobrazení programu">
-            {(["week", "all"] as const).map(option => (
+        <nav className="topbar-nav" aria-label="Hlavní navigace">
+          <div
+            className={inCinema ? "topbar-tabs segmented" : "topbar-tabs segmented idle"}
+            role="group"
+            aria-label="Kino Fidiko"
+            style={cinemaIndex}
+          >
+            {CINEMA_SECTIONS.map(({ section: option, label, Icon }) => (
               <button
-                className={view === option ? "view-switch-button active" : "view-switch-button"}
+                className={section === option ? "topbar-tab active" : "topbar-tab"}
                 type="button"
-                aria-pressed={view === option}
-                onClick={() => onViewChange(option)}
+                aria-current={section === option ? "page" : undefined}
+                onClick={() => onSectionChange(option)}
                 key={option}
               >
-                {option === "week" ? "Týden" : "Vše"}
+                <Icon size={17} aria-hidden="true" />
+                <span>{label}</span>
               </button>
             ))}
           </div>
-        ) : (
-          <div className="view-switch view-switch-placeholder" aria-hidden="true">
-            <span className="view-switch-button">Týden</span>
-            <span className="view-switch-button">Vše</span>
-          </div>
-        )}
-        {mode === "program" && canInstall ? (
-          <InstallButton onInstall={onInstall} />
-        ) : null}
-        <div className="mode-switch" role="group" aria-label="Hlavní část aplikace">
           <button
-            className={mode === "program" ? "mode-button active" : "mode-button"}
+            className={section === "radar" ? "topbar-radar active" : "topbar-radar"}
             type="button"
-            aria-pressed={mode === "program"}
-            onClick={() => onModeChange("program")}
-            aria-label="Program"
-            title="Program"
+            aria-current={section === "radar" ? "page" : undefined}
+            onClick={() => onSectionChange("radar")}
           >
-            <Clapperboard size={18} aria-hidden="true" />
-            <span>Program</span>
+            <RADAR_SECTION.Icon size={17} aria-hidden="true" />
+            <span>{RADAR_SECTION.label}</span>
           </button>
+        </nav>
+        {canInstall ? (
           <button
-            className={mode === "radar" ? "mode-button active" : "mode-button"}
+            className="header-icon-button"
             type="button"
-            aria-pressed={mode === "radar"}
-            onClick={() => onModeChange("radar")}
-            aria-label="Radar"
-            title="Radar"
+            onClick={onInstall}
+            title="Nainstalovat aplikaci"
+            aria-label="Nainstalovat aplikaci"
           >
-            <Radar size={18} aria-hidden="true" />
-            <span>Radar</span>
+            <Download size={19} aria-hidden="true" />
           </button>
-        </div>
-        {mode === "radar" && canInstall ? (
-          <InstallButton onInstall={onInstall} />
         ) : null}
-      </div>
-    </header>
-  );
-};
+      </header>
 
-const InstallButton = ({ onInstall }: { onInstall: () => void }) => {
-  return (
-    <button
-      className="header-icon-button"
-      type="button"
-      onClick={onInstall}
-      title="Nainstalovat aplikaci"
-      aria-label="Nainstalovat aplikaci"
-    >
-      <Download size={19} aria-hidden="true" />
-    </button>
+      <nav className="bottom-nav" aria-label="Hlavní navigace" style={activeIndex}>
+        {SECTIONS.map(({ section: option, label, Icon }) => (
+          <button
+            className={[
+              "bottom-nav-button",
+              section === option ? "active" : "",
+              option === "radar" ? "bottom-nav-radar" : "",
+            ].filter(Boolean).join(" ")}
+            type="button"
+            aria-current={section === option ? "page" : undefined}
+            onClick={() => onSectionChange(option)}
+            key={option}
+          >
+            <Icon size={22} aria-hidden="true" />
+            <span>{label}</span>
+          </button>
+        ))}
+      </nav>
+    </>
   );
 };

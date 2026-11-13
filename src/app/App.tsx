@@ -1,31 +1,59 @@
 ﻿import { useEffect, useMemo, useRef, useState } from "react";
+import { RefreshCw } from "lucide-react";
 import { ProgramView } from "../features/program/ProgramView";
 import { FilmRow } from "../features/program/components/ProgramCards";
 import { FilterToolbar, LoadingRows, WeeklyLoading, WeeklySchedule } from "../features/program/components/ProgramSchedule";
 import { RadarView } from "../features/radar/RadarView";
 import { RadarWeeklyLoading, RadarWeeklySchedule } from "../features/radar/components/RadarWeeklySchedule";
-import { AppHeader } from "../shared/components/AppHeader";
+import { AppHeader, type AppSection } from "../shared/components/AppHeader";
 import { getPragueTodayISO, readPageState, startOfWeek, storeViewMode, writePageState } from "../shared/state/page-state";
+import { createWeeklySchedule } from "../../netlify/lib/shared/schedule-week";
 import { getWeekDays } from "../shared/lib/view-helpers";
 import { useApiResource } from "../shared/api/use-api-resource";
+import { fetchJson, getCachedApi } from "../shared/api/api";
+import { runViewTransition, type NavDirection } from "../shared/lib/view-transition";
+import { DataFreshness } from "../shared/components/DataFreshness";
+import { ToastHost } from "../shared/components/Toast";
+import { usePullToRefresh } from "./use-pull-to-refresh";
 import { useInstallPrompt } from "./use-install-prompt";
 import { useOnlineStatus } from "./use-online-status";
 import type {
-  AppMode,
+  LoadState,
   PageState,
   RadarResponse,
   ScheduleResponse,
-  ViewMode,
 } from "../types";
-const POSTER_PLACEHOLDER_SRC = "/poster-placeholder.png";
 
-const getScheduleUrl = (page: PageState) => {
-  if (page.view !== "week") return "/api/schedule";
-  return `/api/schedule?view=week${page.week ? `&week=${encodeURIComponent(page.week)}` : ""}`;
+// The full schedule is small (~6 kB gzip); weeks are derived from it on the client
+// so week navigation and the Program/Filmy switch never wait for the network.
+const SCHEDULE_URL = "/api/schedule";
+
+const getRadarUrl = (page: Pick<PageState, "radarWeek">) => {
+  return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
 };
 
-const getRadarUrl = (page: PageState) => {
-  return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
+/** Which page changes animate: mode / view crossfade, week changes slide in their direction. */
+const getNavDirection = (
+  current: PageState,
+  next: PageState,
+  shownWeek: string | null,
+): NavDirection | null => {
+  if (current.mode !== next.mode || current.view !== next.view) return "none";
+  const nextWeek = next.mode === "radar" ? next.radarWeek : next.week;
+  const currentWeek = current.mode === "radar" ? current.radarWeek : current.week;
+  if (!nextWeek || nextWeek === currentWeek) return null;
+  const from = shownWeek ?? currentWeek;
+  if (!from || from === nextWeek) return null;
+  return nextWeek > from ? "forward" : "back";
+};
+
+const whenIdle = (callback: () => void) => {
+  if (typeof window.requestIdleCallback === "function") {
+    const handle = window.requestIdleCallback(callback, { timeout: 4000 });
+    return () => window.cancelIdleCallback(handle);
+  }
+  const handle = window.setTimeout(callback, 1500);
+  return () => window.clearTimeout(handle);
 };
 
 export const App = () => {
@@ -35,8 +63,12 @@ export const App = () => {
   const [radarRetry, setRadarRetry] = useState(0);
   const [offline, setOffline] = useOnlineStatus();
   const { canInstall, installApp } = useInstallPrompt();
+  const pullToRefresh = usePullToRefresh(() => {
+    if (pageRef.current.mode === "radar") setRadarRetry(value => value + 1);
+    else setScheduleRetry(value => value + 1);
+  });
   const load = useApiResource<ScheduleResponse>(
-    page.mode === "program" ? getScheduleUrl(page) : null,
+    page.mode === "program" ? SCHEDULE_URL : null,
     scheduleRetry,
     setOffline,
   );
@@ -44,6 +76,17 @@ export const App = () => {
     page.mode === "radar" ? getRadarUrl(page) : null,
     radarRetry,
     setOffline,
+  );
+
+  const scheduleData = useMemo<ScheduleResponse | null>(() => {
+    if (!load.data) return null;
+    if (page.view !== "week") return load.data;
+    return createWeeklySchedule(load.data, page.week ? startOfWeek(page.week) : null);
+  }, [load.data, page.view, page.week]);
+
+  const programLoad = useMemo<LoadState<ScheduleResponse>>(
+    () => ({ ...load, data: scheduleData }),
+    [load, scheduleData],
   );
 
   useEffect(() => {
@@ -77,25 +120,40 @@ export const App = () => {
     if (
       page.mode !== "program" ||
       page.view !== "week" ||
-      !load.data?.period.weekStart ||
-      !load.data.period.weekEnd
+      !scheduleData?.period.weekStart ||
+      !scheduleData.period.weekEnd
     )
       return;
-    const days = getWeekDays(load.data.period.weekStart);
+    const days = getWeekDays(scheduleData.period.weekStart);
     if (page.day && days.includes(page.day)) return;
 
     const today = getPragueTodayISO();
     const nextDay = days.includes(today)
       ? today
       : (days.find(day =>
-          load.data!.films.some(film =>
+          scheduleData.films.some(film =>
             film.screenings.some(screening => screening.dateISO === day),
           ),
         ) ?? days[0]);
     changePage({ day: nextDay }, "replace");
-  }, [load.data, page.day, page.mode, page.view]);
+  }, [scheduleData, page.day, page.mode, page.view]);
 
   useEffect(() => storeViewMode(page.view), [page.view]);
+
+  // Warm the next radar week so the "next" arrow opens without a skeleton.
+  const nextRadarWeek = page.mode === "radar" && radarLoad.status === "ready"
+    ? radarLoad.data?.period.nextWeekStart ?? null
+    : null;
+  useEffect(() => {
+    if (!nextRadarWeek || offline) return;
+    const url = getRadarUrl({ radarWeek: nextRadarWeek });
+    if (getCachedApi(url)?.fresh) return;
+    return whenIdle(() => {
+      void fetchJson(url).catch(() => {
+        // Prefetch is best effort; the real navigation will retry and show errors.
+      });
+    });
+  }, [nextRadarWeek, offline]);
 
   useEffect(() => {
     if (page.mode !== "radar" || document.getElementById("tmdb-image-preconnect")) return;
@@ -131,10 +189,10 @@ export const App = () => {
   }, [load, page.filmId, page.mode, page.view]);
 
   const filteredFilms = useMemo(() => {
-    if (!load.data) return [];
+    if (!scheduleData) return [];
     const normalizedQuery = page.query.trim().toLocaleLowerCase("cs-CZ");
 
-    return load.data.films
+    return scheduleData.films
       .filter(
         film =>
           !normalizedQuery ||
@@ -148,7 +206,7 @@ export const App = () => {
         }),
       }))
       .filter(film => film.screenings.length > 0);
-  }, [load.data, page.query, page.subtitles]);
+  }, [scheduleData, page.query, page.subtitles]);
 
   const radarItems = useMemo(
     () => radarLoad.data?.items ?? [],
@@ -173,18 +231,25 @@ export const App = () => {
     const next = { ...current, ...patch, ...(clearsFilm ? { filmId: null } : {}) };
     pageRef.current = next;
     writePageState(next, mode);
-    setPage(next);
+
+    const shownWeek = current.mode === "radar"
+      ? radarLoad.data?.period.weekStart ?? current.radarWeek
+      : scheduleData?.period.weekStart ?? current.week;
+    const direction = getNavDirection(current, next, shownWeek ?? null);
+    if (direction) {
+      runViewTransition(() => setPage(next), direction);
+    } else {
+      setPage(next);
+    }
   }
 
-  function changeView(view: ViewMode) {
-    if (view === page.view) return;
-    changePage({ view, week: null, day: null, query: "", subtitles: false, filmId: null });
-  }
+  const section: AppSection = page.mode === "radar" ? "radar" : page.view === "all" ? "films" : "program";
 
-  function changeMode(mode: AppMode) {
-    if (mode === page.mode) return;
+  function changeSection(next: AppSection) {
+    if (next === section) return;
     changePage({
-      mode,
+      mode: next === "radar" ? "radar" : "program",
+      view: next === "films" ? "all" : "week",
       week: null,
       day: null,
       radarWeek: null,
@@ -207,14 +272,29 @@ export const App = () => {
     });
   }
 
+  const refreshing = page.mode === "radar" ? radarLoad.refreshing : load.refreshing;
+  const freshnessAt = page.mode === "radar" ? radarLoad.data?.fetchedAt : load.data?.fetchedAt;
+
   return (
     <main className="app-shell">
+      {pullToRefresh.pull > 0 ? (
+        <div
+          className={pullToRefresh.ready ? "pull-indicator ready" : "pull-indicator"}
+          style={{ transform: `translate(-50%, ${pullToRefresh.pull}px)` }}
+          aria-hidden="true"
+        >
+          <RefreshCw size={20} style={{ transform: `rotate(${pullToRefresh.pull * 3}deg)` }} />
+        </div>
+      ) : null}
+      {refreshing ? (
+        <div className="refresh-bar" role="status">
+          <span className="sr-only">Aktualizuji data</span>
+        </div>
+      ) : null}
       <AppHeader
-        mode={page.mode}
-        view={page.view}
+        section={section}
         canInstall={canInstall}
-        onModeChange={changeMode}
-        onViewChange={changeView}
+        onSectionChange={changeSection}
         onInstall={() => void installApp()}
       />
       {page.mode === "radar" ? (
@@ -229,7 +309,7 @@ export const App = () => {
               items={radarItems}
               selectedDay={page.radarDay}
               onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
-              onDayChange={day => changePage({ radarDay: day })}
+              onDayChange={day => changePage({ radarDay: day }, "replace")}
               onSelectProgramFilm={showFilmInAll}
             />
           )}
@@ -237,7 +317,7 @@ export const App = () => {
       ) : (
         <ProgramView
           view={page.view}
-          load={load}
+          load={programLoad}
           films={filteredFilms}
           filtersActive={filtersActive}
           offline={offline}
@@ -250,7 +330,7 @@ export const App = () => {
               films={films}
               selectedDay={page.day}
               onNavigate={week => changePage({ week, day: null })}
-              onDayChange={day => changePage({ day })}
+              onDayChange={day => changePage({ day }, "replace")}
               onSelectFilm={showFilmInAll}
             />
           )}
@@ -263,6 +343,11 @@ export const App = () => {
           )}
         />
       )}
+      <DataFreshness
+        label={page.mode === "radar" ? "Radar aktualizován" : "Program aktualizován"}
+        fetchedAt={freshnessAt ?? null}
+      />
+      <ToastHost />
     </main>
   );
 };

@@ -43,6 +43,8 @@ export const getRadarPosterProps = (url: string) => {
 
 export const getCsfdStatusText = (csfd: CsfdMatch | null) => {
   if (!csfd?.url) return "ČSFD nenalezeno";
+  if (csfd.ratingCount && csfd.rating == null)
+    return `Málo hodnocení (${csfd.ratingCount.toLocaleString("cs-CZ")})`;
   if (csfd.ratingCount)
     return `${csfd.ratingCount.toLocaleString("cs-CZ")} hodnocení`;
   return "Bez hodnocení";
@@ -158,11 +160,33 @@ export const formatMobileFilmMetadata = (description: string) => description
   .slice(0, 4)
   .join(", ");
 
-export const formatRadarCardMetadata = (item: RadarItem, includeChannel: boolean) => {
-  const parts = [
-    item.mediaType === "movie" ? "Film" : "Seriál",
-    includeChannel ? (item.channel === "cinema" ? "Kino" : "Streaming") : null,
-  ].filter((part): part is string => Boolean(part));
-  return parts.join(", ");
+/** "Film" / "Seriál", plus "V kině" for cinema premieres; streaming is shown by the provider logo. */
+export const formatRadarCardMetadata = (item: RadarItem) =>
+  [item.mediaType === "movie" ? "Film" : "Seriál", item.channel === "cinema" ? "V kině" : null]
+    .filter(Boolean)
+    .join(" · ");
+
+/** One date format everywhere: "Ne 28. 6." */
+export const formatDayLabel = (value: string) => {
+  const weekday = formatWeekday(value);
+  return `${weekday.charAt(0).toLocaleUpperCase("cs-CZ")}${weekday.slice(1)} ${formatShortDate(value)}`;
+};
+
+/** Only the formats that tell screenings apart ("2D" is on nearly everything). */
+export const getDistinctiveFormats = (formats: string[]) =>
+  formats.filter(format => format !== "2D" && format !== "Info");
+
+export const getScreeningSortMinutes = (time: string | null) => {
+  const match = time?.match(/^(\d{1,2}):(\d{2})/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : Number.POSITIVE_INFINITY;
+};
+
+/** Accessible description of a ČSFD rating, e.g. "Po večerce na ČSFD: 65 % (113 hodnocení)". */
+export const getCsfdLabel = (title: string, csfd: CsfdMatch | null) => {
+  if (!csfd?.url) return `${title}: ČSFD nenalezeno`;
+  const count = csfd.ratingCount ? ` (${csfd.ratingCount.toLocaleString("cs-CZ")} hodnocení)` : "";
+  return csfd.rating == null
+    ? `${title} na ČSFD: zatím bez hodnocení${count}`
+    : `${title} na ČSFD: ${csfd.rating} %${count}`;
 };
 

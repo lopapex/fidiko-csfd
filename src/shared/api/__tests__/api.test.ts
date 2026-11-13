@@ -83,3 +83,45 @@ describe("fetchJson", () => {
   });
 });
 
+describe("persisted API cache", () => {
+  const createStorage = () => {
+    const values = new Map<string, string>();
+    return {
+      get length() { return values.size; },
+      key: (index: number) => [...values.keys()][index] ?? null,
+      getItem: (key: string) => values.get(key) ?? null,
+      setItem: (key: string, value: string) => { values.set(key, value); },
+      removeItem: (key: string) => { values.delete(key); },
+    };
+  };
+
+  it("restores a stale response after reload and marks it for revalidation", () => {
+    const storage = createStorage();
+    vi.stubGlobal("localStorage", storage);
+    storage.setItem("nzfd-api-v1:/api/schedule", JSON.stringify({
+      data: { value: 4 },
+      storedAt: Date.now() - 600_000,
+      offline: false,
+    }));
+
+    const cached = getCachedApi<{ value: number }>("/api/schedule");
+
+    expect(cached?.data.value).toBe(4);
+    expect(cached?.fresh).toBe(false);
+  });
+
+  it("keeps only the newest persisted responses", async () => {
+    const storage = createStorage();
+    vi.stubGlobal("localStorage", storage);
+    vi.stubGlobal("navigator", { onLine: true });
+    vi.stubGlobal("fetch", vi.fn().mockImplementation(async () => new Response('{"value":1}', {
+      headers: { "content-type": "application/json" }
+    })));
+
+    for (let index = 0; index < 8; index += 1) {
+      await fetchJson(`/api/radar?week=${index}`);
+    }
+
+    expect(storage.length).toBe(6);
+  });
+});

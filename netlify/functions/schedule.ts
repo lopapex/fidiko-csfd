@@ -1,6 +1,7 @@
 import { getStore } from "@netlify/blobs";
-import type { RawScreening, ScheduleResponse } from "../lib/schedule-scraper";
-import { addDaysISO, getPragueTodayISO, isMondayISODate, startOfISOWeek } from "../lib/shared/date";
+import type { ScheduleResponse } from "../lib/schedule-scraper";
+import { isMondayISODate } from "../lib/shared/date";
+import { createWeeklySchedule } from "../lib/shared/schedule-week";
 import { cachedJsonResponse, errorJsonResponse, serverTimingHeader } from "../lib/shared/http";
 
 const SCHEDULE_CACHE_STORE = "schedule-cache";
@@ -84,58 +85,6 @@ async function readScheduleCache() {
   return (await store.get(SCHEDULE_CACHE_KEY, { type: "json" })) as ScheduleResponse | null;
 }
 
-function createWeeklySchedule(fullSchedule: ScheduleResponse, requestedWeek: string | null): ScheduleResponse {
-  const allScreenings = fullSchedule.films.flatMap((film) => film.screenings);
-  let weekStart = requestedWeek ?? startOfISOWeek(getPragueTodayISO());
-  let weekEnd = addDaysISO(weekStart, 6);
-
-  if (!requestedWeek && !allScreenings.some((screening) => isDateInRange(screening.dateISO, weekStart, weekEnd))) {
-    const firstFutureScreening = allScreenings
-      .filter((screening) => screening.dateISO > weekEnd)
-      .sort(compareScreeningDates)[0];
-
-    if (firstFutureScreening) {
-      weekStart = startOfISOWeek(firstFutureScreening.dateISO);
-      weekEnd = addDaysISO(weekStart, 6);
-    }
-  }
-
-  const films = fullSchedule.films
-    .map((film) => {
-      const screenings = film.screenings.filter((screening) => isDateInRange(screening.dateISO, weekStart, weekEnd));
-      return {
-        ...film,
-        hasSubtitles: screenings.some((screening) => screening.hasSubtitles),
-        screenings
-      };
-    })
-    .filter((film) => film.screenings.length > 0);
-  const previousDate = allScreenings
-    .filter((screening) => screening.dateISO < weekStart)
-    .sort(compareScreeningDates)
-    .at(-1)?.dateISO;
-  const nextDate = allScreenings
-    .filter((screening) => screening.dateISO > weekEnd)
-    .sort(compareScreeningDates)[0]?.dateISO;
-
-  return {
-    ...fullSchedule,
-    totals: {
-      films: films.length,
-      screenings: films.reduce((total, film) => total + film.screenings.length, 0),
-      withSubtitles: films.filter((film) => film.hasSubtitles).length
-    },
-    period: {
-      mode: "week",
-      weekStart,
-      weekEnd,
-      previousWeekStart: previousDate ? startOfISOWeek(previousDate) : null,
-      nextWeekStart: nextDate ? startOfISOWeek(nextDate) : null
-    },
-    films
-  };
-}
-
 function successResponse(
   body: ScheduleResponse,
   cacheStatus: string,
@@ -156,14 +105,6 @@ function successResponse(
 
 function errorResponse(body: unknown, status: number, extraHeaders: Record<string, string> = {}) {
   return errorJsonResponse(body, status, extraHeaders);
-}
-
-function isDateInRange(value: string, start: string, end: string) {
-  return value >= start && value <= end;
-}
-
-function compareScreeningDates(left: RawScreening, right: RawScreening) {
-  return left.dateISO.localeCompare(right.dateISO) || left.sourceOrder - right.sourceOrder;
 }
 
 export default handler;

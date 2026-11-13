@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import handler, { chooseNewestSnapshot, filterRadarItems } from "../radar";
+import handler, { chooseNewestSnapshot, filterRadarItems, getNeighbourWeek } from "../radar";
 import type { RadarSnapshot } from "../../lib/radar-refresh";
 
 const snapshot: RadarSnapshot = {
@@ -159,5 +159,18 @@ describe("Radar reader", () => {
     const response = await handler(new Request(url));
     expect(response.status).toBe(400);
     expect(response.headers.get("cache-control")).toBe("no-store");
+  });
+});
+
+describe("Radar week navigation", () => {
+  it("links neighbour weeks only inside the precompute window", () => {
+    const current = "2026-11-09";
+    expect(getNeighbourWeek(current, 7, current)).toBe("2026-11-16");
+    expect(getNeighbourWeek(current, -7, current)).toBe("2026-11-02");
+    // 12 weeks ahead is the last precomputed week; 5 weeks back the first.
+    expect(getNeighbourWeek("2027-02-01", 7, current)).toBeNull();
+    expect(getNeighbourWeek("2026-10-05", -7, current)).toBeNull();
+    // From a legacy week outside the window, the arrow back towards it stays active.
+    expect(getNeighbourWeek("2026-09-28", 7, current)).toBe("2026-10-05");
   });
 });
