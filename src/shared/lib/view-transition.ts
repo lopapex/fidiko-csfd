@@ -20,6 +20,7 @@ export const runViewTransition = (update: () => void, direction: NavDirection = 
   const transition = document.startViewTransition(update);
   // A transition can be skipped (hidden tab, a newer one started); the update itself still ran.
   transition.ready.catch(() => undefined);
+  transition.updateCallbackDone.catch(() => undefined);
   transition.finished
     .catch(() => undefined)
     .finally(() => {
