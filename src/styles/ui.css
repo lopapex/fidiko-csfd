@@ -211,6 +211,10 @@
 .agenda-viewport {
   position: relative;
   overflow: hidden;
+  /* Swapping weeks moves DOM nodes; browser scroll anchoring would yank the page. */
+  overflow-anchor: none;
+  /* Even a short week fills the screen, so the day strip can stay pinned after a week change. */
+  min-height: calc(100dvh - 64px);
 }
 
 .agenda-track {
@@ -219,17 +223,18 @@
   will-change: transform;
 }
 
-.agenda-neighbor {
+.agenda-pane.previous,
+.agenda-pane.next {
   position: absolute;
   top: var(--peek-offset, 0px);
   width: 100%;
 }
 
-.agenda-neighbor.previous {
+.agenda-pane.previous {
   right: 100%;
 }
 
-.agenda-neighbor.next {
+.agenda-pane.next {
   left: 100%;
 }
 
@@ -265,6 +270,12 @@
 
 .agenda-day.empty .agenda-day-title {
   padding-bottom: 12px;
+}
+
+/* Fixed date column, so "Bez projekce" / "Dnes" line up for "St 1. 7." and "Po 29. 6." alike. */
+.agenda-day-date {
+  min-width: 5.6em;
+  font-variant-numeric: tabular-nums;
 }
 
 .agenda-day-note {
@@ -600,10 +611,11 @@ a.rating:focus-visible {
 
 /* --- Posters ------------------------------------------------------------------ */
 
+/* The placeholder sits behind every poster: visible while loading, when missing, or on error. */
 .poster {
   overflow: hidden;
   border-radius: 6px;
-  background: var(--surface-4);
+  background: var(--surface-4) url("/poster-placeholder.png") center / cover no-repeat;
 }
 
 .poster img {
@@ -731,10 +743,7 @@ a.rating:focus-visible {
     border-radius: 0;
   }
 
-  /* Even a short week fills the screen, so after a week swipe the day strip
-     stays pinned in the same place instead of the header popping back in. */
-  .agenda-viewport,
-  .agenda-track > .agenda {
+  .agenda-pane.current > .agenda {
     min-height: calc(100dvh - 64px);
   }
 

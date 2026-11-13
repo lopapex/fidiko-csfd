@@ -126,8 +126,10 @@ export function WeekView({
     const viewport = viewportRef.current;
     const strip = stripRef.current;
     if (swap.alignToStrip && viewport && strip) {
-      // The neighbour was shown starting right under the pinned strip; keep it exactly there.
-      window.scrollBy({ top: viewport.getBoundingClientRect().top - strip.offsetHeight });
+      // The neighbour was shown starting right under the pinned strip. Compensate in the same
+      // frame (before paint), so the week stays exactly where it was on screen: no visible scroll.
+      const delta = viewport.getBoundingClientRect().top - strip.offsetHeight;
+      if (Math.abs(delta) > 1) window.scrollBy({ top: delta, behavior: "instant" });
     }
     animating.current = false;
   }, [weekKey]);
@@ -282,17 +284,35 @@ export function WeekView({
 
       <div className="agenda-viewport" ref={viewportRef}>
         <div className="agenda-track" ref={trackRef}>
-          {previousWeekStart ? (
-            <div className="agenda-neighbor previous" aria-hidden="true" inert>
-              {previous ? <WeekList content={previous} today={today} emptyDayText={emptyDayText} /> : <WeekListSkeleton />}
-            </div>
-          ) : null}
-          <WeekList content={current} today={today} emptyDayText={emptyDayText} idOf={dayId} />
-          {nextWeekStart ? (
-            <div className="agenda-neighbor next" aria-hidden="true" inert>
-              {next ? <WeekList content={next} today={today} emptyDayText={emptyDayText} /> : <WeekListSkeleton />}
-            </div>
-          ) : null}
+          {/* Panes keyed by week start: the week swiped into view keeps its DOM (and loaded posters) when it becomes current. */}
+          {[
+            previousWeekStart ? { week: previousWeekStart, role: "previous" as const, content: previous } : null,
+            { week: weekKey, role: "current" as const, content: current },
+            nextWeekStart ? { week: nextWeekStart, role: "next" as const, content: next } : null,
+          ]
+            .filter(pane => pane !== null)
+            .map(pane => {
+              const isCurrent = pane.role === "current";
+              return (
+                <div
+                  className={`agenda-pane ${pane.role}`}
+                  aria-hidden={isCurrent ? undefined : true}
+                  inert={!isCurrent}
+                  key={pane.week}
+                >
+                  {pane.content ? (
+                    <WeekList
+                      content={pane.content}
+                      today={today}
+                      emptyDayText={emptyDayText}
+                      idOf={isCurrent ? dayId : undefined}
+                    />
+                  ) : (
+                    <WeekListSkeleton />
+                  )}
+                </div>
+              );
+            })}
         </div>
       </div>
     </section>
@@ -334,7 +354,7 @@ function WeekList({
             key={day}
           >
             <h3 className="agenda-day-title" id={id ? `${id}-title` : undefined}>
-              {formatDayLabel(day)}
+              <span className="agenda-day-date">{formatDayLabel(day)}</span>
               {day === today ? <span className="today-label">Dnes</span> : null}
               {meta.empty ? <span className="agenda-day-note">{emptyDayText}</span> : null}
             </h3>

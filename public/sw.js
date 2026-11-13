@@ -2,7 +2,7 @@ const BUILD_ID = new URL(self.location.href).searchParams.get("v") || "dev";
 const APP_CACHE = `nzfd-app-${BUILD_ID}`;
 const DATA_CACHE = "nzfd-data-v1";
 const DATA_CACHE_LIMIT = 32;
-const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.webp", "/pwa-icon-192.png"];
+const APP_SHELL = ["/", "/manifest.webmanifest", "/nzfd-wordmark.webp", "/poster-placeholder.png", "/pwa-icon-192.png"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
