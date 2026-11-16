@@ -1,23 +1,25 @@
 import * as cheerio from "cheerio";
 import { getStore } from "@netlify/blobs";
-import { csfd } from "node-csfd-api";
 import { patchItemsWithFreshCsfdRatings } from "./csfd-ratings";
+import { comparableCountry, resolveCsfdTitle } from "./csfd-match";
 import { decodeHtmlEntities } from "./text";
 
 const FIDIKO_BASE = "https://www.fidiko.cz/";
 const MAX_PAGES = 50;
 const FETCH_TIMEOUT_MS = 12000;
 const FETCH_RETRIES = 2;
-const CSFD_TIMEOUT_MS = 6500;
-const CSFD_CONCURRENCY = 6;
+const CSFD_TIMEOUT_MS = 20000;
+const CSFD_CONCURRENCY = 4;
 const CSFD_CACHE_STORE = "csfd-cache";
-const CSFD_CACHE_VERSION = "v2";
+const CSFD_CACHE_VERSION = "v3";
 const SCHEDULE_CACHE_STORE = "schedule-cache";
 const SCHEDULE_CACHE_KEY = "current-v2";
-const FORMAT_TAG_PATTERN = "(?:ČT|čT|čt|CT|ct|ČV|čV|čv|CV|cv|OV|ov|NES|nes|3D|3d|2D|2d)";
+const FORMAT_TAG_PATTERN = "(?:ČT|čT|čt|CT|ct|ČV|čV|čv|CV|cv|ČD|čD|čd|CD|cd|OV|ov|NES|nes|3D|3d|2D|2d)";
 const FORMAT_TAG_GROUP_RE = new RegExp(`\\s*\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "gi");
 const SUBTITLE_TAG_RE = /\((?:\s*(?:ČT|čT|čt|CT|ct)\s*)\)/i;
-const DUBBING_TAG_RE = /\((?:\s*(?:ČV|čV|čv|CV|cv)\s*)\)/i;
+const DUBBING_TAG_RE = /\((?:\s*(?:ČV|čV|čv|CV|cv|ČD|čD|čd|CD|cd)\s*)\)/i;
+// Fidiko writes "<title> (<tag>) - <event>": whatever follows a tag is about the screening, not the film.
+const TAGGED_TITLE_RE = /^(.*?\S)\s*\(\s*[A-ZČŠŽ0-9]{2,5}\s*\)(?:\s*\(\s*[A-ZČŠŽ0-9]{2,5}\s*\))*(?:\s+[-–].*)?$/;
 const MOVIE_FORMAT_TAG_RE = new RegExp(`\\(\\s*${FORMAT_TAG_PATTERN}\\s*\\)`, "i");
 const TITLE_SUFFIX_RE =
   /\s+-\s+(?:PREMIÉRA|PREMIERA|Kino senior|Filmový klub|Dopoledn|TICHÁ STŘEDA|TICHA STREDA).*$/i;
@@ -267,7 +269,7 @@ async function groupScreenings(screenings: RawScreening[], pruneCache: boolean) 
   }
 
   const entries = [...map.entries()];
-  const activeCsfdKeys = new Set(entries.map(([title, items]) => createCsfdCacheKey(title, getScreeningHints(items))));
+  const activeCsfdKeys = new Set(entries.map(([title, items]) => createCsfdCacheKey(title)));
   const groups: FilmGroup[] = await mapConcurrent(entries, CSFD_CONCURRENCY, async ([title, items]) => {
       const sortedScreenings = items.sort(compareScreenings);
       const csfdMatch = await getCsfdMatch(title, sortedScreenings);
@@ -317,7 +319,7 @@ async function mapConcurrent<T, R>(items: T[], concurrency: number, mapper: (ite
 
 function getCsfdMatch(query: string, screenings: RawScreening[]) {
   const hints = getScreeningHints(screenings);
-  const cacheKey = `${query}:${hints.countries.join(",")}`;
+  const cacheKey = createCsfdCacheKey(query);
   const cached = csfdCache.get(cacheKey);
   if (cached) {
     return cached;
@@ -333,7 +335,7 @@ function getCsfdMatch(query: string, screenings: RawScreening[]) {
 }
 
 async function loadOrLookupCsfd(query: string, hints: ScreeningHints) {
-  const persistentKey = createCsfdCacheKey(query, hints);
+  const persistentKey = createCsfdCacheKey(query);
 
   try {
     const cached = (await getCsfdStore().get(persistentKey, { type: "json" })) as CsfdMatch | null;
@@ -357,8 +359,8 @@ async function loadOrLookupCsfd(query: string, hints: ScreeningHints) {
   return match;
 }
 
-function createCsfdCacheKey(query: string, hints: ScreeningHints) {
-  return `${CSFD_CACHE_VERSION}/${slugify(query)}--${hints.countries.map(slugify).join("-") || "unknown"}`;
+function createCsfdCacheKey(query: string) {
+  return `${CSFD_CACHE_VERSION}/${slugify(query)}`;
 }
 
 async function pruneCsfdCache(activeKeys: Set<string>) {
@@ -377,37 +379,50 @@ async function pruneCsfdCache(activeKeys: Set<string>) {
   }
 }
 
+/** A miss and a ČSFD outage both give `null`; neither is remembered, so the next pass asks again. */
 async function lookupCsfd(query: string, hints: ScreeningHints): Promise<CsfdMatch | null> {
   try {
-    const results = await csfd.search(query);
-    const movies = Array.isArray(results) ? results : [...(results.movies ?? []), ...(results.tvSeries ?? [])];
-    const normalizedQuery = comparableTitle(query);
-
-    const match = movies
-      .filter((movie) => {
-        const candidateTitle = comparableTitle(movie.title);
-        return candidateTitle === normalizedQuery || isPlausibleTitleMatch(candidateTitle, normalizedQuery);
-      })
-      .map((movie) => ({ movie, score: scoreCsfdCandidate(movie, normalizedQuery, hints) }))
-      .sort((left, right) => right.score - left.score)[0]?.movie;
-
-    if (!match) {
+    const outcome = await resolveCsfdTitle({ titles: [query], kind: "movie", countries: hints.countries });
+    if (outcome.status !== "matched") {
+      console.warn(`CSFD match for "${query}": ${outcome.status}`);
       return null;
     }
 
-    const details = typeof match.id === "number" ? await getCsfdDetails(match.id) : null;
-
+    const { candidate, details } = outcome;
     return {
-      title: details?.title ?? match.title,
-      rating: numberOrNull(details?.rating) ?? numberOrNull(match.rating),
-      ratingCount: numberOrNull(details?.ratingCount) ?? numberOrNull(match.ratingCount),
-      url: details?.url ?? match.url ?? null,
-      poster: optimizeCsfdPoster(details?.poster ?? match.poster ?? null)
+      title: details?.title ?? candidate.title,
+      rating: numberOrNull(details?.rating),
+      ratingCount: numberOrNull(details?.ratingCount),
+      url: details?.url ?? candidate.url ?? null,
+      poster: optimizeCsfdPoster(details?.poster ?? candidate.poster ?? null)
     };
   } catch (error) {
     console.warn(`CSFD lookup failed for "${query}"`, error);
     return null;
   }
+}
+
+/**
+ * Between the nightly refreshes: ask ČSFD again for the films that are still
+ * without a match, so one bad moment at midnight does not last the whole day.
+ */
+export async function repairScheduleCsfd() {
+  const store = getScheduleStore();
+  const schedule = (await store.get(SCHEDULE_CACHE_KEY, { type: "json" })) as ScheduleResponse | null;
+  const unmatched = schedule?.films.filter((film) => !film.csfd?.url) ?? [];
+  if (!schedule || unmatched.length === 0) return 0;
+
+  let repaired = 0;
+  for (const film of unmatched) {
+    const match = await getCsfdMatch(film.title, film.screenings);
+    if (!match?.url) continue;
+    film.csfd = match;
+    film.posterUrl = optimizeCsfdPoster(match.poster) ?? film.posterUrl;
+    repaired += 1;
+  }
+
+  if (repaired > 0) await store.setJSON(SCHEDULE_CACHE_KEY, schedule);
+  return repaired;
 }
 
 function optimizeCsfdPoster(url: string | null) {
@@ -421,41 +436,19 @@ function optimizeCsfdPoster(url: string | null) {
 function getScreeningHints(screenings: RawScreening[]): ScreeningHints {
   const countries = new Set<string>();
 
+  // "USA, Komedie, 12+, 2D, dabing": the countries come first; genres never equal a ČSFD origin.
   for (const screening of screenings) {
     for (const part of screening.description.split(",")) {
-      const country = normalizeCountry(part);
-      if (country) {
+      const country = comparableCountry(part);
+      if (country && !/\d/.test(country)) {
         countries.add(country);
       }
     }
   }
 
   return {
-    countries: [...countries]
+    countries: [...countries].sort()
   };
-}
-
-function scoreCsfdCandidate(movie: { title: string; year?: number; origins?: string[] }, normalizedQuery: string, hints: ScreeningHints) {
-  const candidateTitle = comparableTitle(movie.title);
-  let score = candidateTitle === normalizedQuery ? 100 : 60;
-
-  if (movie.origins?.some((origin) => hints.countries.includes(normalizeCountry(origin) ?? ""))) {
-    score += 35;
-  }
-
-  if (movie.year === new Date().getFullYear()) {
-    score += 5;
-  }
-
-  return score;
-}
-
-async function getCsfdDetails(id: number) {
-  try {
-    return await csfd.movie(id);
-  } catch {
-    return null;
-  }
 }
 
 function parseDateText(value: string) {
@@ -534,6 +527,7 @@ function daysBetweenISO(earlier: string, later: string) {
 export function normalizeFilmTitle(title: string) {
   return cleanText(
     title
+      .replace(TAGGED_TITLE_RE, "$1")
       .replace(FORMAT_TAG_GROUP_RE, "")
       .replace(TITLE_SUFFIX_RE, "")
       .replace(/\s+/g, " ")
@@ -631,58 +625,8 @@ function comparableTitle(value: string) {
     .trim();
 }
 
-function normalizeCountry(value: string) {
-  const normalized = comparableTitle(value);
-
-  if (["ceska republika", "cesko", "czech republic", "czechia"].includes(normalized)) {
-    return "cesko";
-  }
-
-  if (["usa", "spojene staty", "spojene staty americke"].includes(normalized)) {
-    return "usa";
-  }
-
-  if (["polsko", "poland"].includes(normalized)) {
-    return "polsko";
-  }
-
-  if (["slovensko", "slovakia"].includes(normalized)) {
-    return "slovensko";
-  }
-
-  if (["francie", "france"].includes(normalized)) {
-    return "francie";
-  }
-
-  if (["velka britanie", "spojene kralovstvi", "uk", "united kingdom"].includes(normalized)) {
-    return "velka britanie";
-  }
-
-  if (["nemecko", "germany"].includes(normalized)) {
-    return "nemecko";
-  }
-
-  return null;
-}
-
 function slugify(value: string) {
   return comparableTitle(value).replace(/\s+/g, "-") || "film";
-}
-
-function isPlausibleTitleMatch(candidate: string, query: string) {
-  if (!candidate || !query) {
-    return false;
-  }
-
-  if (candidate.includes(query) || query.includes(candidate)) {
-    return true;
-  }
-
-  const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
-  const queryWords = query.split(" ").filter((word) => word.length > 2);
-  const matches = queryWords.filter((word) => candidateWords.has(word)).length;
-
-  return queryWords.length > 0 && matches / queryWords.length >= 0.75;
 }
 
 function numberOrNull(value: unknown) {

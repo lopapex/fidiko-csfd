@@ -29,8 +29,10 @@ import type {
 // so week navigation and the Program/Filmy switch never wait for the network.
 const SCHEDULE_URL = "/api/schedule";
 
+/** Always names the week, so the default week and the same week picked by hand share one cache entry. */
 const getRadarUrl = (page: Pick<PageState, "radarWeek">) => {
-  return `/api/radar?period=week${page.radarWeek ? `&week=${encodeURIComponent(page.radarWeek)}` : ""}`;
+  const week = page.radarWeek ?? startOfWeek(getPragueTodayISO());
+  return `/api/radar?period=week&week=${encodeURIComponent(week)}`;
 };
 
 const getSection = (page: Pick<PageState, "mode" | "view">): AppSection =>
@@ -130,6 +132,24 @@ export const App = () => {
 
   useEffect(() => storeViewMode(page.view), [page.view]);
 
+  // Coming back to the app after a while (an installed app stays open for days):
+  // "today" may have moved on and the data may be old.
+  const [, setResumedAt] = useState(0);
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState !== "visible") return;
+      setResumedAt(Date.now());
+      if (!navigator.onLine) return;
+      const current = pageRef.current;
+      const url = current.mode === "radar" ? getRadarUrl(current) : SCHEDULE_URL;
+      if (getCachedApi(url)?.fresh) return;
+      if (current.mode === "radar") setRadarRetry(value => value + 1);
+      else setScheduleRetry(value => value + 1);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, []);
+
   // Warm both neighbouring radar weeks: swiping reveals their real content and opens them without a skeleton.
   const [radarPrefetchTick, setRadarPrefetchTick] = useState(0);
   const radarReady = page.mode === "radar" && radarLoad.status === "ready";
@@ -181,6 +201,10 @@ export const App = () => {
     if (!target) return false;
     target.scrollIntoView({ block: "start", behavior: "instant" });
     target.focus({ preventScroll: true });
+    // Mark where the jump landed (restarts the animation when the same film is opened again).
+    target.classList.remove("just-opened");
+    void target.offsetWidth;
+    target.classList.add("just-opened");
     return true;
   };
 
@@ -193,6 +217,8 @@ export const App = () => {
   const filteredFilms = useMemo(() => {
     if (!scheduleData) return [];
     const normalizedQuery = page.query.trim().toLocaleLowerCase("cs-CZ");
+    // "Filmy" lists what can still be seen; the week keeps its past days as a calendar does.
+    const firstDay = page.view === "all" ? getPragueTodayISO() : "";
 
     return scheduleData.films
       .filter(
@@ -202,13 +228,12 @@ export const App = () => {
       )
       .map(film => ({
         ...film,
-        screenings: film.screenings.filter(screening => {
-          if (page.subtitles && !screening.hasSubtitles) return false;
-          return true;
-        }),
+        screenings: film.screenings.filter(
+          screening => screening.dateISO >= firstDay && (!page.subtitles || screening.hasSubtitles),
+        ),
       }))
       .filter(film => film.screenings.length > 0);
-  }, [scheduleData, page.query, page.subtitles]);
+  }, [scheduleData, page.query, page.subtitles, page.view]);
 
   const radarItems = useMemo(
     () => radarLoad.data?.items ?? [],
@@ -253,8 +278,30 @@ export const App = () => {
 
   const section = getSection(page);
 
+  /** Tapping the tab you are already on goes home: back to this week, or to the top. */
+  function goHome() {
+    const current = pageRef.current;
+    const thisWeek = startOfWeek(getPragueTodayISO());
+    const homeWeek = section === "radar"
+      ? thisWeek
+      : load.data ? createWeeklySchedule(load.data, null).period.weekStart : null;
+    const shownWeek = section === "radar"
+      ? current.radarWeek ?? thisWeek
+      : current.week ?? homeWeek;
+    if (section === "films" || shownWeek === homeWeek) {
+      const smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      window.scrollTo({ top: 0, behavior: smooth ? "smooth" : "instant" });
+      return;
+    }
+    landOnDay.current = true;
+    changePage(section === "radar" ? { radarWeek: null, radarDay: null } : { week: null, day: null });
+  }
+
   function changeSection(next: AppSection) {
-    if (next === section) return;
+    if (next === section) {
+      goHome();
+      return;
+    }
     changePage({
       mode: next === "radar" ? "radar" : "program",
       view: next === "films" ? "all" : "week",
@@ -281,7 +328,10 @@ export const App = () => {
   }
 
   const refreshing = page.mode === "radar" ? radarLoad.refreshing : load.refreshing;
-  const freshnessAt = page.mode === "radar" ? radarLoad.data?.fetchedAt : load.data?.fetchedAt;
+  // A week that is not prepared yet has no data to date.
+  const freshnessAt = page.mode === "radar"
+    ? radarLoad.data?.status === "missing" ? null : radarLoad.data?.fetchedAt
+    : load.data?.fetchedAt;
 
   return (
     <main className="app-shell">

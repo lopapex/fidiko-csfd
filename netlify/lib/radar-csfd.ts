@@ -1,14 +1,20 @@
 import { getStore } from "@netlify/blobs";
-import { csfd, type CSFDMovie, type CSFDSearchMovie } from "node-csfd-api";
+import type { CSFDMovie, CSFDSearchMovie } from "node-csfd-api";
+import { csfdClient } from "./csfd-client";
+import { comparableTitle, resolveCsfdTitle, titleSimilarity } from "./csfd-match";
 import type { RadarItem, RadarMediaType } from "./radar-refresh";
 import { getProviderMetadata } from "./radar-providers";
 
 const CACHE_STORE = "radar-csfd-cache";
-const CACHE_VERSION = "v15";
-const LOOKUP_CONCURRENCY = 8;
-const LOOKUP_TIMEOUT_MS = 5000;
+const CACHE_VERSION = "v16";
+const LOOKUP_CONCURRENCY = 6;
+// One ČSFD page, including the retry inside csfdClient.
+const LOOKUP_TIMEOUT_MS = 12_000;
+// A whole match: a few searches and detail pages.
+const MATCH_TIMEOUT_MS = 25_000;
 const MATCHED_TTL_MS = 7 * 86_400_000;
-const NOT_FOUND_TTL_MS = 86_400_000;
+// Shorter than the nightly refresh, so a title missing today is asked about again tomorrow.
+const NOT_FOUND_TTL_MS = 12 * 3_600_000;
 
 export type RadarCsfdMatch = {
   title: string;
@@ -123,7 +129,7 @@ export async function fetchCsfdPrimaryStreamingItems(seeds: CsfdPrimaryStreaming
 
 async function loadSeedDetails(csfdId: number) {
   for (let attempt = 0; attempt < 3; attempt += 1) {
-    const details = await withTimeout(csfd.movie(csfdId), LOOKUP_TIMEOUT_MS * 2, null);
+    const details = await withTimeout(csfdClient.movie(csfdId), LOOKUP_TIMEOUT_MS, null);
     if (details?.url && details.title) return details;
   }
   return null;
@@ -148,7 +154,7 @@ export async function fetchCsfdSeriesStreamingItemsFromCandidates(
       const root = await findRootSeriesCandidateFromQueries(buildRootSeriesQueries(candidate));
       if (!root) return null;
 
-      const details = await withTimeout(csfd.movie(root.id), LOOKUP_TIMEOUT_MS, null);
+      const details = await withTimeout(csfdClient.movie(root.id), LOOKUP_TIMEOUT_MS, null);
       if (!details?.url || !details.title) return null;
 
       const vodPremieres = selectCzechVodPremieres(details.premieres ?? [], { channel: "streaming" })
@@ -207,7 +213,7 @@ async function loadSeriesRatingDetails(details: CSFDMovie, mediaType: RadarMedia
     : null;
 
   if (rootId) {
-    const rootDetails = await withTimeout(csfd.movie(rootId), LOOKUP_TIMEOUT_MS, null);
+    const rootDetails = await withTimeout(csfdClient.movie(rootId), LOOKUP_TIMEOUT_MS, null);
     if (rootDetails?.url) {
       return {
         url: rootDetails.url,
@@ -220,7 +226,7 @@ async function loadSeriesRatingDetails(details: CSFDMovie, mediaType: RadarMedia
   if (details.seasonName) {
     const rootCandidate = await findRootSeriesCandidate(details.title);
     const fallbackRoot = rootCandidate
-      ? await withTimeout(csfd.movie(rootCandidate.id), LOOKUP_TIMEOUT_MS, null)
+      ? await withTimeout(csfdClient.movie(rootCandidate.id), LOOKUP_TIMEOUT_MS, null)
       : null;
     if (fallbackRoot?.url) {
       return {
@@ -246,7 +252,7 @@ async function findRootSeriesCandidateFromQueries(queries: string[]) {
   try {
     const searched = [];
     for (const query of queries) {
-      const result = await csfd.search(query);
+      const result = await csfdClient.search(query);
       const rootCandidates = (result.tvSeries ?? []).filter(isRootSeriesSearchResult);
       searched.push({ query, rootCandidates });
       const exactCandidate = selectRootSeriesCandidate(rootCandidates, query);
@@ -266,7 +272,7 @@ async function findRootSeriesCandidateFromQueries(queries: string[]) {
 
 async function selectRootSeriesCandidateByDetails(candidates: CSFDSearchMovie[], query: string) {
   for (const candidate of candidates.slice(0, 5)) {
-    const details = await withTimeout(csfd.movie(candidate.id), LOOKUP_TIMEOUT_MS, null);
+    const details = await withTimeout(csfdClient.movie(candidate.id), LOOKUP_TIMEOUT_MS, null);
     if (isDetailedTitleMatch(candidate, details, query)) return candidate;
   }
   return null;
@@ -285,7 +291,7 @@ async function loadMatch(item: RadarItem) {
     console.warn(`Radar CSFD cache read failed for "${item.title}"`, error);
   }
 
-  const result = await withTimeout(lookupMatch(item), LOOKUP_TIMEOUT_MS, { status: "error" } satisfies RadarCsfdLookupResult);
+  const result = await withTimeout(lookupMatch(item), MATCH_TIMEOUT_MS, { status: "error" } satisfies RadarCsfdLookupResult);
   const cached = createCachedRadarCsfd(result);
   if (cached) {
     try {
@@ -298,41 +304,29 @@ async function loadMatch(item: RadarItem) {
 }
 
 async function lookupMatch(item: RadarItem): Promise<RadarCsfdLookupResult> {
-  let failed = false;
-  for (const query of buildLookupQueries(item)) {
-    try {
-      const result = await csfd.search(query);
-      const candidates = item.mediaType === "series"
-        ? [...result.tvSeries, ...result.movies]
-        : [...result.movies, ...result.tvSeries];
-      for (const match of selectCandidates(candidates, item, query)) {
-        const details = await withTimeout(csfd.movie(match.id), LOOKUP_TIMEOUT_MS, null);
-        if (!isDetailedTitleMatch(match, details, query)) continue;
-        const ratingDetails = details
-          ? await loadSeriesRatingDetails(details, item.mediaType)
-          : null;
-        const url = ratingDetails?.url ?? match.url;
-        if (!url) continue;
-        const title = details ? formatSeasonTitle(details.title, details.seasonName) : normalizeSeasonTitle(match.title);
+  const outcome = await resolveCsfdTitle({
+    titles: buildLookupQueries(item),
+    kind: item.mediaType,
+    year: Number(item.releaseDate.slice(0, 4)),
+  });
+  if (outcome.status !== "matched") return { status: outcome.status };
 
-        return {
-          status: "matched",
-          match: {
-            title,
-            rating: numberOrNull(ratingDetails?.rating ?? details?.rating),
-            ratingCount: numberOrNull(ratingDetails?.ratingCount ?? details?.ratingCount),
-            url,
-            releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
-            vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
-          }
-        };
-      }
-    } catch (error) {
-      failed = true;
-      console.warn(`Radar CSFD lookup failed for "${query}"`, error);
+  const { candidate, details } = outcome;
+  const ratingDetails = details ? await loadSeriesRatingDetails(details, item.mediaType) : null;
+  const url = ratingDetails?.url ?? candidate.url;
+  if (!url) return { status: "not_found" };
+
+  return {
+    status: "matched",
+    match: {
+      title: details ? formatSeasonTitle(details.title, details.seasonName) : normalizeSeasonTitle(candidate.title),
+      rating: numberOrNull(ratingDetails?.rating ?? details?.rating),
+      ratingCount: numberOrNull(ratingDetails?.ratingCount ?? details?.ratingCount),
+      url,
+      releaseDate: selectCzechStreamingDate(details?.premieres ?? [], item),
+      vodPremieres: selectCzechVodPremieres(details?.premieres ?? [], item)
     }
-  }
-  return failed ? { status: "error" } : { status: "not_found" };
+  };
 }
 
 export function buildLookupQueries(item: Pick<RadarItem, "mediaType" | "title" | "originalTitle">) {
@@ -428,26 +422,6 @@ function selectDisneyTvPremieres(
   return [...unique.values()].sort((left, right) => left.date.localeCompare(right.date));
 }
 
-export function selectCandidates(candidates: CSFDSearchMovie[], item: RadarItem, query: string) {
-  const normalizedQuery = comparableTitle(query);
-  const year = Number(item.releaseDate.slice(0, 4));
-
-  return candidates
-    .filter((candidate) => isAllowedCandidateType(candidate, item.mediaType))
-    .map((candidate) => ({ candidate, score: scoreCandidate(candidate, normalizedQuery, year, item.mediaType) }))
-    .filter(({ score }) => score >= 55)
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 5)
-    .map(({ candidate }) => candidate);
-}
-
-function isAllowedCandidateType(candidate: CSFDSearchMovie, mediaType: RadarMediaType) {
-  if (mediaType === "series") {
-    return candidate.type === "series" || candidate.type === "tv-show" || candidate.type === "season";
-  }
-  return candidate.type !== "episode" && candidate.type !== "season";
-}
-
 export function selectRootSeriesCandidate(candidates: CSFDSearchMovie[], title: string) {
   const normalizedTitle = comparableTitle(title);
   return candidates
@@ -459,22 +433,8 @@ function isRootSeriesSearchResult(candidate: CSFDSearchMovie) {
   return candidate.type === "series" || candidate.type === "tv-show";
 }
 
-function scoreCandidate(candidate: CSFDSearchMovie, query: string, year: number, mediaType: RadarMediaType) {
-  const title = comparableTitle(candidate.title);
-  const titleMatches = isPlausibleTitleMatch(title, query);
-
-  let score = titleMatches ? (title === query ? 100 : 65) : 0;
-  const yearDifference = Math.abs(candidate.year - year);
-  score += yearDifference === 0 ? 40 : yearDifference === 1 ? 20 : -Math.min(50, yearDifference * 10);
-
-  const isSeries = candidate.type === "series" || candidate.type === "tv-show" || candidate.type === "season";
-  if ((mediaType === "series") === isSeries) score += 20;
-  if (!titleMatches && (yearDifference > 1 || (mediaType === "series") !== isSeries)) return -Infinity;
-  return score;
-}
-
+/** Does the search result, or any title on its detail page, carry the queried title? */
 export function isDetailedTitleMatch(candidate: CSFDSearchMovie, details: CSFDMovie | null, query: string) {
-  const normalizedQuery = comparableTitle(query);
   const titles = [
     candidate.title,
     details?.title,
@@ -482,16 +442,11 @@ export function isDetailedTitleMatch(candidate: CSFDSearchMovie, details: CSFDMo
   ];
   return titles
     .filter((value): value is string => Boolean(value))
-    .map(comparableTitle)
-    .some((title) => isPlausibleTitleMatch(title, normalizedQuery));
+    .some((title) => titleSimilarity(title, query) >= 72);
 }
 
 function cacheKey(item: RadarItem) {
   return `${CACHE_VERSION}/${item.mediaType}/${item.releaseDate.slice(0, 4)}/${slugify(item.title)}`;
-}
-
-function comparableTitle(value: string) {
-  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 }
 
 function stripAnySeasonSuffix(value: string | null) {
@@ -529,18 +484,6 @@ function isNestedCsfdSeasonUrl(url: string) {
 function optimizeCsfdPoster(url: string | null) {
   if (!url) return null;
   return url.replace(/\/cache\/resized\/w\d+(?:h\d+)?\//, "/cache/resized/w360/");
-}
-
-function isPlausibleTitleMatch(candidate: string, query: string) {
-  if (!candidate || !query) return false;
-  if (candidate === query) return true;
-  const queryWordList = query.split(" ").filter((word) => word.length > 2);
-  if (queryWordList.length === 1) {
-    return candidate === `the ${query}` || candidate === `a ${query}` || candidate === `an ${query}`;
-  }
-  if (candidate.includes(query) || query.includes(candidate)) return true;
-  const candidateWords = new Set(candidate.split(" ").filter((word) => word.length > 2));
-  return queryWordList.length > 0 && queryWordList.filter((word) => candidateWords.has(word)).length / queryWordList.length >= 0.75;
 }
 
 function slugify(value: string) {

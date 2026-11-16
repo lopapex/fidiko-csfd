@@ -9,8 +9,9 @@
   directory = "netlify/functions"
   node_bundler = "esbuild"
 
+# Hourly: a full refresh at Prague midnight, otherwise only a retry of missing CSFD matches.
 [functions."refresh-schedule"]
-  schedule = "0 22,23 * * *"
+  schedule = "0 * * * *"
 
 [functions."refresh-radar"]
   schedule = "15 22,23 * * *"

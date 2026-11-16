@@ -9,7 +9,11 @@ describe("schedule normalization", () => {
     ["Scary Movie - Filmový klub", "Scary Movie"],
     ["Po večerce (ČV) - PREMIÉRA", "Po večerce"],
     ["Avatar (ČV) - Dopolední prázdninové promítání", "Avatar"],
-    ["Tichá místa (ČT) - TICHÁ STŘEDA", "Tichá místa"]
+    ["Tichá místa (ČT) - TICHÁ STŘEDA", "Tichá místa"],
+    ["Vlny (ČD) - Den boje za svobodu a demokracii", "Vlny"],
+    ["Wildwood: Tajemství zakázaného lesa (ČD)", "Wildwood: Tajemství zakázaného lesa"],
+    ["Avatar (ČV) (3D)", "Avatar"],
+    ["Ninjago - Tajemství zakázaného Spinjitzu", "Ninjago - Tajemství zakázaného Spinjitzu"]
   ])("cleans %s", (input, expected) => {
     expect(normalizeFilmTitle(input)).toBe(expected);
   });
@@ -24,6 +28,7 @@ describe("schedule normalization", () => {
     ["Film (OV)", "", ["Originál"]],
     ["Film (ČT)", "", ["Titulky"]],
     ["Film (ČV)", "", ["Dabing"]],
+    ["Film (ČD)", "", ["Dabing"]],
     ["Film (OV)", "2D", ["Originál", "2D"]],
   ])("normalizes language format %s / %s", (title, description, expected) => {
     expect(extractFormats(title, description)).toEqual(expected);

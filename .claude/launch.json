@@ -6,6 +6,12 @@
       "runtimeExecutable": "npx",
       "runtimeArgs": ["netlify", "dev", "--offline", "--no-open"],
       "port": 8888
+    },
+    {
+      "name": "vite-client",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:client"],
+      "port": 5173
     }
   ]
 }

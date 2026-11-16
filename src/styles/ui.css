@@ -155,7 +155,7 @@
 }
 
 .week-strip-day.has-subtitles i {
-  background: var(--subtitle);
+  background: var(--subtitle-text);
 }
 
 .week-strip-day.empty i {
@@ -173,7 +173,7 @@
 }
 
 .week-strip-day[aria-current="true"] {
-  background: var(--surface-3);
+  background: var(--surface-4);
 }
 
 .week-strip-day:focus-visible,
@@ -600,8 +600,8 @@ a.rating:focus-visible {
 }
 
 .calendar-button {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   padding: 0;
   display: grid;
   place-items: center;
@@ -828,4 +828,62 @@ a.rating:active {
 
 .film-title-link {
   transform-origin: left center;
+}
+
+/* --- Days that are over, empty weeks, loading ----------------------------------- */
+
+/* Program: what already ran this week steps back; today and the days ahead lead. */
+.agenda-day.past .agenda-day-items,
+.week-strip-day.past {
+  opacity: 0.55;
+}
+
+/* One sentence instead of seven empty days. */
+.agenda-notice {
+  margin: 0;
+  padding: 36px 16px;
+  color: var(--text-muted);
+  font-size: 15px;
+  text-align: center;
+}
+
+/* While loading nobody knows yet which days have something. */
+.week-view[aria-busy="true"] .week-strip-day i {
+  background: transparent;
+}
+
+/* --- Film opened from Program / Radar: show where the jump landed -------------- */
+
+.film-card.just-opened {
+  animation: card-opened 1400ms ease-out;
+}
+
+@keyframes card-opened {
+  from {
+    background: color-mix(in srgb, var(--accent) 16%, var(--surface));
+  }
+}
+
+/* --- Small targets get a bigger touch area than they look ---------------------- */
+
+a.rating {
+  position: relative;
+}
+
+a.rating::after {
+  content: "";
+  position: absolute;
+  inset: -10px -6px;
+}
+
+/* --- Dark theme: the poster placeholder is drawn for a light page --------------- */
+
+@media (prefers-color-scheme: dark) {
+  .poster {
+    background-image: none;
+  }
+
+  .poster img[src$="poster-placeholder.png"] {
+    filter: invert(0.88);
+  }
 }

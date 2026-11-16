@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { buildLookupQueries, buildRootSeriesQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCandidates, selectCzechVodPremieres, selectRootSeriesCandidate, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
-import type { RadarItem } from "../radar-refresh";
+import { buildLookupQueries, buildRootSeriesQueries, createCachedRadarCsfd, createRootCsfdUrl, extractRootCsfdFilmId, formatPrimaryStreamingTitle, isCachedRadarCsfdFresh, isDetailedTitleMatch, normalizeSeasonTitle, selectCzechVodPremieres, selectRootSeriesCandidate, shouldReuseRadarCsfdMatch, type RadarCsfdMatch } from "../radar-csfd";
+import { isAcceptableCsfdScore, scoreCsfdCandidate } from "../csfd-match";
 
 const match: RadarCsfdMatch = {
   title: "Film",
@@ -15,13 +15,13 @@ describe("Radar CSFD cache", () => {
   const checkedAt = "2026-06-21T00:00:00.000Z";
   const now = Date.parse(checkedAt);
 
-  it("keeps matches for seven days and negative results for one day", () => {
+  it("keeps matches for seven days and negative results for half a day", () => {
     const matched = createCachedRadarCsfd({ status: "matched", match }, checkedAt)!;
     const missing = createCachedRadarCsfd({ status: "not_found" }, checkedAt)!;
     expect(isCachedRadarCsfdFresh(matched, now + 7 * 86_400_000)).toBe(true);
     expect(isCachedRadarCsfdFresh(matched, now + 7 * 86_400_000 + 1)).toBe(false);
-    expect(isCachedRadarCsfdFresh(missing, now + 86_400_000)).toBe(true);
-    expect(isCachedRadarCsfdFresh(missing, now + 86_400_001)).toBe(false);
+    expect(isCachedRadarCsfdFresh(missing, now + 12 * 3_600_000)).toBe(true);
+    expect(isCachedRadarCsfdFresh(missing, now + 12 * 3_600_000 + 1)).toBe(false);
   });
 
   it("never creates a cache entry for a timeout or lookup error", () => {
@@ -106,35 +106,18 @@ describe("Radar CSFD cache", () => {
   });
 
   it("never accepts standalone episodes as Radar series matches", () => {
-    const item = {
-      mediaType: "series",
-      channel: "streaming",
-      title: "Testovac\u00ed epizoda",
-      originalTitle: null,
-      releaseDate: "2026-07-13",
-    } as RadarItem;
-    const candidates = [
-      { id: 22, title: "Testovac\u00ed epizoda", year: 2026, url: "https://www.csfd.cz/film/1-serial/22-epizoda/prehled/", type: "episode" },
-    ] as Parameters<typeof selectCandidates>[0];
-
-    expect(selectCandidates(candidates, item, "Testovac\u00ed epizoda")).toEqual([]);
+    const episode = { id: 22, title: "Testovací epizoda", year: 2026, type: "episode" } as const;
+    expect(scoreCsfdCandidate(episode, { titles: ["Testovací epizoda"], kind: "series", year: 2026 })).toBeNull();
   });
 
   it("matches a localized CSFD title through its original alternative title", () => {
-    const item = {
-      mediaType: "movie",
-      channel: "cinema",
-      title: "The Death of Robin Hood",
-      originalTitle: null,
-      releaseDate: "2026-08-13",
-    } as RadarItem;
     const candidate = {
       id: 1515925,
       title: "Smrt Robina Hooda",
       year: 2026,
       url: "https://www.csfd.cz/film/1515925-smrt-robina-hooda/prehled/",
       type: "film",
-    } as Parameters<typeof selectCandidates>[0][number];
+    } as Parameters<typeof isDetailedTitleMatch>[0];
     const details = {
       title: "Smrt Robina Hooda",
       titlesOther: [
@@ -142,61 +125,37 @@ describe("Radar CSFD cache", () => {
       ],
     } as Parameters<typeof isDetailedTitleMatch>[1];
 
-    expect(selectCandidates([candidate], item, "The Death of Robin Hood")).toEqual([candidate]);
     expect(isDetailedTitleMatch(candidate, details, "The Death of Robin Hood")).toBe(true);
   });
 
   it("matches The Crystal Planet through the CSFD alternative title", () => {
-    const item = {
-      mediaType: "movie",
-      channel: "cinema",
-      title: "The Crystal Planet",
-      originalTitle: null,
-      releaseDate: "2026-08-13",
-    } as RadarItem;
     const candidate = {
       id: 1837165,
-      title: "Tajemstv\u00ed K\u0159i\u0161\u0165\u00e1lov\u00e9 planety",
+      title: "Tajemství Křišťálové planety",
       year: 2026,
       url: "https://www.csfd.cz/film/1837165-tajemstvi-kristalove-planety/prehled/",
       type: "film",
-    } as Parameters<typeof selectCandidates>[0][number];
+    } as Parameters<typeof isDetailedTitleMatch>[0];
     const details = {
-      title: "Tajemstv\u00ed K\u0159i\u0161\u0165\u00e1lov\u00e9 planety",
+      title: "Tajemství Křišťálové planety",
       titlesOther: [
-        { country: "angli\u010dtina", title: "The Crystal Planet" },
+        { country: "angličtina", title: "The Crystal Planet" },
       ],
     } as Parameters<typeof isDetailedTitleMatch>[1];
 
-    expect(selectCandidates([candidate], item, "The Crystal Planet")).toEqual([candidate]);
     expect(isDetailedTitleMatch(candidate, details, "The Crystal Planet")).toBe(true);
   });
 
   it("prefers the exact original title and year for short series titles", () => {
-    const item = {
-      mediaType: "series",
-      channel: "streaming",
-      title: "Hawk",
-      originalTitle: "The Hawk",
-      releaseDate: "2026-07-16",
-    } as RadarItem;
-    const oldSeries = {
-      id: 71421,
-      title: "Inspektor Hawk",
-      year: 1966,
-      url: "https://www.csfd.cz/film/71421-inspektor-hawk/prehled/",
-      type: "series",
-    } as Parameters<typeof selectCandidates>[0][number];
-    const currentSeries = {
-      id: 1825747,
-      title: "The Hawk",
-      year: 2026,
-      url: "https://www.csfd.cz/film/1825747-the-hawk/prehled/",
-      type: "series",
-    } as Parameters<typeof selectCandidates>[0][number];
+    const request = { titles: ["Hawk", "The Hawk"], kind: "series" as const, year: 2026 };
+    const oldSeries = { id: 71421, title: "Inspektor Hawk", year: 1966, type: "series" } as const;
+    const currentSeries = { id: 1825747, title: "The Hawk", year: 2026, type: "series" } as const;
 
-    expect(selectCandidates([oldSeries, currentSeries], item, "Hawk")).toEqual([currentSeries]);
-    expect(isDetailedTitleMatch(oldSeries, { title: "Inspektor Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(false);
-    expect(isDetailedTitleMatch(currentSeries, { title: "The Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(true);
+    const oldScore = scoreCsfdCandidate(oldSeries, request);
+    const currentScore = scoreCsfdCandidate(currentSeries, request)!;
+    expect(oldScore === null || !isAcceptableCsfdScore(oldScore)).toBe(true);
+    expect(isAcceptableCsfdScore(currentScore)).toBe(true);
+    expect(isDetailedTitleMatch(oldSeries as never, { title: "Inspektor Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(false);
+    expect(isDetailedTitleMatch(currentSeries as never, { title: "The Hawk", titlesOther: [] } as Parameters<typeof isDetailedTitleMatch>[1], "Hawk")).toBe(true);
   });
 });

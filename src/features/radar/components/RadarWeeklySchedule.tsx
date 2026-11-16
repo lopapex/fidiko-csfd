@@ -28,10 +28,11 @@ export function RadarWeeklySchedule({
   const { previousWeekStart, nextWeekStart } = data.period;
   const missing = data.status === "missing";
 
-  const toContent = (weekStart: string, weekItems: RadarItem[], interactive: boolean): WeekContent => {
+  const toContent = (weekStart: string, weekItems: RadarItem[], interactive: boolean, notice?: string): WeekContent => {
     const itemsForDay = (day: string) => weekItems.filter(item => item.releaseDate === day);
     return {
       days: getWeekDays(weekStart),
+      notice: notice ?? (weekItems.length === 0 ? "Tento týden žádné premiéry." : undefined),
       getDayMeta: day => ({ empty: itemsForDay(day).length === 0 }),
       renderDay: day =>
         itemsForDay(day).map((item, index) => (
@@ -51,16 +52,18 @@ export function RadarWeeklySchedule({
 
   return (
     <>
-      {missing ? (
-        <div className="empty-box">{data.detail ?? "Radar pro tento týden zatím není připravený."}</div>
-      ) : null}
       <WeekView
         idPrefix="radar"
         title="Premiéry na týden"
         today={getPragueTodayISO()}
         selectedDay={selectedDay}
         landOnSelectedDay={landOnSelectedDay}
-        current={toContent(start, missing ? [] : items, true)}
+        current={toContent(
+          start,
+          missing ? [] : items,
+          true,
+          missing ? "Premiéry pro tento týden se teprve připravují." : undefined,
+        )}
         previous={neighbour(previousWeekStart)}
         next={neighbour(nextWeekStart)}
         previousWeekStart={previousWeekStart}

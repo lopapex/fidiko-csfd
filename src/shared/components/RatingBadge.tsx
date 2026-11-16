@@ -6,11 +6,14 @@ import { getCsfdLabel, getRatingClass } from "../lib/view-helpers";
  * blue ≥ 30 %, dark below); the rating count lives in the label, not on screen.
  */
 export function RatingBadge({ title, csfd }: { title: string; csfd: CsfdMatch | null }) {
+  // Not on ČSFD at all: say nothing rather than show an empty badge.
+  if (!csfd?.url) return null;
   const label = getCsfdLabel(title, csfd);
-  const tone = csfd?.rating == null ? "rating-missing" : getRatingClass(csfd.rating);
-  const text = csfd?.rating == null ? "–" : `${csfd.rating} %`;
+  // On ČSFD but not rated yet (before the premiere): still a way to the film's page.
+  const tone = csfd.rating == null ? "rating-missing" : getRatingClass(csfd.rating);
+  const text = csfd.rating == null ? "ČSFD" : `${csfd.rating} %`;
 
-  return csfd?.url ? (
+  return (
     <a
       className={`rating ${tone}`}
       href={csfd.url}
@@ -21,9 +24,5 @@ export function RatingBadge({ title, csfd }: { title: string; csfd: CsfdMatch | 
     >
       {text}
     </a>
-  ) : (
-    <span className={`rating ${tone}`} aria-label={label} title={label}>
-      {text}
-    </span>
   );
 }

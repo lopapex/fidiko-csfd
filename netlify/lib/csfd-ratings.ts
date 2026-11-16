@@ -1,4 +1,4 @@
-import { csfd } from "node-csfd-api";
+import { csfdClient } from "./csfd-client";
 
 const LOOKUP_CONCURRENCY = 6;
 const MAX_URLS = 80;
@@ -98,7 +98,7 @@ function normalizeRequestUrls(urls: unknown) {
 
 async function lookupCsfdRating(id: number): Promise<CsfdRating | null> {
   try {
-    const movie = await csfd.movie(id);
+    const movie = await csfdClient.movie(id);
     if (!movie) return null;
     return {
       rating: numberOrNull(movie.rating),

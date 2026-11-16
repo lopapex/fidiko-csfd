@@ -80,7 +80,10 @@ export const useApiResource = <T,>(
           url,
           status: "error",
           data: cached?.data ?? null,
-          error: error instanceof Error ? error.message : "Data se nepodařilo načíst.",
+          // A failed connection surfaces as a TypeError with a browser-specific English text.
+          error: error instanceof TypeError
+            ? "Nepodařilo se připojit. Zkontrolujte připojení k internetu."
+            : error instanceof Error ? error.message : "Data se nepodařilo načíst.",
           refreshing: false,
         });
       });

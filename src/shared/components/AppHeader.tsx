@@ -35,14 +35,16 @@ export const AppHeader = ({
   return (
     <>
       <header className="topbar">
-        <img
-          className="app-wordmark"
-          src="/nzfd-wordmark.webp"
-          alt="NŽFD"
-          width="430"
-          height="48"
-          fetchPriority="high"
-        />
+        <h1>
+          <img
+            className="app-wordmark"
+            src="/nzfd-wordmark.webp"
+            alt="NŽFD"
+            width="430"
+            height="48"
+            fetchPriority="high"
+          />
+        </h1>
         <nav className="topbar-nav" aria-label="Hlavní navigace">
           <div
             className={inCinema ? "topbar-tabs segmented" : "topbar-tabs segmented idle"}

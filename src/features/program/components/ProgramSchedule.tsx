@@ -83,12 +83,16 @@ export function WeeklySchedule({
     return nextWeekStart && weekFilms ? getFilmsByDay(weekFilms, nextWeekStart) : null;
   }, [getWeekFilms, nextWeekStart]);
 
+  const today = getPragueTodayISO();
   const toContent = (filmsByDay: Map<string, FilmGroup[]>, interactive: boolean): WeekContent => ({
     days: [...filmsByDay.keys()],
+    notice: [...filmsByDay.values()].every(dayFilms => dayFilms.length === 0) ? "Tento týden se nepromítá." : undefined,
     getDayMeta: day => {
       const dayFilms = filmsByDay.get(day) ?? [];
       return {
         empty: dayFilms.length === 0,
+        // Only inside the running week; a whole week looked up in the past stays readable.
+        past: day < today && today <= ([...filmsByDay.keys()].at(-1) ?? ""),
         hasSubtitles: dayFilms.some(film => film.screenings.some(screening => screening.hasSubtitles)),
       };
     },
@@ -107,7 +111,7 @@ export function WeeklySchedule({
     <WeekView
       idPrefix="program"
       title="Program na týden"
-      today={getPragueTodayISO()}
+      today={today}
       selectedDay={selectedDay}
       landOnSelectedDay={landOnSelectedDay}
       current={toContent(byDay, true)}

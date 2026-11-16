@@ -2,7 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "re
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { formatDayLabel, formatWeekRange, formatWeekday } from "../lib/view-helpers";
 
-export type DayMeta = { empty: boolean; hasSubtitles?: boolean };
+export type DayMeta = { empty: boolean; hasSubtitles?: boolean; past?: boolean };
 type Direction = "previous" | "next";
 
 /** Everything needed to draw one week. */
@@ -10,6 +10,8 @@ export type WeekContent = {
   days: string[];
   getDayMeta: (day: string) => DayMeta;
   renderDay: (day: string) => ReactNode;
+  /** Shown instead of seven empty days (nothing this week, or the week is not ready yet). */
+  notice?: string;
 };
 
 type Props = {
@@ -39,7 +41,7 @@ const EASE = "cubic-bezier(0.2, 0.8, 0.2, 1)";
  * A week change in flight. Module-level so it survives the remount that
  * happens when the next week first shows a loading skeleton.
  */
-let pendingSwap: { alignToStrip: boolean; scrollY: number } | null = null;
+let pendingSwap: { week: string; alignToStrip: boolean; scrollY: number } | null = null;
 
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -69,6 +71,8 @@ export function WeekView({
   const trackRef = useRef<HTMLDivElement>(null);
   const scrolledWeek = useRef<string | null>(null);
   const spyLockedUntil = useRef(0);
+  // A tapped day stays highlighted even when the page is too short to bring it under the strip.
+  const pinnedDay = useRef<{ restY: number | null } | null>(null);
   const animating = useRef(false);
   const weekKey = days[0] ?? "";
   const [activeDay, setActiveDay] = useState<string | null>(selectedDay);
@@ -111,7 +115,7 @@ export function WeekView({
     track.style.setProperty("--peek-offset", `${peek}px`);
     const width = track.clientWidth;
     const finish = () => {
-      pendingSwap = { alignToStrip: peek > 0, scrollY: window.scrollY };
+      pendingSwap = { week: target, alignToStrip: peek > 0, scrollY: window.scrollY };
       nav.current.onNavigate(target);
       window.setTimeout(() => {
         animating.current = false;
@@ -131,6 +135,8 @@ export function WeekView({
     const swap = pendingSwap;
     if (!swap) return;
     pendingSwap = null;
+    if (swap.week !== weekKey) return; // left over from a week change that never arrived
+    pinnedDay.current = null;
     scrolledWeek.current = weekKey; // a week change never jumps to a particular day
     setActiveDay(days[0] ?? null);
     setTrack(0);
@@ -159,10 +165,15 @@ export function WeekView({
   useEffect(() => {
     if (!selectedDay || !days.includes(selectedDay) || scrolledWeek.current === weekKey) return;
     scrolledWeek.current = weekKey;
-    if (!landOnSelectedDay || selectedDay === days[0]) return;
+    if (!landOnSelectedDay || selectedDay === days[0]) {
+      // The week opens at its top: the strip follows what is on screen, not the remembered day.
+      setActiveDay(days[0] ?? null);
+      return;
+    }
     setActiveDay(selectedDay);
     const frame = window.requestAnimationFrame(() => {
       spyLockedUntil.current = Date.now() + 400;
+      pinnedDay.current = { restY: null };
       scrollToDay(selectedDay, "instant");
     });
     return () => window.cancelAnimationFrame(frame);
@@ -175,11 +186,29 @@ export function WeekView({
     const update = () => {
       frame = 0;
       if (Date.now() < spyLockedUntil.current) return;
+      const pinned = pinnedDay.current;
+      if (pinned) {
+        if (pinned.restY === null) pinned.restY = window.scrollY;
+        if (Math.abs(window.scrollY - pinned.restY) <= 8) return;
+        pinnedDay.current = null;
+      }
       const stripBottom = stripRef.current?.getBoundingClientRect().bottom ?? 0;
+      const sections = days.map(day => ({ day, top: document.getElementById(dayId(day))?.getBoundingClientRect().top }));
+      // The last days cannot scroll up to the strip. Over the end of the page the reading line
+      // slides down from the strip to where the last day stops, so every day gets its turn.
+      let line = stripBottom + 4;
+      const lastTop = sections[sections.length - 1]?.top;
+      const maxScroll = document.documentElement.scrollHeight - window.innerHeight;
+      if (lastTop !== undefined && maxScroll > 0) {
+        const shortfall = lastTop - (maxScroll - window.scrollY) - stripBottom;
+        if (shortfall > 0) {
+          const range = Math.min(maxScroll, shortfall);
+          line += shortfall * Math.min(1, Math.max(0, (window.scrollY - (maxScroll - range)) / range));
+        }
+      }
       let currentDay = days[0];
-      for (const day of days) {
-        const section = document.getElementById(dayId(day));
-        if (section && section.getBoundingClientRect().top <= stripBottom + 4) currentDay = day;
+      for (const { day, top } of sections) {
+        if (top !== undefined && top <= line) currentDay = day;
       }
       setActiveDay(previousDay => (previousDay === currentDay ? previousDay : currentDay));
     };
@@ -262,6 +291,7 @@ export function WeekView({
   const jumpToDay = (day: string) => {
     setActiveDay(day);
     onDayChange?.(day);
+    pinnedDay.current = { restY: null };
     spyLockedUntil.current = Date.now() + 900;
     scrollToDay(day, prefersReducedMotion() ? "instant" : "smooth");
   };
@@ -281,6 +311,7 @@ export function WeekView({
               "week-strip-day",
               day === today ? "today" : "",
               meta.empty ? "empty" : "",
+              meta.past ? "past" : "",
               meta.hasSubtitles ? "has-subtitles" : "",
             ].filter(Boolean).join(" ");
             return (
@@ -361,6 +392,13 @@ function WeekList({
   emptyDayText: string;
   idOf?: (day: string) => string;
 }) {
+  if (content.notice) {
+    return (
+      <div className="agenda">
+        <p className="agenda-notice">{content.notice}</p>
+      </div>
+    );
+  }
   return (
     <div className="agenda">
       {content.days.map(day => {
@@ -368,7 +406,7 @@ function WeekList({
         const id = idOf?.(day);
         return (
           <section
-            className={["agenda-day", day === today ? "today" : "", meta.empty ? "empty" : ""].filter(Boolean).join(" ")}
+            className={["agenda-day", day === today ? "today" : "", meta.empty ? "empty" : "", meta.past ? "past" : ""].filter(Boolean).join(" ")}
             id={id}
             aria-labelledby={id ? `${id}-title` : undefined}
             key={day}
