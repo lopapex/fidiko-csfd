@@ -25,7 +25,7 @@ function FormatTags({ formats }: { formats: string[] }) {
   );
 }
 
-/** Agenda row (phones/tablets): poster, title, rating and the day's times. */
+/** Agenda row: poster, title, rating and the day's times, each with "add to calendar". */
 export function ProgramAgendaItem({
   film,
   priority,
@@ -54,7 +54,10 @@ export function ProgramAgendaItem({
       </div>
       <div className="agenda-item-times">
         {film.screenings.map(screening => (
-          <TimeLink film={film} screening={screening} key={screening.id} />
+          <div className="agenda-time" key={screening.id}>
+            <TimeLink film={film} screening={screening} />
+            <CalendarButton screening={{ ...screening, title: film.title, description: film.description }} />
+          </div>
         ))}
       </div>
     </article>

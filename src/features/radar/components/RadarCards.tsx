@@ -8,11 +8,10 @@ import {
   getRadarPosterProps,
   usePosterPlaceholder,
 } from "../../../shared/lib/view-helpers";
-import { PremiereCalendarButton } from "../../../shared/components/FilmActions";
 import { RatingBadge } from "../../../shared/components/RatingBadge";
 import { useIsMobileLayout } from "../../../shared/lib/use-media-query";
 
-/** Premiere in the phone/tablet agenda: poster, title, kind, rating, where to watch. */
+/** Premiere in the agenda: poster, title, kind, rating, where to watch. */
 export function RadarAgendaItem({
   item,
   priority,
@@ -47,7 +46,6 @@ export function RadarAgendaItem({
       </div>
       <div className="agenda-item-side">
         <WhereToWatch item={item} onSelectProgramFilm={onSelectProgramFilm} />
-        <PremiereCalendarButton premiere={toPremiere(item)} />
       </div>
     </article>
   );
@@ -140,13 +138,3 @@ function ProviderLogo({ provider, title, preferMobile }: { provider: RadarProvid
     </span>
   );
 }
-
-const toPremiere = (item: RadarItem) => ({
-  id: item.id,
-  title: formatRadarTitle(item.title),
-  dateISO: item.releaseDate,
-  url: item.providers.find(provider => provider.url)?.url ?? item.watchUrl ?? item.csfd?.url ?? null,
-  where: item.channel === "cinema"
-    ? "Premiéra v kinech"
-    : `Streaming: ${item.providers.map(provider => provider.name).join(", ") || "neznámá služba"}`,
-});

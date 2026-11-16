@@ -68,3 +68,10 @@ export const isPragueMidnight = () => {
   }).format(new Date());
   return hour === "00";
 };
+
+/**
+ * Local development only (`netlify dev` sets NETLIFY_DEV): lets a refresh function
+ * run on request instead of waiting for Prague midnight. Ignored when deployed.
+ */
+export const isLocalForcedRefresh = (request: Request) =>
+  process.env.NETLIFY_DEV === "true" && request.headers.get("x-refresh-force") === "1";

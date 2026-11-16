@@ -1,10 +1,11 @@
 import { hasRadarCache, refreshRadarCache } from "../lib/radar-refresh";
-import { isPragueMidnight, jsonResponse, noContentResponse } from "../lib/shared/http";
+import { isLocalForcedRefresh, isPragueMidnight, jsonResponse, noContentResponse } from "../lib/shared/http";
 
 const handler = async (request: Request) => {
   const isBootstrap = request.headers.get("x-radar-bootstrap") === "1";
 
-  if (!isPragueMidnight() && (!isBootstrap || (await hasRadarCache()))) {
+  // Locally, `x-refresh-force: 1` rebuilds the radar on request (see refresh-schedule).
+  if (!isPragueMidnight() && !isLocalForcedRefresh(request) && (!isBootstrap || (await hasRadarCache()))) {
     console.log("Skipping radar refresh outside Prague midnight");
     return noContentResponse();
   }

@@ -23,9 +23,9 @@
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   padding: 3px;
-  border: 1px solid rgb(255 255 255 / 0.4);
+  border: 1px solid var(--topbar-control-line);
   border-radius: 8px;
-  background: rgb(0 0 0 / 0.14);
+  background: var(--topbar-control);
 }
 
 /* While in Radar, the cinema group shows no selection. */
@@ -39,9 +39,9 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  border: 1px solid rgb(255 255 255 / 0.4);
+  border: 1px solid var(--topbar-control-line);
   border-radius: 8px;
-  background: rgb(0 0 0 / 0.14);
+  background: var(--topbar-control);
   color: #ffffff;
   font: inherit;
   font-size: 14px;
@@ -53,8 +53,14 @@
 }
 
 .topbar-radar.active {
-  background: var(--surface);
+  background: var(--topbar-pill);
   color: var(--accent-text);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .topbar-radar:hover:not(.active) {
+    background: var(--topbar-control-hover);
+  }
 }
 
 .topbar-radar:focus-visible {
@@ -886,4 +892,12 @@ a.rating::after {
   .poster img[src$="poster-placeholder.png"] {
     filter: invert(0.88);
   }
+}
+
+/* --- Program: a time and its "add to calendar" belong together ----------------- */
+
+.agenda-time {
+  display: flex;
+  align-items: center;
+  gap: 2px;
 }

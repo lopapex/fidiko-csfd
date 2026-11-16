@@ -1,5 +1,5 @@
 ﻿import type { SyntheticEvent } from "react";
-import type { CsfdMatch, RadarItem, RadarProgramMatch, RadarProvider } from "../../types";
+import type { CsfdMatch, RadarItem, RadarProvider } from "../../types";
 
 export const POSTER_PLACEHOLDER_SRC = "/poster-placeholder.png";
 export const getPosterSources = (url: string) => {
@@ -39,15 +39,6 @@ export const getRadarPosterProps = (url: string) => {
   }
 
   return { src: url };
-}
-
-export const getCsfdStatusText = (csfd: CsfdMatch | null) => {
-  if (!csfd?.url) return "ČSFD nenalezeno";
-  if (csfd.ratingCount && csfd.rating == null)
-    return `Málo hodnocení (${csfd.ratingCount.toLocaleString("cs-CZ")})`;
-  if (csfd.ratingCount)
-    return `${csfd.ratingCount.toLocaleString("cs-CZ")} hodnocení`;
-  return "Bez hodnocení";
 }
 
 export const getRatingClass = (rating: number) => {
@@ -96,14 +87,6 @@ export const formatWeekRange = (start: string | null, end: string | null) => {
   return `${formatter.format(new Date(`${start}T00:00:00.000Z`))} - ${endFormatter.format(new Date(`${end}T00:00:00.000Z`))}`;
 }
 
-export const formatScreeningCount = (value: number) => {
-  return `Projekce: ${value}`;
-}
-
-export const getUpcomingScreeningCount = (program: RadarProgramMatch) => {
-  return program.upcomingScreeningCount ?? program.screeningCount;
-}
-
 export const formatRadarTitle = (value: string) => {
   return value.replace(/Série\s+(\d+)$/i, "Série\u00a0$1");
 }
@@ -115,10 +98,6 @@ export const getProviderHref = (provider: RadarProvider, preferMobile: boolean) 
   if (!preferMobile) return provider.url;
   if (provider.mobileUrl) return provider.mobileUrl;
   return provider.linkType === "homepage" ? provider.url : null;
-}
-
-export const getProviderTileClassName = (provider: RadarProvider) => {
-  return provider.logoUrl ? "provider-tile" : "provider-tile provider-tile-text";
 }
 
 export const isHboMaxProvider = (provider: RadarProvider) => {
@@ -142,15 +121,6 @@ export const getProviderLinkLabel = (provider: RadarProvider, title: string, pre
     .replace(/\s*-\s*(?:série|serie|season)\s+\d+\s*$/iu, "")
     .trim();
   return `Vyhledat ${searchTitle} na ${provider.name}`;
-}
-export const formatRadarDate = (value: string) => {
-  return new Intl.DateTimeFormat("cs-CZ", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${value}T00:00:00.000Z`));
 }
 
 export const formatMobileFilmMetadata = (description: string) => description

@@ -1,12 +1,12 @@
-/* Motion layer. Everything here is disabled by the prefers-reduced-motion block in responsive.css. */
+/* Motion layer. Everything here is disabled by the prefers-reduced-motion block in layout.css. */
 
 :root {
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 /* --- View transitions: sections turn like the weeks do ----------------------
-   Phones: the page slides sideways in tab order, same distance, duration and curve
-   as a week change, while the bottom bar stays put. Wider screens crossfade. */
+   Phones (where the bottom bar is): the page slides sideways in tab order, same distance,
+   duration and curve as a week change, while the bottom bar stays put. Wider screens crossfade. */
 
 ::view-transition-old(root),
 ::view-transition-new(root) {
@@ -14,7 +14,7 @@
   animation-timing-function: ease;
 }
 
-@media (max-width: 760px) {
+@media (max-width: 520px) {
   .bottom-nav {
     view-transition-name: bottom-nav;
   }
@@ -89,8 +89,8 @@
   left: var(--seg-pad);
   width: calc((100% - 2 * var(--seg-pad) - (var(--seg-count, 2) - 1) * var(--seg-gap)) / var(--seg-count, 2));
   border-radius: 6px;
-  background: var(--surface);
-  box-shadow: 0 2px 8px rgb(91 7 13 / 0.25);
+  background: var(--topbar-pill);
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.22);
   transform: translateX(calc(var(--active, 0) * (100% + var(--seg-gap))));
   transition: transform 240ms var(--ease-out);
 }

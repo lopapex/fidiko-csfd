@@ -18,6 +18,7 @@ const MAX_SERIES_CANDIDATES = 120;
 const PRECOMPUTE_PAST_WEEKS = 5;
 const PRECOMPUTE_FUTURE_WEEKS = 12;
 const WEEK_REFRESH_CONCURRENCY = 2;
+const REFRESH_START_BUDGET_MS = 15_000;
 const PROVIDER_CONCURRENCY = 6;
 const STREAMING_DISCOVERY_MARGIN_DAYS = 3;
 
@@ -119,13 +120,18 @@ export async function refreshRadarCache(): Promise<RadarSnapshot> {
   const currentWeek = startOfISOWeek(today);
   const weekStarts = getRadarPrecomputeWeekStarts(currentWeek);
   const store = getRadarStore();
-  const snapshots = await mapConcurrent(weekStarts, WEEK_REFRESH_CONCURRENCY, async (weekStart) => {
+  // A function run is cut off after 30 s. Weeks are built most useful first and no new
+  // week starts late in the run; the rest keep their snapshot and are rebuilt on demand.
+  const deadline = Date.now() + REFRESH_START_BUDGET_MS;
+  const built = await mapConcurrent(orderRadarWeeksByPriority(weekStarts, currentWeek), WEEK_REFRESH_CONCURRENCY, async (weekStart) => {
     const key = `${RADAR_WEEK_CACHE_VERSION}/${weekStart}`;
     const previous = await readRadarSnapshot(store, key);
+    if (Date.now() > deadline) return previous;
     const snapshot = await buildRadarSnapshot(weekStart, addDaysISO(weekStart, 6), previous);
     await store.setJSON(key, snapshot);
     return snapshot;
   });
+  const snapshots = built.filter((snapshot): snapshot is RadarSnapshot => snapshot !== null);
   const aggregate = aggregateWeekSnapshots(snapshots);
   await store.setJSON(RADAR_CACHE_KEY, aggregate);
   await cleanupRadarWeekCache(store, new Set(weekStarts));
@@ -137,6 +143,13 @@ export function getRadarPrecomputeWeekStarts(currentWeek: string) {
     { length: PRECOMPUTE_PAST_WEEKS + PRECOMPUTE_FUTURE_WEEKS + 1 },
     (_, index) => addDaysISO(currentWeek, (index - PRECOMPUTE_PAST_WEEKS) * 7),
   );
+}
+
+/** This week, then the weeks ahead, then the past ones (newest first). */
+export function orderRadarWeeksByPriority(weekStarts: string[], currentWeek: string) {
+  const ahead = weekStarts.filter((week) => week >= currentWeek).sort();
+  const past = weekStarts.filter((week) => week < currentWeek).sort().reverse();
+  return [...ahead, ...past];
 }
 
 export async function refreshRadarWeek(weekStart: string): Promise<RadarSnapshot> {

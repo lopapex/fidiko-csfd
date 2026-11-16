@@ -40,7 +40,10 @@ const getSection = (page: Pick<PageState, "mode" | "view">): AppSection =>
 
 const SECTION_ORDER: AppSection[] = ["program", "films", "radar"];
 
-/** Sections turn like pages, in the order of the tabs; week changes animate inside WeekView. */
+/**
+ * Sections turn like pages, in the order of the tabs; week changes animate inside WeekView.
+ * Only sections enter the browser history: Back leaves a section, it does not replay weeks.
+ */
 const getNavDirection = (current: PageState, next: PageState): NavDirection | null => {
   const from = SECTION_ORDER.indexOf(getSection(current));
   const to = SECTION_ORDER.indexOf(getSection(next));
@@ -294,7 +297,7 @@ export const App = () => {
       return;
     }
     landOnDay.current = true;
-    changePage(section === "radar" ? { radarWeek: null, radarDay: null } : { week: null, day: null });
+    changePage(section === "radar" ? { radarWeek: null, radarDay: null } : { week: null, day: null }, "replace");
   }
 
   function changeSection(next: AppSection) {
@@ -368,7 +371,7 @@ export const App = () => {
               getWeekItems={getRadarWeekItems}
               selectedDay={page.radarDay}
               landOnSelectedDay={landOnDay.current}
-              onNavigate={week => changePage({ radarWeek: week, radarDay: null })}
+              onNavigate={week => changePage({ radarWeek: week, radarDay: null }, "replace")}
               onDayChange={day => changePage({ radarDay: day }, "replace")}
               onSelectProgramFilm={showFilmInAll}
             />
@@ -391,7 +394,7 @@ export const App = () => {
               getWeekFilms={getProgramWeekFilms}
               selectedDay={page.day}
               landOnSelectedDay={landOnDay.current}
-              onNavigate={week => changePage({ week, day: null })}
+              onNavigate={week => changePage({ week, day: null }, "replace")}
               onDayChange={day => changePage({ day }, "replace")}
               onSelectFilm={showFilmInAll}
             />

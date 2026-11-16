@@ -1,4 +1,11 @@
-﻿/* Theme tokens. Dark values follow the system setting. */
+/*
+ * Theme tokens. Dark values follow the system setting.
+ *
+ * One red: the brand colour fills the header (light theme), the good rating and the
+ * marker of the active tab; its text shade marks "today" and the active item.
+ * Blue and near-black belong to ratings only, teal to subtitles only. Everything
+ * else is a neutral, tinted slightly towards the red so the page does not go cold.
+ */
 :root {
   color-scheme: light dark;
   color: var(--text);
@@ -7,59 +14,76 @@
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
+  accent-color: var(--accent);
   --accent: #d31724;
   --accent-text: #9e111a;
-  --topbar: var(--accent);
   --subtitle: #0b6b64;
   --subtitle-text: #07564f;
-  --page-bg: #eeeeee;
+  --page-bg: #f1efee;
   --surface: #ffffff;
-  --surface-2: #f7f7f7;
-  --surface-3: #f1f1f1;
-  --surface-4: #e2e2e2;
-  --bar: #252525;
+  --surface-2: #f8f6f6;
+  --surface-3: #f2f0ef;
+  --surface-4: #e4e1e0;
+  --bar: #262323;
   --text: #221f1f;
-  --text-soft: #4a4a4a;
-  --text-muted: #6f6f6f;
-  --line: #d3d3d3;
-  --line-strong: #c4c4c4;
+  --text-soft: #4b4747;
+  --text-muted: #706b6b;
+  --line: #d8d4d3;
+  --line-strong: #c7c2c1;
   --danger-bg: #fff3f3;
   --danger-line: #efb1b7;
   --danger-text: #7d1018;
   --warn-bg: #fff8e7;
   --warn-line: #d9b05f;
   --warn-text: #5f430d;
-  --skeleton-a: #eeeeee;
-  --skeleton-b: #dddddd;
+  --skeleton-a: #efedec;
+  --skeleton-b: #dfdbda;
   --rating-bad: #1f1f1f;
+  /* Header: the brand red in daylight. Its controls are cut into it and lit from it. */
+  --topbar: var(--accent);
+  --topbar-shadow: 0 6px 18px rgb(110 12 20 / 0.18);
+  --topbar-control: rgb(0 0 0 / 0.14);
+  --topbar-control-hover: rgb(0 0 0 / 0.26);
+  --topbar-control-line: rgb(255 255 255 / 0.4);
+  --topbar-pill: #ffffff;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
     --accent-text: #ff7b84;
-    --topbar: #8e1119;
     --subtitle-text: #6fd6ca;
-    --page-bg: #111111;
-    --surface: #1b1b1b;
-    --surface-2: #222222;
-    --surface-3: #2a2a2a;
-    --surface-4: #333333;
-    --bar: #303030;
-    --text: #ececec;
-    --text-soft: #c9c9c9;
-    --text-muted: #a3a3a3;
-    --line: #333333;
-    --line-strong: #474747;
+    --page-bg: #121111;
+    --surface: #1c1b1b;
+    --surface-2: #232121;
+    --surface-3: #2b2929;
+    --surface-4: #353232;
+    --bar: #322f2f;
+    --text: #edebea;
+    --text-soft: #cbc7c6;
+    --text-muted: #a6a1a0;
+    --line: #343131;
+    --line-strong: #494545;
     --danger-bg: #3a1417;
     --danger-line: #7a2a31;
     --danger-text: #ffb3ba;
     --warn-bg: #33290f;
     --warn-line: #7a6326;
     --warn-text: #f0d48a;
-    --skeleton-a: #262626;
-    --skeleton-b: #333333;
-    --rating-bad: #444444;
+    --skeleton-a: #272525;
+    --skeleton-b: #353232;
+    --rating-bad: #4a4646;
+    /* At night the header is just another surface; red stays on what it marks. */
+    --topbar: var(--surface);
+    --topbar-shadow: none;
+    --topbar-control: rgb(255 255 255 / 0.06);
+    --topbar-control-hover: rgb(255 255 255 / 0.12);
+    --topbar-control-line: var(--line-strong);
+    --topbar-pill: var(--surface-4);
   }
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent) 24%, transparent);
 }
 
 * {
@@ -98,7 +122,7 @@ a {
   gap: 16px;
   padding: 16px 20px;
   border-radius: 6px 6px 0 0;
-  box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+  box-shadow: var(--topbar-shadow);
 }
 
 .topbar h1 {
@@ -118,9 +142,9 @@ a {
 
 .empty-box {
   margin: 18px 0 0;
-  background: var(--danger-bg);
-  border: 1px solid var(--danger-line);
-  color: var(--danger-text);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--text-soft);
   border-radius: 6px;
   padding: 14px 16px;
   font-weight: 700;
@@ -163,3 +187,268 @@ a {
   background: color-mix(in srgb, currentColor 10%, transparent);
 }
 
+/* ===== Lists, ratings, skeletons, refresh bar ===== */
+
+.program-list {
+  margin-top: 18px;
+  display: grid;
+  gap: 12px;
+}
+
+.rating-good {
+  background: #d31724;
+}
+
+.rating-average {
+  background: #2d70b8;
+}
+
+.rating-bad {
+  background: var(--rating-bad);
+}
+
+.skeleton,
+.skeleton-line {
+  background: linear-gradient(90deg, var(--skeleton-a), var(--skeleton-b), var(--skeleton-a));
+  background-size: 200% 100%;
+  animation: shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-line {
+  height: 16px;
+  border-radius: 4px;
+  margin-bottom: 12px;
+  width: 72%;
+}
+
+.skeleton-line.wide {
+  width: 92%;
+  height: 24px;
+}
+
+/* Background revalidation indicator */
+.refresh-bar {
+  position: fixed;
+  inset: 0 0 auto;
+  z-index: 50;
+  height: 3px;
+  overflow: hidden;
+  background: rgb(211 23 36 / 0.18);
+  pointer-events: none;
+}
+
+.refresh-bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  width: 40%;
+  background: var(--accent);
+  animation: refresh-slide 1.1s ease-in-out infinite;
+}
+
+@keyframes refresh-slide {
+  0% {
+    transform: translateX(-100%);
+  }
+
+  100% {
+    transform: translateX(250%);
+  }
+}
+
+/* ===== Page shell on small screens, header button, search and filters ===== */
+
+.skeleton-line.short {
+  width: 44%;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 100% 0;
+  }
+
+  100% {
+    background-position: -100% 0;
+  }
+}
+
+@media (max-width: 860px) {
+  .app-shell {
+    width: min(100% - 18px, 680px);
+    padding-top: 9px;
+  }
+
+  .topbar {
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: nowrap;
+  }
+}
+
+@media (max-width: 520px) {
+  .app-shell {
+    width: 100%;
+    padding: 0 0 32px;
+  }
+
+  .topbar {
+    gap: 6px;
+    border-radius: 0;
+  }
+
+  .app-wordmark {
+    width: 88px;
+    height: 36px;
+  }
+}
+
+/* Program controls and actions */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.header-icon-button {
+  display: inline-grid;
+  place-items: center;
+  border: 0;
+  cursor: pointer;
+}
+
+.header-icon-button {
+  width: 42px;
+  height: 42px;
+  border: 1px solid var(--topbar-control-line);
+  border-radius: 8px;
+  background: var(--topbar-control);
+  color: #ffffff;
+}
+
+.header-icon-button:hover,
+.header-icon-button:focus-visible {
+  background: var(--topbar-control-hover);
+}
+
+.filter-toolbar {
+  margin-top: 14px;
+  padding: 12px;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 8px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--surface);
+}
+
+.search-field {
+  min-width: 0;
+  flex: 1 1 auto;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 11px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--text-soft);
+}
+
+.search-field:focus-within {
+  border-color: var(--accent);
+  outline: 2px solid rgb(211 23 36 / 0.18);
+}
+
+.search-field input {
+  caret-color: var(--accent);
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+}
+
+.search-field input::-webkit-search-cancel-button {
+  display: none;
+}
+
+.search-clear-button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 28px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--text-soft);
+  cursor: pointer;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .search-clear-button:hover {
+    background: var(--surface-3);
+    color: var(--text);
+  }
+}
+
+.filter-button {
+  min-height: 36px;
+  border: 1px solid var(--line-strong);
+  border-radius: 4px;
+  background: var(--surface-2);
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.filter-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 11px;
+  cursor: pointer;
+}
+
+/* ===== Filter state, focus rings, offline banner ===== */
+
+.filter-button.active {
+  border-color: var(--subtitle);
+  background: var(--subtitle);
+  color: #ffffff;
+}
+
+.filter-button:focus-visible,
+.search-clear-button:focus-visible,
+.header-icon-button:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.offline-banner {
+  margin-top: 12px;
+  padding: 10px 13px;
+  border: 1px solid var(--warn-line);
+  border-radius: 4px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.radar-view {
+  margin-top: 0;
+}
